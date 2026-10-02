@@ -1,0 +1,169 @@
+# Platform Intent: what the estate offers. The second authored document of the
+# deploy-kit model, held to the same rule as a project file -- facts and
+# policy, never mechanisms -- and published as an Intent Fragment by digest
+# like any project (JorisJonkers-dev/deploy-kit spec/v1/14-platform-intent.md).
+#
+# This is the estate's own copy. It started as deploy-kit's worked example
+# (spec/v1/examples/platform/platform.intent.yml), which stays there as the
+# oracle the compiler is tested against; this file is the one the estate
+# composes from, and it changes by pull request here.
+
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Platform
+schemaVersion: 1.0.0
+owner: joris
+
+metadata:
+  cluster: production
+  project: jorisjonkers.dev
+  # The node contract this document is composed against, by digest. The v1
+  # contract (deploy-kit spec/v1/60-setup.md#node-facts) is not generated yet:
+  # nix-config/generated/node-contract.yml is still the earlier
+  # deployment.jorisjonkers.dev/node-contract shape. Until it is, this digest
+  # names no document, so a composition refuses E_NODE_CONTRACT_MISMATCH
+  # rather than placing anything against a contract nobody checked.
+  nodeContract: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+# Facts about the cluster, named for what they are.
+substrate:
+  kubernetesVersion: v1.35.2+k3s1
+  datastore: sqlite
+  serverCount: 1
+  secretsEncryption: true
+  cni: flannel
+  networkPolicyController: embedded # no non-enforcing stage: default-deny stays render-only
+  clusterDns: kube-system
+
+# What must exist before the first rendered object can apply.
+bootstrap:
+  flux:
+    # The GitRepository that reads this repository, declared in fleet-infra's
+    # flux-system while fleet-infra still owns the Flux controllers.
+    sourceRef: flux-system/platform
+    # Where each Project's render is published, one artifact per Project at
+    # <repository>/<project>, and the keyless identity Flux verifies it
+    # against: this repository's composition workflow on main.
+    artifacts:
+      repository: ghcr.io/jorisjonkers-dev/render
+      signer:
+        issuer: "https://token.actions.githubusercontent.com"
+        subject: "https://github.com/JorisJonkers-dev/estate/.github/workflows/compose.yml@refs/heads/main"
+  vault:
+    unsealed: true
+  crds:
+    - traefik.io/v1alpha1
+    - secrets.hashicorp.com/v1beta1
+    - monitoring.coreos.com/v1
+
+# Where the edge terminates. A route's audience is the only way it reaches a tier.
+tiers:
+  - name: public-frankfurt
+    audiences: [anonymous, authenticated]
+    listener: tls
+    certificates: acme
+    forwardAuth: "http://auth-api.auth-system.svc.cluster.local:8081/api/auth/forward"
+    traefik: traefik-public # declared in platform/edge.project.yml, placed on the public-ingress node
+  - name: lan
+    audiences: [lan]
+    listener: plain
+    certificates: none
+    traefik: traefik-lan # placed on a LAN node
+
+# One policy per Durability Class.
+durability:
+  reconstructible: {}
+  recoverable:
+    schedule: "15 3 * * *"
+    retain: 14
+  irreplaceable:
+    schedule: "45 2 * * *"
+    retain: 90
+    offCluster:
+      destination: "s3://backup-storage/jorisjonkers-dev"
+      credential: secret/data/platform/backup/off-cluster
+
+# The method is the image: one purpose-built image per engine, resolved
+# through the images lock. Nothing executable is authored.
+engines:
+  postgres: { backup: postgres-backup }
+  rabbitmq: { backup: rabbitmq-backup }
+  files: { backup: file-backup }
+
+# One cadence for every rendered monitor.
+monitors:
+  interval: 30s
+  timeout: 10s
+
+# The collector every exporting Runtime Profile sends to, and the metrics
+# stack every declared scrape surface admits: both declared in
+# platform/observability.project.yml.
+telemetry:
+  collector: otel-collector
+  metrics: prometheus
+
+# The Secret Store every grant is read from: declared in platform/secrets.project.yml.
+secretStore: vault
+
+# One posture for every container the estate renders.
+hardening: restricted
+
+# One cadence for every rendered probe.
+probes:
+  period: 10s
+  timeout: 5s
+  failures: 3
+
+# The ephemeral default for a declared writable path.
+ephemeral:
+  size: 64Mi
+
+# The migration runner: one system for the estate, Liquibase with YAML changelogs.
+migration:
+  runner: liquibase-runner
+  deadline: 10m
+  memory: 256Mi
+  cpu: 100m
+
+# How a release is switched. The machinery performs the switch and is never
+# switched by it. Flagger and the Release Gate are Applications of the
+# `delivery` Project, which JorisJonkers-dev/delivery publishes as its own
+# fragment, so this document validates only beside that project file:
+# validated alone it refuses E_UNKNOWN_MACHINERY and E_UNKNOWN_RELEASE_GATE.
+delivery:
+  machinery: [traefik-public, traefik-lan, flagger, release-gate]
+  gate: release-gate
+  analysis:
+    interval: 30s
+    iterations: 4
+    threshold: 3
+
+# Which delivery path each Project is on while the estate moves off
+# fleet-infra's deploy/production branch, one Project at a time
+# (deploy-kit spec/v1/60-setup.md#handing-over-one-project-at-a-time).
+# Every live Project is still delivered by fleet-infra. The first to move is
+# home-portal, whose Project is `app`, and it moves to `estate` only in the
+# third of its three handover changes, after fleet-infra has orphaned and
+# dropped it. `delivery` was never on the old path: its Applications (the
+# Release Gate, Flagger, the Collector) are born on the estate path.
+handover:
+  retireBy: 2027-03-31
+  legacy:
+    - edge
+    - secrets
+    - observability
+    - data
+    - auth
+    - knowledge
+    - agents
+    - media
+    - mail
+    - notes
+    - app
+    - automation
+    - utility
+  estate:
+    - delivery
+
+# No `providers`: everything an Application depends on today runs in the
+# cluster and is declared by some Project. The worked example's `stalwart`
+# provider is the mail Project's Application here.
