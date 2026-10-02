@@ -12,6 +12,7 @@ this repository's shape is deploy-kit's `spec/v1/60-setup.md#the-estate-reposito
 | [`cluster-state.yml`](cluster-state.yml) | the ClusterState snapshot | the Collector |
 | the composition lock | the inputs the last composition rendered from | the composition workflow, from its first run |
 | [`projects/<project>/source.yaml`](projects/) | one pin per Project on the estate path | the composition workflow |
+| [`bootstrap/`](bootstrap/) | the scripts that create the GitHub Apps and a cluster's credentials, which git cannot hold | a human, by pull request |
 
 **A rendered tree is never committed here.** Each Project's render is a signed
 OCI artifact at `ghcr.io/jorisjonkers-dev/render/<project>`, and a deploy is a
@@ -38,7 +39,9 @@ tokens, and they are the only actors that bypass `main`'s ruleset:
 | `jorisjonkers-dev-estate-dispatch` | `actions: write`, `contents: read`, `statuses: write` | an application repository's publish workflow, to start composition; composition, to report a commit status |
 | `jorisjonkers-dev-estate-collector` | `contents: write` | the Collector, to commit `cluster-state.yml`; its key is in Vault |
 
-Everything else reaches `main` by pull request.
+Everything else reaches `main` by pull request. Both Apps, and every
+credential a cluster needs to read this repository, are created by
+[`bootstrap/`](bootstrap/README.md), which is also what a cluster move reruns.
 
 ## Handover
 
