@@ -36,8 +36,8 @@ tokens, and they are the only actors that bypass `main`'s ruleset:
 
 | App | permissions | used by |
 |---|---|---|
-| `jorisjonkers-dev-estate-dispatch` | `actions: write`, `contents: read`, `statuses: write` | an application repository's publish workflow, to start composition; composition, to report a commit status |
-| `jorisjonkers-dev-estate-collector` | `contents: write` | the Collector, to commit `cluster-state.yml`; its key is in Vault |
+| `estate-dispatch` | `actions: write`, `contents: read`, `statuses: write`, on every repository | an application repository's publish workflow, to start composition; composition, to report a commit status |
+| `estate-collector` | `contents: write`, on this repository only | the Collector, to commit `cluster-state.yml`; its key is in Vault |
 
 Everything else reaches `main` by pull request. Both Apps, and every
 credential a cluster needs to read this repository, are created by
