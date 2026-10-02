@@ -50,6 +50,7 @@ require_vault_token
 for key in ESTATE_COLLECTOR_APP_ID ESTATE_COLLECTOR_INSTALLATION_ID; do
   if [[ -z "$(_existing "$key" || true)" ]]; then
     note "$ENV_FILE has no $key (a new machine?). The App's settings page shows it."
+    value=""
     ask value "$key:"
     [[ "$value" =~ ^[0-9]+$ ]] || die "$key is a number"
     write_env "$key" "$value"
@@ -71,17 +72,19 @@ fi
 $KUBECTL -n flux-system get secret estate -o jsonpath='{.data.identity\.pub}' | base64 -d > "$WORK/estate.pub"
 KEY_BODY=$(awk '{print $2}' "$WORK/estate.pub")
 [[ -n "$KEY_BODY" ]] || die "Secret flux-system/estate holds no public key"
-if ! gh repo deploy-key list --repo "$ESTATE" --json key --jq '.[].key' | grep -qF "$KEY_BODY"; then
+# The REST endpoint, not `gh repo deploy-key list`: its --json readOnly reads null.
+deploy_keys() { gh api "repos/$ESTATE/keys" --paginate; }
+if ! deploy_keys | jq -r '.[].key' | grep -qF "$KEY_BODY"; then
   gh repo deploy-key add "$WORK/estate.pub" --repo "$ESTATE" --title "$DEPLOY_KEY_TITLE" >/dev/null
 fi
-[[ "$(gh repo deploy-key list --repo "$ESTATE" --json key,readOnly \
-  --jq ".[] | select(.key | contains(\"$KEY_BODY\")) | .readOnly")" == "true" ]] \
+[[ "$(deploy_keys | jq -r --arg key "$KEY_BODY" '.[] | select(.key | contains($key)) | .read_only')" == "true" ]] \
   || die "no read-only deploy key on estate matches Secret flux-system/estate"
 ok "the cluster's key is a read-only deploy key on estate"
-# A key a previous cluster left behind still reads estate: offer to drop it.
-for id in $(gh repo deploy-key list --repo "$ESTATE" --json id,key,title \
-  --jq ".[] | select(.title == \"$DEPLOY_KEY_TITLE\" and (.key | contains(\"$KEY_BODY\") | not)) | .id"); do
-  if confirm "Delete deploy key $id, left by an earlier cluster?"; then
+# A key no longer in Secret flux-system/estate (regenerated, or a previous
+# cluster's) still reads estate: offer to drop it.
+for id in $(deploy_keys | jq -r --arg key "$KEY_BODY" --arg title "$DEPLOY_KEY_TITLE" \
+  '.[] | select(.title == $title and (.key | contains($key) | not)) | .id'); do
+  if confirm "Delete deploy key $id, which Secret flux-system/estate no longer holds?"; then
     gh repo deploy-key delete "$id" --repo "$ESTATE" >/dev/null
     ok "deleted deploy key $id"
   fi
