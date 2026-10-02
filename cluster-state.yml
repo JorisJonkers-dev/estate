@@ -1,0 +1,17 @@
+# The ClusterState snapshot: what the cluster alone can say, pinned by digest
+# (deploy-kit spec/v1/20-resolved-deployment.md#cluster-state). Composition
+# never reads the live cluster; a changed fact is a new capture and a new
+# digest.
+#
+# The Collector writes this file once it runs, and only when the snapshot
+# changes. Until then the snapshot is the empty one: both lists present and
+# empty, and capturedAt the time this repository was bootstrapped.
+
+apiVersion: state.jorisjonkers.dev/v1
+kind: ClusterState
+schemaVersion: 1.0.0
+cluster: production
+capturedAt: "2026-10-02T00:00:00Z"
+
+bindings: []
+placements: []

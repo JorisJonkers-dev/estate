@@ -1,0 +1,119 @@
+# The composition workflow, at its bootstrap stage: it publishes and signs one
+# canary Rendered artifact and nothing else. Its path and branch are the
+# signer the Platform document names (bootstrap.flux.artifacts.signer), so the
+# canary proves, end to end, the exact identity every Project's render will be
+# verified against: Flux fetches ghcr.io/jorisjonkers-dev/render/canary by
+# digest, verifies its keyless signature against this workflow on main, and
+# applies one ConfigMap.
+#
+# JorisJonkers-dev/estate#2 replaces this job with composition proper (pull the
+# fragments, run the pinned `deploy-kit compose`, push and sign each changed
+# Project's artifact, commit the moved pins), adds the nightly schedule and
+# the dispatch trigger, and removes the canary.
+name: Compose
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+# One composition at a time. GitHub keeps one pending run per group, so a
+# newer dispatch replaces an older one still waiting, which is harmless: each
+# run publishes from main as it then stands.
+concurrency:
+  group: compose
+  cancel-in-progress: false
+
+env:
+  REPOSITORY: ghcr.io/jorisjonkers-dev/render
+  SIGNER_ISSUER: https://token.actions.githubusercontent.com
+  SIGNER_SUBJECT: https://github.com/JorisJonkers-dev/estate/.github/workflows/compose.yml@refs/heads/main
+
+jobs:
+  canary:
+    name: Publish the canary render
+    # Only main signs as the identity Flux trusts; any other ref would sign as
+    # an identity nothing verifies, so it does not publish at all.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: fluxcd/flux2/action@b9c17924adb533d3617ec7de97a7b0f4acc07b39 # v2.9.6
+        with:
+          version: 2.8.8
+
+      # cosign 2.x, whose signature format the cluster's source-controller
+      # verifies; cosign 3 defaults to the newer bundle format.
+      - uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+        with:
+          cosign-release: v2.6.1
+
+      - name: Render the canary
+        run: |
+          mkdir -p render
+          cat > render/canary.yaml <<EOF
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: estate-canary
+            namespace: flux-system
+            labels:
+              app.kubernetes.io/managed-by: estate-compose
+          data:
+            commit: "${GITHUB_SHA}"
+            run: "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          EOF
+
+      - name: Log in to the registry
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Push the canary
+        id: push
+        run: |
+          digest=$(flux push artifact "oci://${REPOSITORY}/canary:${GITHUB_SHA::12}" \
+            --path=render \
+            --source="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --revision="main@sha1:${GITHUB_SHA}" \
+            --output=json | jq -r '.digest')
+          case "$digest" in
+            sha256:*) echo "digest=$digest" >> "$GITHUB_OUTPUT" ;;
+            *) echo "flux push returned no digest: '$digest'" >&2; exit 1 ;;
+          esac
+
+      - name: Sign the canary
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: cosign sign --yes "${REPOSITORY}/canary@${DIGEST}"
+
+      # Composition verifies each artifact against the Platform document's
+      # signer before it names it in a pin (deploy-kit
+      # spec/v1/55-delivery.md#rendered-artifacts-and-pins), and so does the canary.
+      - name: Verify the canary as Flux will
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          cosign verify "${REPOSITORY}/canary@${DIGEST}" \
+            --certificate-oidc-issuer="$SIGNER_ISSUER" \
+            --certificate-identity="$SIGNER_SUBJECT" > /dev/null
+
+      - name: Report the pin
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          {
+            echo "### Canary published"
+            echo
+            echo "\`${REPOSITORY}/canary@${DIGEST}\`, signed and verified as \`${SIGNER_SUBJECT}\`."
+            echo
+            echo "Set \`spec.ref.digest\` in \`projects/_canary/source.yaml\` to \`${DIGEST}\`."
+          } >> "$GITHUB_STEP_SUMMARY"
