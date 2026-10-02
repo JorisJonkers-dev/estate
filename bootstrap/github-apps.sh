@@ -5,8 +5,9 @@
 # cluster, so moving the cluster does not repeat this; cluster.sh restores the
 # one key that lives in Vault.
 #
-#   dispatch   actions write, contents read, statuses write. Its key is an org
-#              secret readable by the publishing repositories only.
+#   dispatch   actions write, contents read, statuses write, installed on every
+#              repository so any one can publish. Its key and id are an org secret
+#              and an org variable that every repository's workflows read.
 #   Collector  contents write, on estate only. Its key is in Vault.
 #
 # Safe to re-run: a stage whose result exists is checked, not redone. The App
@@ -20,10 +21,6 @@ source "$here/lib/wizard.sh"
 source "$here/lib/estate.sh"
 
 TOTAL_STAGES=6
-
-# Repositories whose publish workflow may mint a dispatch token. Add one as each
-# Project adopts deploy-kit, here and with the same gh secret/variable command.
-PUBLISHERS="home-portal"
 
 WORK=$(umask 077 && mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
@@ -71,8 +68,8 @@ create_app() {
 }
 
 # require_selected PREFIX stops unless the App's installation is limited to
-# selected repositories: an App on every repository reaches far more than the
-# estate. GitHub shows which repositories only to the App itself, so the list
+# selected repositories: the Collector can write contents, so on every
+# repository it would reach far more than the estate. GitHub shows which repositories only to the App itself, so the list
 # is the human's to confirm; "all" is what can be checked, and is refused.
 require_selected() {
   local app_id selection
@@ -115,19 +112,19 @@ if [[ -n "$(_existing ESTATE_DISPATCH_APP_ID || true)" ]]; then
 else
   create_app ESTATE_DISPATCH "jorisjonkers-dev-estate-dispatch" \
     '{"actions":"write","contents":"read","statuses":"write","metadata":"read"}' "$WORK/dispatch.pem"
-  gh secret set ESTATE_DISPATCH_APP_PRIVATE_KEY --org "$ORG" --visibility selected --repos "$PUBLISHERS" \
+  gh secret set ESTATE_DISPATCH_APP_PRIVATE_KEY --org "$ORG" --visibility all \
     < "$WORK/dispatch.pem" >/dev/null
   rm -f "$WORK/dispatch.pem"
 fi
 DISPATCH_ID=$(_existing ESTATE_DISPATCH_APP_ID)
-gh variable set ESTATE_DISPATCH_APP_ID --org "$ORG" --visibility selected --repos "$PUBLISHERS" \
+gh variable set ESTATE_DISPATCH_APP_ID --org "$ORG" --visibility all \
   --body "$DISPATCH_ID" >/dev/null
 [[ "$(gh variable get ESTATE_DISPATCH_APP_ID --org "$ORG")" == "$DISPATCH_ID" ]] \
   || die "org variable ESTATE_DISPATCH_APP_ID does not read back"
 ok "org variable ESTATE_DISPATCH_APP_ID reads $DISPATCH_ID"
 gh secret list --org "$ORG" --json name --jq '.[].name' | grep -qx ESTATE_DISPATCH_APP_PRIVATE_KEY \
   || die "org secret missing: generate a private key in the App's settings, then
-    gh secret set ESTATE_DISPATCH_APP_PRIVATE_KEY --org $ORG --visibility selected --repos $PUBLISHERS < key.pem"
+    gh secret set ESTATE_DISPATCH_APP_PRIVATE_KEY --org $ORG --visibility all < key.pem"
 ok "org secret ESTATE_DISPATCH_APP_PRIVATE_KEY exists"
 pause
 
@@ -135,10 +132,12 @@ pause
 stage "Install the dispatch App"
 open_url "https://github.com/apps/$(_existing ESTATE_DISPATCH_APP_SLUG)/installations/new"
 step "Choose $ORG (or Configure, if it is installed already)."
-step "Only select repositories: estate, plus every repository in PUBLISHERS ($PUBLISHERS)."
+step "All repositories: any repository may come to publish a fragment."
 step "Install or Save."
-confirm "Is the dispatch App installed on estate and on $PUBLISHERS?" || die "install it, then re-run"
-require_selected ESTATE_DISPATCH
+gh api "orgs/$ORG/installations" --paginate \
+  --jq ".installations[] | select(.app_id == $DISPATCH_ID) | .id" | grep -q . \
+  || die "$(_existing ESTATE_DISPATCH_APP_SLUG) is not installed on $ORG; install it, then re-run"
+ok "$(_existing ESTATE_DISPATCH_APP_SLUG) is installed on $ORG"
 pause
 
 # ── 4 ─────────────────────────────────────────────────────────────────────
