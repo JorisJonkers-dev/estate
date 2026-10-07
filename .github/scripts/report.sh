@@ -27,9 +27,17 @@ discord() {
 if [ -z "$STATUS_TOKEN" ]; then
   echo "::warning::no dispatch App token, so no commit status is reported"
 else
+  owner="${GITHUB_REPOSITORY%%/*}"
   jq -c '.statuses[]' "$composition" | while read -r status; do
-    GH_TOKEN="$STATUS_TOKEN" gh api --silent \
-      "repos/$(jq -r .repository <<<"$status")/statuses/$(jq -r .sha <<<"$status")" \
+    repository="$(jq -r .repository <<<"$status")"
+    sha="$(jq -r .sha <<<"$status")"
+    # The dispatch App can write a status anywhere it is installed; it writes
+    # one only on a commit of this owner's that a fragment named.
+    if [[ "${repository,,}" != "${owner,,}/"?* || ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+      echo "::warning::no status for ${repository}@${sha}: not a commit of ${owner}"
+      continue
+    fi
+    GH_TOKEN="$STATUS_TOKEN" gh api --silent "repos/${repository}/statuses/${sha}" \
       -f state="$(jq -r .state <<<"$status")" \
       -f context=estate/compose \
       -f description="$(jq -r '.description[0:140]' <<<"$status")" \
