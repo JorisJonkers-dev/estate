@@ -10,11 +10,11 @@
 # image, or, where the image names its user or runs as root, the user it runs
 # as under the restricted posture.
 #
-# Not here yet, because the image is not built: the backup methods
-# (postgres-backup, rabbitmq-backup, file-backup; JorisJonkers-dev/deploy-kit#282)
-# and the Vault policy job (vault-policy; JorisJonkers-dev/delivery#25 publishes
-# it from delivery's first release). A Project whose volume derives a backup is
-# refused with E_UNLOCKED_IMAGE until they are.
+# The backup methods and the Vault policy job are built by
+# JorisJonkers-dev/delivery, each release writing them into its images lock
+# artifact; they are pinned here from delivery 0.2.0. The Platform document
+# names them, and a fragment is never resolved from another Project's share,
+# so this lock holds them rather than delivery's fragment.
 apiVersion: lock.jorisjonkers.dev/v1
 kind: ImagesLock
 schemaVersion: 1.0.0
@@ -59,3 +59,26 @@ images:
     digest: "sha256:f19a170f0285818c105939da633053b5800a7cc5d1efb4f2d8211e040bb134af"
     uid: 1001
     gid: 1001
+
+  # Built by JorisJonkers-dev/delivery 0.2.0. Each runs as 65532:65532 by
+  # number; the backup CronJob runs a method as its plan's uid and gid.
+  vault-policy:
+    repository: ghcr.io/jorisjonkers-dev/delivery/vault-policy
+    digest: "sha256:2f43973f8ee76aac8418623fb33196ac44920e7b17f6faa889873cfb80d2bcaf"
+    uid: 65532
+    gid: 65532
+  file-backup:
+    repository: ghcr.io/jorisjonkers-dev/delivery/file-backup
+    digest: "sha256:765f128ca3fe06b9e6973fd042aca97af6c18fda01e338d3942c3149d0b12421"
+    uid: 65532
+    gid: 65532
+  postgres-backup:
+    repository: ghcr.io/jorisjonkers-dev/delivery/postgres-backup
+    digest: "sha256:e55d680fe78d91819aa78a4175d0a5bccf48a1c211a126277c7ae34c1e207dbc"
+    uid: 65532
+    gid: 65532
+  rabbitmq-backup:
+    repository: ghcr.io/jorisjonkers-dev/delivery/rabbitmq-backup
+    digest: "sha256:af8a5406def0c9e6b50e345f1c0dc33c0aae8188aa747cb033ae6f66aebca1e2"
+    uid: 65532
+    gid: 65532
