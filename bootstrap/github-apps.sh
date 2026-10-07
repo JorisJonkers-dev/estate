@@ -8,7 +8,8 @@
 #   dispatch   actions write, contents read, statuses write, installed on every
 #              repository so any one can publish. Its key and id are an org secret
 #              and an org variable that every repository's workflows read.
-#   Collector  contents write, on estate only. Its key is in Vault.
+#   Collector  contents write, on estate only. Its key is in Vault, and in
+#              estate's `compose` environment for composition's pin commit.
 #
 # Safe to re-run: a stage whose result exists is checked, not redone. The App
 # ids it saves are not secret; it never writes a key to disk outside a 0600
@@ -20,7 +21,7 @@ source "$here/lib/wizard.sh"
 # shellcheck source=lib/estate.sh
 source "$here/lib/estate.sh"
 
-TOTAL_STAGES=6
+TOTAL_STAGES=7
 
 WORK=$(umask 077 && mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
@@ -179,6 +180,48 @@ else
   if confirm "Delete $COLLECTOR_PEM now that Vault holds it?"; then rm -f "$COLLECTOR_PEM"; fi
 fi
 ok "secret/$COLLECTOR_KV_PATH holds the Collector's id, installation id and key"
+pause
+
+# ── 7 ─────────────────────────────────────────────────────────────────────
+# Composition commits the moved pins as the Collector, the one App that
+# bypasses main's ruleset with contents: write (deploy-kit
+# spec/v1/60-setup.md#the-estate-repository). Its key goes to the `compose`
+# environment of this repository alone, which only main deploys to: no other
+# repository, and no workflow run from another branch, can read it.
+stage "Give composition the Collector's key"
+gh api -X PUT "repos/$ORG/estate/environments/compose" \
+  -F 'deployment_branch_policy[protected_branches]=false' \
+  -F 'deployment_branch_policy[custom_branch_policies]=true' >/dev/null ||
+  die "could not create the compose environment on $ORG/estate"
+if ! gh api "repos/$ORG/estate/environments/compose/deployment-branch-policies" \
+  --jq '.branch_policies[].name' | grep -qx main; then
+  gh api -X POST "repos/$ORG/estate/environments/compose/deployment-branch-policies" \
+    -f name=main -f type=branch >/dev/null || die "could not limit the compose environment to main"
+fi
+ok "the compose environment deploys from main alone"
+if gh secret list --repo "$ORG/estate" --env compose --json name --jq '.[].name' | grep -qx ESTATE_COLLECTOR_APP_PRIVATE_KEY; then
+  ok "estate already holds ESTATE_COLLECTOR_APP_PRIVATE_KEY"
+else
+  # From Vault into the secret through memory alone: the key never touches the
+  # disk, and a read that failed never sets an empty secret.
+  key="$(vault_exec kv get -mount=secret -field=private-key "$COLLECTOR_KV_PATH")" ||
+    die "could not read secret/$COLLECTOR_KV_PATH"
+  [[ "$key" == *"PRIVATE KEY"* ]] || die "secret/$COLLECTOR_KV_PATH holds no private key"
+  printf '%s\n' "$key" | gh secret set ESTATE_COLLECTOR_APP_PRIVATE_KEY --repo "$ORG/estate" --env compose >/dev/null ||
+    die "could not set ESTATE_COLLECTOR_APP_PRIVATE_KEY on $ORG/estate"
+  unset key
+  ok "estate holds ESTATE_COLLECTOR_APP_PRIVATE_KEY"
+fi
+gh variable set ESTATE_COLLECTOR_APP_ID --repo "$ORG/estate" --body "$(_existing ESTATE_COLLECTOR_APP_ID)" >/dev/null ||
+  die "could not set ESTATE_COLLECTOR_APP_ID on $ORG/estate"
+ok "estate's ESTATE_COLLECTOR_APP_ID is $(_existing ESTATE_COLLECTOR_APP_ID)"
+# A repository secret of the same name is readable from any branch, and is what
+# a job outside the environment would read: none may exist.
+if gh secret list --repo "$ORG/estate" --json name --jq '.[].name' | grep -qx ESTATE_COLLECTOR_APP_PRIVATE_KEY; then
+  gh secret delete ESTATE_COLLECTOR_APP_PRIVATE_KEY --repo "$ORG/estate" >/dev/null ||
+    die "could not remove the repository-wide ESTATE_COLLECTOR_APP_PRIVATE_KEY from $ORG/estate"
+fi
+ok "no repository-wide copy of the Collector's key"
 pause
 
 finish

@@ -48,7 +48,7 @@ tokens, and they are the only actors that bypass `main`'s ruleset:
 | App | permissions | used by |
 |---|---|---|
 | `estate-dispatch` | `actions: write`, `contents: read`, `statuses: write`, on every repository | an application repository's publish workflow, to start composition; composition, to report a commit status |
-| `estate-collector` | `contents: write`, on this repository only | the Collector, to commit `cluster-state.yml`; its key is in Vault |
+| `estate-collector` | `contents: write`, on this repository only | the Collector, to commit `cluster-state.yml`, and composition, to commit the moved pins. Its key is in Vault, and also the secret `ESTATE_COLLECTOR_APP_PRIVATE_KEY` of this repository's `compose` environment, which only `main` deploys to; its id is the variable `ESTATE_COLLECTOR_APP_ID` |
 
 Everything else reaches `main` by pull request. Both Apps, and every
 credential a cluster needs to read this repository, are created by
