@@ -262,14 +262,14 @@ jobs:
 
           # The Platform document is a participant like any Project, read at its
           # latest release, and only as this repository published it.
-          latest "ghcr.io/${OWNER}/intent-${PLATFORM_PROJECT}" platform \
+          latest "ghcr.io/${OWNER}/intent-${PLATFORM_PROJECT}" platform-fragment \
             || { echo "::error::the Platform document has never been published"; exit 1; }
-          [ "$(yq '.metadata.repository' platform/fragment.yml)" = "$GITHUB_REPOSITORY" ] \
+          [ "$(yq '.metadata.repository' platform-fragment/fragment.yml)" = "$GITHUB_REPOSITORY" ] \
             || { echo "::error::the Platform document's fragment is not this repository's"; exit 1; }
           # Flux verifies against the signer the Platform document states; this
           # workflow signs as itself, so the two must be one identity.
-          [ "$(yq '.bootstrap.flux.artifacts.signer.issuer' platform/platform.intent.yml)" = "$SIGNER_ISSUER" ] \
-            && [ "$(yq '.bootstrap.flux.artifacts.signer.subject' platform/platform.intent.yml)" = "$SIGNER_SUBJECT" ] \
+          [ "$(yq '.bootstrap.flux.artifacts.signer.issuer' platform-fragment/platform.intent.yml)" = "$SIGNER_ISSUER" ] \
+            && [ "$(yq '.bootstrap.flux.artifacts.signer.subject' platform-fragment/platform.intent.yml)" = "$SIGNER_SUBJECT" ] \
             || { echo "::error::the Platform document's signer is not this workflow on main"; exit 1; }
 
           mkdir -p fragments held
@@ -298,7 +298,7 @@ jobs:
           # carries, and the estate annotations on its source
           # (deploy-kit spec/v1/55-delivery.md#pause-and-rollback). _canary is
           # the bootstrap's proof, not an artifact composition publishes.
-          repository="$(yq '.bootstrap.flux.artifacts.repository' platform/platform.intent.yml)"
+          repository="$(yq '.bootstrap.flux.artifacts.repository' platform-fragment/platform.intent.yml)"
           echo '{}' > pins.json
           for source in projects/*/source.yaml; do
             project="$(basename "$(dirname "$source")")"
@@ -316,7 +316,7 @@ jobs:
 
       - name: Verify each package against its own manifest
         run: |
-          for dir in platform fragments/*/ held/*/; do
+          for dir in platform-fragment fragments/*/ held/*/; do
             [ -f "${dir%/}/MANIFEST.sha256" ] || continue
             ( cd "$dir" && sha256sum --quiet -c MANIFEST.sha256 )
           done
@@ -356,7 +356,7 @@ jobs:
           integrity="$(node -p "require('./package-lock.json').packages['node_modules/@jorisjonkers-dev/deploy-kit'].integrity")"
           # shellcheck disable=SC2086 # LOCK is two options or none
           npx --no-install deploy-kit compose \
-            --platform platform \
+            --platform platform-fragment \
             --fragments fragments \
             --participants participants.yml \
             --held held \
@@ -388,7 +388,7 @@ jobs:
         env:
           LOCK_DIGEST: ${{ steps.lock.outputs.digest }}
         run: |
-          repository="$(yq '.bootstrap.flux.artifacts.repository' platform/platform.intent.yml)"
+          repository="$(yq '.bootstrap.flux.artifacts.repository' platform-fragment/platform.intent.yml)"
           render_hash="$(jq -r '.spec.composedDigest' composed/lock.json)"
           : > moved.txt
           for row in $(jq -r '.artifacts[] | select(.moves) | "\(.name)=\(.contentHash)"' composed/composition.json); do
