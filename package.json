@@ -1,0 +1,8 @@
+{
+  "name": "estate",
+  "private": true,
+  "description": "Pins the deploy-kit release this repository composes the estate with, and validates and packs the Platform's fragments with.",
+  "devDependencies": {
+    "@jorisjonkers-dev/deploy-kit": "0.7.0"
+  }
+}

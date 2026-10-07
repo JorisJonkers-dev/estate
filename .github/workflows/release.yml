@@ -1,0 +1,72 @@
+# Tag -> release flow (org standard), and the Platform's fragments on each
+# release.
+#
+# release-please keeps a release PR that accumulates conventional commits and,
+# merged, tags vX.Y.Z. That release publishes the Platform document's Intent
+# Fragment and one for each Project the platform owns, through the same
+# publish-fragment workflow every application repository uses
+# (deploy-kit spec/v1/40-composition.md#fragments): the Platform document is a
+# participant like any Project, with no side channel into the render.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      # Author the release PR with the release App token (not the default
+      # GITHUB_TOKEN) so the PR's own workflows run. Best-effort: falls back to
+      # GITHUB_TOKEN when the App secrets or installation are absent.
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        id: rp
+        with:
+          token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # One fragment per file. The Platform document is validated beside the
+  # Projects it owns, the node contract and the images lock it pins, and the
+  # delivery fragment, since it names the Release Gate and the Collector that
+  # JorisJonkers-dev/delivery declares.
+  fragment:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project-file: platform.intent.yml
+            validate-with: platform node-contract.yml images.lock.yml
+            validate-with-fragments: delivery
+          - project-file: platform/edge.project.yml
+          - project-file: platform/observability.project.yml
+          - project-file: platform/secrets.project.yml
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/publish-fragment.yml@16cd68adc1775580f5311dafa00dd4310af45c49 # v0.20.0
+    with:
+      project-file: ${{ matrix.project-file }}
+      version: ${{ needs.release-please.outputs.tag_name }}
+      validate-with: ${{ matrix.validate-with || '' }}
+      validate-with-fragments: ${{ matrix.validate-with-fragments || '' }}
+    secrets:
+      ESTATE_DISPATCH_APP_PRIVATE_KEY: ${{ secrets.ESTATE_DISPATCH_APP_PRIVATE_KEY }}

@@ -1,0 +1,42 @@
+# The participants list: every Project composition expects a fragment from,
+# keyed by the project its fragment declares
+# (deploy-kit spec/v1/40-composition.md#participants). It changes when a
+# Project is added or retired, never when a declaration changes. A participant
+# that publishes nothing is E_PARTICIPANT_MISSING, and one past its maxAge is
+# E_PARTICIPANT_STALE: either is composed at its last composed fragment rather
+# than rendered absent.
+#
+# The Projects fleet-infra still delivers (platform.intent.yml's
+# `handover.legacy`) join this list as each starts publishing its fragment.
+
+participants:
+  # The Platform document, and the three Projects it owns, publish from this
+  # repository on its own releases, which follow the platform rather than a
+  # weekly cadence.
+  jorisjonkers.dev:
+    dormant: true
+    owner: joris
+    reason: publishes on this repository's releases, which follow the platform rather than a weekly cadence
+    reviewBy: 2027-03-31
+  edge:
+    dormant: true
+    owner: joris
+    reason: publishes with the Platform document, on this repository's releases
+    reviewBy: 2027-03-31
+  observability:
+    dormant: true
+    owner: joris
+    reason: publishes with the Platform document, on this repository's releases
+    reviewBy: 2027-03-31
+  secrets:
+    dormant: true
+    owner: joris
+    reason: publishes with the Platform document, on this repository's releases
+    reviewBy: 2027-03-31
+  # JorisJonkers-dev/delivery: the Release Gate, the Collector and the Vault
+  # policy job. Its releases follow the delivery machinery's own changes.
+  delivery:
+    dormant: true
+    owner: joris
+    reason: releases when the delivery machinery changes, not on a weekly cadence
+    reviewBy: 2027-03-31

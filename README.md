@@ -11,6 +11,8 @@ this repository's shape is deploy-kit's `spec/v1/60-setup.md#the-estate-reposito
 | [`platform/`](platform/) | the platform's own project files, `<project>.project.yml`: `edge`, `observability`, `secrets` | a human, by pull request |
 | [`node-contract.yml`](node-contract.yml) | what each node offers a placement, which the Platform document pins by digest | copied from JorisJonkers-dev/nix-config, which generates it from its node files |
 | [`images.lock.yml`](images.lock.yml) | every image the platform's own projects and policies name, by digest and user | a human, by pull request |
+| [`participants.yml`](participants.yml) | every Project composition expects a fragment from, and how stale each may be | a human, by pull request |
+| [`package.json`](package.json) and its lockfile | the exact deploy-kit release that validates, packs and composes | a human or Renovate, by pull request |
 | [`cluster-state.yml`](cluster-state.yml) | the ClusterState snapshot | the Collector |
 | the composition lock | the inputs the last composition rendered from | the composition workflow, from its first run |
 | [`projects/<project>/source.yaml`](projects/) | one pin per Project on the estate path | the composition workflow |
@@ -19,6 +21,13 @@ this repository's shape is deploy-kit's `spec/v1/60-setup.md#the-estate-reposito
 **A rendered tree is never committed here.** Each Project's render is a signed
 OCI artifact at `ghcr.io/jorisjonkers-dev/render/<project>`, and a deploy is a
 commit that moves the digest its pin names.
+
+**The Platform publishes like any Project.** Each release of this repository
+publishes the Platform document's Intent Fragment, `intent-jorisjonkers.dev`,
+and one for each Project in [`platform/`](platform/), through
+JorisJonkers-dev/github-workflows' `publish-fragment`
+([`release.yml`](.github/workflows/release.yml)). A change to the platform
+reaches composition only by a release.
 
 ## How Flux reads it
 
