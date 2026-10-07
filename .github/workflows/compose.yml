@@ -218,9 +218,21 @@ jobs:
             bound "$signatures" "$2"
           }
           latest() { # latest <image> <directory>: the release `latest` names
-            local digest
+            local digest project version composed
             digest="$(oras resolve "$1:latest" 2>/dev/null)" || return 1
             fetch "$1@${digest}" "$2"
+            # `latest` only moves forward when publish-fragment moves it, so a
+            # release older than the one last composed is a tag moved back by
+            # hand: it is not read, and the Project composes where it was.
+            project="$(yq '.spec.project' "$2/fragment.yml")"
+            version="$(yq '.spec.version' "$2/fragment.yml")"
+            composed="$( { [ -f previous/lock.json ] && jq -r --arg p "$project" \
+              '.spec.fragments[] | select(.project == $p) | .version' previous/lock.json; } || true)"
+            if [ -n "$composed" ] && [ "$(printf '%s\n%s\n' "$composed" "$version" | sort -V | tail -n 1)" != "$version" ]; then
+              echo "::error::$1@${digest} is ${project} ${version}, older than ${composed} the last composition read"
+              rm -rf "$2"
+              return 1
+            fi
             # A fragment carries no time; when it was pushed is the registry's
             # record of the push (deploy-kit spec/v1/40-composition.md#participants).
             oras manifest fetch "$1@${digest}" \
@@ -228,12 +240,29 @@ jobs:
               || { echo "::error::$1@${digest} records no push time"; exit 1; }
           }
 
+          # The previous lock and the commit it was composed at, from the
+          # registry, read only as this workflow on main signed it: the signer
+          # is this workflow's own, never one a fragment states. Absent only on
+          # the very first composition.
+          if digest="$(oras resolve "${COMPOSED}:latest" 2>/dev/null)"; then
+            cosign verify "${COMPOSED}@${digest}" \
+              --certificate-oidc-issuer "$SIGNER_ISSUER" --certificate-identity "$SIGNER_SUBJECT" > /dev/null \
+              || { echo "::error::${COMPOSED}@${digest} is not signed by composition"; exit 1; }
+            oras pull "${COMPOSED}@${digest}" --output previous
+            echo "lock=--lock previous/lock.json --lock-commit $(cat previous/COMMIT)" >> "$GITHUB_OUTPUT"
+          fi
+
           # The Platform document is a participant like any Project, read at its
           # latest release, and only as this repository published it.
           latest "ghcr.io/${OWNER}/intent-${PLATFORM_PROJECT}" platform \
             || { echo "::error::the Platform document has never been published"; exit 1; }
           [ "$(yq '.metadata.repository' platform/fragment.yml)" = "$GITHUB_REPOSITORY" ] \
             || { echo "::error::the Platform document's fragment is not this repository's"; exit 1; }
+          # Flux verifies against the signer the Platform document states; this
+          # workflow signs as itself, so the two must be one identity.
+          [ "$(yq '.bootstrap.flux.artifacts.signer.issuer' platform/platform.intent.yml)" = "$SIGNER_ISSUER" ] \
+            && [ "$(yq '.bootstrap.flux.artifacts.signer.subject' platform/platform.intent.yml)" = "$SIGNER_SUBJECT" ] \
+            || { echo "::error::the Platform document's signer is not this workflow on main"; exit 1; }
 
           mkdir -p fragments held
           for project in $(yq '.participants | keys | .[]' participants.yml); do
@@ -244,18 +273,6 @@ jobs:
               || echo "::warning::${project} has published no fragment"
           done
 
-          # The previous lock and the commit it was composed at, from the
-          # registry, read only as this workflow on main signed it. Absent only
-          # on the very first composition.
-          issuer="$(yq '.bootstrap.flux.artifacts.signer.issuer' platform/platform.intent.yml)"
-          subject="$(yq '.bootstrap.flux.artifacts.signer.subject' platform/platform.intent.yml)"
-          if digest="$(oras resolve "${COMPOSED}:latest" 2>/dev/null)"; then
-            cosign verify "${COMPOSED}@${digest}" \
-              --certificate-oidc-issuer "$issuer" --certificate-identity "$subject" > /dev/null \
-              || { echo "::error::${COMPOSED}@${digest} is not signed by composition"; exit 1; }
-            oras pull "${COMPOSED}@${digest}" --output previous
-            echo "lock=--lock previous/lock.json --lock-commit $(cat previous/COMMIT)" >> "$GITHUB_OUTPUT"
-          fi
           # Every fragment the previous lock composed, and every one a Rollback
           # names, so an isolated Project composes at the fragment it last
           # composed at (deploy-kit spec/v1/40-composition.md#a-refused-project-is-isolated).
@@ -382,24 +399,20 @@ jobs:
           done
           {
             echo "repository=${repository}"
-            echo "issuer=$(yq '.bootstrap.flux.artifacts.signer.issuer' platform/platform.intent.yml)"
-            echo "subject=$(yq '.bootstrap.flux.artifacts.signer.subject' platform/platform.intent.yml)"
             if [ -s moved.txt ]; then echo "moved=true"; else echo "moved=false"; fi
           } >> "$GITHUB_OUTPUT"
 
       # Verified the way Flux will: by digest, against the signer the Platform
-      # document records, not whichever identity this run has.
+      # document records, which the pull step held equal to this workflow's.
       - name: Verify each artifact as Flux will
         if: ${{ success() && github.ref == 'refs/heads/main' }}
         env:
-          REPOSITORY: ${{ steps.render.outputs.repository }}
-          ISSUER: ${{ steps.render.outputs.issuer }}
-          SUBJECT: ${{ steps.render.outputs.subject }}
+          RENDERS: ${{ steps.render.outputs.repository }}
         run: |
           while read -r project digest; do
-            cosign verify "${REPOSITORY}/${project}@${digest}" \
-              --certificate-oidc-issuer "$ISSUER" \
-              --certificate-identity "$SUBJECT" > /dev/null
+            cosign verify "${RENDERS}/${project}@${digest}" \
+              --certificate-oidc-issuer "$SIGNER_ISSUER" \
+              --certificate-identity "$SIGNER_SUBJECT" > /dev/null
             echo "verified ${project}@${digest}"
           done < moved.txt
 
