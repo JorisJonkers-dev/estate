@@ -136,6 +136,9 @@ jobs:
   compose:
     name: Compose and deliver
     runs-on: ubuntu-latest
+    # The Collector's key lives in this environment alone, which only main
+    # deploys to, so a run from any other branch cannot read it.
+    environment: compose
     timeout-minutes: 20
     permissions:
       contents: read
