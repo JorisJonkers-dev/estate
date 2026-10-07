@@ -52,6 +52,7 @@ bootstrap:
     - traefik.io/v1alpha1
     - secrets.hashicorp.com/v1beta1
     - monitoring.coreos.com/v1
+    - flagger.app/v1beta1 # the Canary every blue-green Process renders; Flagger, of the delivery Project, installs it
 
 # Where the edge terminates. A route's audience is the only way it reaches a tier.
 tiers:
@@ -76,15 +77,26 @@ durability:
   irreplaceable:
     schedule: "45 2 * * *"
     retain: 90
+    # Contabo Object Storage, EU: an S3-compatible bucket off every node the
+    # estate runs on. The credential holds the endpoint
+    # (https://eu2.contabostorage.com), the bucket and the key pair.
     offCluster:
-      destination: "s3://backup-storage/jorisjonkers-dev"
+      destination: "s3://jorisjonkers-dev-backups"
       credential: secret/data/platform/backup/off-cluster
+      # eu2.contabostorage.com resolved on 2026-10-07; a policy admits an
+      # address range, never a hostname, so a move of the endpoint is a change
+      # here.
+      egress:
+        - { cidr: 185.219.143.84/32, port: 443 }
+        - { cidr: 185.219.143.85/32, port: 443 }
 
 # The method is the image: one purpose-built image per engine, resolved
 # through the images lock. Nothing executable is authored.
+# An engine whose method dumps over the network names the surface it connects
+# to; one whose method reads the volume alone names none.
 engines:
-  postgres: { backup: postgres-backup }
-  rabbitmq: { backup: rabbitmq-backup }
+  postgres: { backup: postgres-backup, surface: postgres }
+  rabbitmq: { backup: rabbitmq-backup, surface: management }
   files: { backup: file-backup }
 
 # One cadence for every rendered monitor.
@@ -134,6 +146,24 @@ delivery:
     interval: 30s
     iterations: 4
     threshold: 3
+
+# The Applications whose Processes may hold Kubernetes API access, and where
+# the API server answers. Each is in the delivery Project.
+apiAccess:
+  holders: [flagger, release-gate, collector]
+  server:
+    - { cidr: 10.43.0.1/32, port: 443 } # Service default/kubernetes, read 2026-10-07
+
+# The job that writes every rendered Vault policy and role into the Secret
+# Store. Its role, and the role's binding to the job's ServiceAccount
+# (vault-policy in secrets-system), are created by bootstrap/cluster.sh: the
+# job cannot grant itself the privilege to write policies.
+policyJob:
+  image: vault-policy
+  role: policy-admin
+  memory: 64Mi
+  cpu: 10m
+  deadline: 120s
 
 # Which delivery path each Project is on while the estate moves off
 # fleet-infra's deploy/production branch, one Project at a time

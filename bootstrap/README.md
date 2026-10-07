@@ -8,7 +8,7 @@ write, read back what they wrote, and are safe to re-run.
 | script | run | does |
 |---|---|---|
 | [`github-apps.sh`](github-apps.sh) | once per organization | creates the dispatch and Collector GitHub Apps, puts the dispatch App's id and key in an org variable and secret every repository reads, and the Collector key in Vault |
-| [`cluster.sh`](cluster.sh) | once per cluster, and after every move | writes Flux's read access to this repository and its pull access to the render packages, restores the Collector key and the estate-dashboard's OIDC client secret to a fresh Vault, and proves auth and Flux both see them |
+| [`cluster.sh`](cluster.sh) | once per cluster, and after every move | writes Flux's read access to this repository and its pull access to the render packages, restores the Collector key and the estate-dashboard's OIDC client secret to a fresh Vault, creates the Vault role the policy job logs in as, and proves auth and Flux both see them |
 
 ## On a new cluster
 
