@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/JorisJonkers-dev/estate/compare/v0.1.0...v0.1.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* lock the backup method images and the Vault policy job ([#19](https://github.com/JorisJonkers-dev/estate/issues/19)) ([ef82ce1](https://github.com/JorisJonkers-dev/estate/commit/ef82ce17291d1363e00f1082490c77059e3b0d76))
+
 ## 0.1.0 (2026-10-07)
 
 
