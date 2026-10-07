@@ -1,25 +1,31 @@
-# The composition workflow, at its bootstrap stage: it publishes and signs one
-# canary Rendered artifact and nothing else. Its path and branch are the
-# signer the Platform document names (bootstrap.flux.artifacts.signer), so the
-# canary proves, end to end, the exact identity every Project's render will be
-# verified against: Flux fetches ghcr.io/jorisjonkers-dev/render/canary by
-# digest, verifies its keyless signature against this workflow on main, and
-# applies one ConfigMap.
+# The composition workflow. It composes every participant's Intent Fragment
+# with the pinned `deploy-kit compose`, publishes one signed Rendered artifact
+# per Project whose render moved, and commits the moved pins: that commit is
+# the deploy (deploy-kit spec/v1/55-delivery.md#rendered-artifacts-and-pins).
+# Its path and branch are the signer the Platform document names
+# (bootstrap.flux.artifacts.signer), so Flux verifies every render against
+# this workflow on main.
 #
-# JorisJonkers-dev/estate#2 replaces this job with composition proper (pull the
-# fragments, run the pinned `deploy-kit compose`, push and sign each changed
-# Project's artifact, commit the moved pins), adds the nightly schedule and
-# the dispatch trigger, and removes the canary.
+# Started by a fragment publish, through the dispatch App; the nightly
+# schedule is a safety net for a dispatch that never arrived, not the primary
+# path (deploy-kit spec/v1/60-setup.md#the-estate-repository).
+#
+# The canary job stays beside composition until the first Project is delivered
+# on the estate path (JorisJonkers-dev/home-portal#70): it proves the signature
+# check end to end with one ConfigMap Flux fetches from
+# ghcr.io/jorisjonkers-dev/render/canary.
 name: Compose
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "41 2 * * *" # safety net only; see above
 
 permissions: {}
 
-# One composition at a time. GitHub keeps one pending run per group, so a
-# newer dispatch replaces an older one still waiting, which is harmless: each
-# run publishes from main as it then stands.
+# One composition at a time: two runs would race on the previous lock. GitHub
+# keeps one pending run per group, so a newer dispatch replaces an older one
+# still waiting, which is harmless: each run composes main as it then stands.
 concurrency:
   group: compose
   cancel-in-progress: false
@@ -33,8 +39,9 @@ jobs:
   canary:
     name: Publish the canary render
     # Only main signs as the identity Flux trusts; any other ref would sign as
-    # an identity nothing verifies, so it does not publish at all.
-    if: github.ref == 'refs/heads/main'
+    # an identity nothing verifies, so it does not publish at all. A dispatch
+    # republishes it; the nightly run does not.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -117,3 +124,296 @@ jobs:
             echo
             echo "Set \`spec.ref.digest\` in \`projects/_canary/source.yaml\` to \`${DIGEST}\`."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # Composition proper (deploy-kit spec/v1/examples/workflows/compose.yml,
+  # adapted to this repository): pull every participant, run the pinned
+  # `deploy-kit compose` once, publish the lock, publish and sign one artifact
+  # per Project whose render moved, commit the moved pins, and report.
+  #
+  # Every step that deploys runs only on main and only when every step before
+  # it succeeded; the report runs whatever happened, so a failure still
+  # reaches the commits and issues it concerns.
+  compose:
+    name: Compose and deliver
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      issues: write
+    env:
+      OWNER: jorisjonkers-dev
+      COMPOSED: ghcr.io/jorisjonkers-dev/composed
+      PLATFORM_PROJECT: jorisjonkers.dev
+      FRAGMENT_SIGNER: ^https://github\.com/JorisJonkers-dev/github-workflows/\.github/workflows/publish-fragment\.yml@
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          registry-url: https://npm.pkg.github.com
+          scope: "@jorisjonkers-dev"
+      - uses: oras-project/setup-oras@005458ad77f1c8facd38a094e4af2e69e5607ff4 # v2.0.2
+        with:
+          version: 1.3.4
+      - uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+        with:
+          cosign-release: v2.6.1
+
+      # `npx --no-install` below can run only what this installs: the release
+      # package-lock.json pins, so a toolkit upgrade is a reviewed pull request
+      # here (deploy-kit spec/v1/60-setup.md#the-estate-repository).
+      - name: Install the pinned toolkit
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: |
+          npm ci --ignore-scripts
+          npx --no-install deploy-kit --help > /dev/null
+
+      - name: Log in to the registry
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          echo "$GITHUB_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          echo "$GITHUB_TOKEN" | cosign login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Pull every participant, the previous lock and the pins
+        id: pull
+        run: |
+          # Only a fragment publish-fragment signed, in a run of a repository of
+          # this owner, is read, and only by digest: a fragment pushed by
+          # anything else never reaches composition.
+          pull() { # pull <image> <directory>: resolve latest, verify, pull, record
+            local image="$1" dir="$2" digest signatures
+            digest="$(oras resolve "${image}:latest" 2>/dev/null)" || return 1
+            signatures="$(cosign verify "${image}@${digest}" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+              --certificate-identity-regexp "$FRAGMENT_SIGNER")" \
+              || { echo "::error::${image}@${digest} is not signed by publish-fragment"; exit 1; }
+            printf '%s' "$signatures" | jq -e --arg owner "$OWNER" \
+              '[.[].optional.githubWorkflowRepository // "" | ascii_downcase | startswith($owner + "/")] | any' > /dev/null \
+              || { echo "::error::${image}@${digest} is not signed from a repository of ${OWNER}"; exit 1; }
+            oras pull "${image}@${digest}" --output "$dir"
+            echo "${image}@${digest}" > "${dir}/ref"
+            # A fragment carries no time; when it was pushed is the registry's
+            # record of the push (deploy-kit spec/v1/40-composition.md#participants).
+            oras manifest fetch "${image}@${digest}" \
+              | jq -er '.annotations["org.opencontainers.image.created"]' > "${dir}/published" \
+              || { echo "::error::${image}@${digest} records no push time"; exit 1; }
+          }
+
+          # The Platform document is a participant like any Project, read at its
+          # latest release. Without it nothing composes.
+          pull "ghcr.io/${OWNER}/intent-${PLATFORM_PROJECT}" platform \
+            || { echo "::error::the Platform document has never been published"; exit 1; }
+
+          mkdir -p fragments held
+          for project in $(yq '.participants | keys | .[]' participants.yml); do
+            [ "$project" = "$PLATFORM_PROJECT" ] && continue
+            # A participant that published nothing is composition's to report,
+            # E_PARTICIPANT_MISSING, not this step's.
+            pull "ghcr.io/${OWNER}/intent-${project}" "fragments/${project}" \
+              || echo "::warning::${project} has published no fragment"
+          done
+
+          # The previous lock and the commit it was composed at, from the
+          # registry. Absent only on the very first composition.
+          if oras pull "${COMPOSED}:latest" --output previous 2>/dev/null; then
+            echo "lock=--lock previous/lock.json --lock-commit $(cat previous/COMMIT)" >> "$GITHUB_OUTPUT"
+          fi
+          # Every fragment the previous lock composed, and every one a Rollback
+          # names, so an isolated Project composes at the fragment it last
+          # composed at (deploy-kit spec/v1/40-composition.md#a-refused-project-is-isolated).
+          for ref in $( { [ -f previous/lock.json ] && jq -r '.spec.fragments[].ref' previous/lock.json
+                          for source in projects/*/source.yaml; do
+                            yq 'select(.kind == "OCIRepository") | .metadata.annotations["estate.jorisjonkers.dev/rollback-fragment"] // ""' "$source"
+                          done; } | sort -u ); do
+            dir="held/$(printf '%s' "$ref" | sha256sum | cut -c1-12)"
+            oras pull "$ref" --output "$dir"
+            echo "$ref" > "${dir}/ref"
+          done
+
+          # Each delivered Project's pin: the content hash its pinned artifact
+          # carries, and the estate annotations on its source
+          # (deploy-kit spec/v1/55-delivery.md#pause-and-rollback). _canary is
+          # the bootstrap's proof, not an artifact composition publishes.
+          repository="$(yq '.bootstrap.flux.artifacts.repository' platform/platform.intent.yml)"
+          echo '{}' > pins.json
+          for source in projects/*/source.yaml; do
+            project="$(basename "$(dirname "$source")")"
+            [ "$project" = "_canary" ] && continue
+            digest="$(yq 'select(.kind == "OCIRepository") | .spec.ref.digest' "$source")"
+            # A source whose first publish never landed names no artifact.
+            [ "$digest" = "sha256:$(printf '0%.0s' $(seq 64))" ] && continue
+            content="$(oras manifest fetch "${repository}/${project}@${digest}" \
+              | jq -er '.annotations["dev.jorisjonkers.content-hash"]')"
+            annotations="$(yq -o=json 'select(.kind == "OCIRepository") | .metadata.annotations // {} | with_entries(select(.key | test("^estate\\.jorisjonkers\\.dev/")))' "$source")"
+            jq --arg p "$project" --arg c "$content" --argjson a "$annotations" \
+              '.[$p] = {contentHash: $c, annotations: $a}' pins.json > pins.next
+            mv pins.next pins.json
+          done
+
+      - name: Verify each package against its own manifest
+        run: |
+          for dir in platform fragments/*/ held/*/; do
+            [ -f "${dir%/}/MANIFEST.sha256" ] || continue
+            ( cd "$dir" && sha256sum --quiet -c MANIFEST.sha256 )
+          done
+
+      # A gate that has only ever passed is untested. Each negative fixture the
+      # toolkit ships is otherwise valid, so it reaches the one invariant it
+      # exists to trip; the check is on the code, not the exit status.
+      - name: Prove the gate can fail, on the right error
+        run: |
+          examples=node_modules/@jorisjonkers-dev/deploy-kit/spec/v1/examples
+          for fixture in duplicate-project:E_DUPLICATE_PROJECT \
+                         duplicate-application-id:E_DUPLICATE_APPLICATION_ID \
+                         duplicate-process-name:E_DUPLICATE_PROCESS_NAME \
+                         duplicate-exposure-name:E_DUPLICATE_EXPOSURE_NAME \
+                         duplicate-host:E_DUPLICATE_HOST \
+                         unresolved-application:E_UNRESOLVED_APPLICATION \
+                         unknown-surface:E_UNKNOWN_SURFACE \
+                         dependency-cycle:E_DEPENDENCY_CYCLE; do
+            set +e
+            out="$(npx --no-install deploy-kit validate "$examples/platform/platform.intent.yml" \
+              "$examples/delivery/" "$examples/edge/" "$examples/observability/" "$examples/secrets/" \
+              "$examples/negative/${fixture%%:*}/" --json)"
+            status=$?
+            set -e
+            [ "$status" -eq 1 ] || { echo "::error::${fixture%%:*}: the gate did not refuse (exit ${status})"; exit 1; }
+            printf '%s' "$out" | jq -e --arg c "${fixture##*:}" 'map(.code) | index($c)' > /dev/null \
+              || { echo "::error::${fixture%%:*}: refused, but not on ${fixture##*:}"; exit 1; }
+          done
+
+      - name: Compose
+        env:
+          LOCK: ${{ steps.pull.outputs.lock }}
+        run: |
+          # The union, every estate-wide invariant, isolation and the render, in
+          # one run; only a refused Platform document, or an error no fragment
+          # caused, exits 1 (deploy-kit spec/v1/40-composition.md#the-composition-run).
+          integrity="$(node -p "require('./package-lock.json').packages['node_modules/@jorisjonkers-dev/deploy-kit'].integrity")"
+          # shellcheck disable=SC2086 # LOCK is two options or none
+          npx --no-install deploy-kit compose \
+            --platform platform \
+            --fragments fragments \
+            --participants participants.yml \
+            --held held \
+            --pins pins.json \
+            $LOCK \
+            --cluster-state cluster-state.yml \
+            --schema-package-integrity "$integrity" \
+            --out composed
+          jq . composed/composition.json >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the lock
+        id: lock
+        if: ${{ success() && github.ref == 'refs/heads/main' }}
+        run: |
+          git rev-parse HEAD > composed/COMMIT
+          ( cd composed && oras push "${COMPOSED}:latest" lock.json composition.json COMMIT )
+          digest="$(oras resolve "${COMPOSED}:latest")"
+          # Read back by digest: an accepted push is not what a consumer reads.
+          oras pull "${COMPOSED}@${digest}" --output check
+          cmp check/lock.json composed/lock.json
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish one signed artifact per moved Project
+        id: render
+        if: ${{ success() && github.ref == 'refs/heads/main' }}
+        env:
+          LOCK_DIGEST: ${{ steps.lock.outputs.digest }}
+        run: |
+          repository="$(yq '.bootstrap.flux.artifacts.repository' platform/platform.intent.yml)"
+          render_hash="$(jq -r '.spec.composedDigest' composed/lock.json)"
+          : > moved.txt
+          for row in $(jq -r '.artifacts[] | select(.moves) | "\(.name)=\(.contentHash)"' composed/composition.json); do
+            project="${row%%=*}"
+            content="${row#*=}"
+            # The digest comes from the push itself, never from a tag another
+            # run could move in between.
+            digest="$(cd "composed/artifacts/${project}" && oras push "${repository}/${project}:${content#sha256:}" \
+              --annotation "dev.jorisjonkers.content-hash=${content}" \
+              --annotation "dev.jorisjonkers.render-hash=${render_hash}" \
+              --annotation "dev.jorisjonkers.lock-digest=${LOCK_DIGEST}" \
+              --annotation "org.opencontainers.image.revision=${GITHUB_SHA}" \
+              --format go-template='{{.digest}}' .)"
+            cosign sign --yes "${repository}/${project}@${digest}"
+            echo "${project} ${digest}" >> moved.txt
+          done
+          {
+            echo "repository=${repository}"
+            echo "issuer=$(yq '.bootstrap.flux.artifacts.signer.issuer' platform/platform.intent.yml)"
+            echo "subject=$(yq '.bootstrap.flux.artifacts.signer.subject' platform/platform.intent.yml)"
+            if [ -s moved.txt ]; then echo "moved=true"; else echo "moved=false"; fi
+          } >> "$GITHUB_OUTPUT"
+
+      # Verified the way Flux will: by digest, against the signer the Platform
+      # document records, not whichever identity this run has.
+      - name: Verify each artifact as Flux will
+        if: ${{ success() && github.ref == 'refs/heads/main' }}
+        env:
+          REPOSITORY: ${{ steps.render.outputs.repository }}
+          ISSUER: ${{ steps.render.outputs.issuer }}
+          SUBJECT: ${{ steps.render.outputs.subject }}
+        run: |
+          while read -r project digest; do
+            cosign verify "${REPOSITORY}/${project}@${digest}" \
+              --certificate-oidc-issuer "$ISSUER" \
+              --certificate-identity "$SUBJECT" > /dev/null
+            echo "verified ${project}@${digest}"
+          done < moved.txt
+
+      # The Collector App commits the pins: it alone holds contents: write on
+      # this repository and bypasses main's ruleset (.github/rulesets/README.md).
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: pin-token
+        if: ${{ success() && github.ref == 'refs/heads/main' && steps.render.outputs.moved == 'true' }}
+        with:
+          app-id: ${{ vars.ESTATE_COLLECTOR_APP_ID }}
+          private-key: ${{ secrets.ESTATE_COLLECTOR_APP_PRIVATE_KEY }}
+
+      - name: Commit the moved pins
+        if: ${{ success() && github.ref == 'refs/heads/main' && steps.render.outputs.moved == 'true' }}
+        env:
+          TOKEN: ${{ steps.pin-token.outputs.token }}
+        run: |
+          # The deploy: one commit moves every Project whose artifact changed.
+          while read -r project digest; do
+            # A Project delivered for the first time takes the source the
+            # toolkit wrote for it, once; afterwards only its digest moves.
+            if [ ! -f "projects/${project}/source.yaml" ]; then
+              mkdir -p "projects/${project}"
+              cp "composed/projects/${project}/source.yaml" "projects/${project}/source.yaml"
+            fi
+            DIGEST="$digest" yq -i '(select(.kind == "OCIRepository") | .spec.ref.digest) = strenv(DIGEST)' \
+              "projects/${project}/source.yaml"
+          done < moved.txt
+          git config user.name "estate-composition"
+          git config user.email "estate-composition@users.noreply.github.com"
+          git add projects
+          git commit -m "chore(deploy): $(cut -d' ' -f1 moved.txt | paste -sd, -) [ci skip]"
+          git push "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
+
+      # The dispatch App reports a status on each publishing commit: it holds
+      # statuses: write on every repository (deploy-kit spec/v1/60-setup.md#the-estate-repository).
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: status-token
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && hashFiles('composed/composition.json') != '' }}
+        with:
+          app-id: ${{ vars.ESTATE_DISPATCH_APP_ID }}
+          private-key: ${{ secrets.ESTATE_DISPATCH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Report what composition decided
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && hashFiles('composed/composition.json') != '' }}
+        env:
+          STATUS_TOKEN: ${{ steps.status-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash .github/scripts/report.sh composed/composition.json
