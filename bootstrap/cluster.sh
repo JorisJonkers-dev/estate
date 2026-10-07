@@ -9,8 +9,9 @@
 #              cluster whose public half is a read-only deploy key on estate,
 #              and Secret flux-system/render-pull, the ghcr.io credential every
 #              pin names.
-#   Vault      the Collector App's key, and the estate-dashboard's OIDC client
-#              secret in both the copy auth-api reads and the dashboard's own.
+#   Vault      the Collector App's key, the estate-dashboard's OIDC client
+#              secret in both the copy auth-api reads and the dashboard's own,
+#              and the role the Vault policy job logs in as.
 #              A restored Vault already holds both and this only checks them; a
 #              fresh one gets them back here.
 #
@@ -24,13 +25,18 @@ source "$here/lib/wizard.sh"
 # shellcheck source=lib/estate.sh
 source "$here/lib/estate.sh"
 
-TOTAL_STAGES=7
+TOTAL_STAGES=8
 
 AUTH_NS=auth-system
 AUTH_HOST=${AUTH_HOST:-https://auth.jorisjonkers.dev}
 DASHBOARD_CLIENT_ID=estate-dashboard
 DASHBOARD_REDIRECT_URI=https://estate.jorisjonkers.dev/auth/callback
 DEPLOY_KEY_TITLE="flux-system/estate (read-only)"
+# The Vault policy job (platform.intent.yml policyJob): the role it logs in as,
+# and the ServiceAccount it runs as, in the Secret Store's namespace.
+POLICY_ROLE=policy-admin
+POLICY_SA=vault-policy
+POLICY_NS=secrets-system
 
 WORK=$(umask 077 && mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
@@ -205,6 +211,28 @@ fi
 pause
 
 # ── 7 ─────────────────────────────────────────────────────────────────────
+stage "Vault: the role the policy job logs in as"
+# The job writes every rendered policy and Kubernetes auth role, so its own
+# role is the one thing it cannot create: it exists before the first render.
+vault_exec policy write "$POLICY_ROLE" - >/dev/null <<'HCL'
+path "sys/policies/acl/*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}
+path "auth/kubernetes/role/*" {
+  capabilities = ["create", "read", "update", "delete", "list"]
+}
+HCL
+vault_exec write "auth/kubernetes/role/$POLICY_ROLE" \
+  bound_service_account_names="$POLICY_SA" \
+  bound_service_account_namespaces="$POLICY_NS" \
+  token_policies="$POLICY_ROLE" \
+  token_ttl=10m </dev/null >/dev/null
+[[ "$(vault_exec read -field=token_policies "auth/kubernetes/role/$POLICY_ROLE" </dev/null)" == *"$POLICY_ROLE"* ]] \
+  || die "auth/kubernetes/role/$POLICY_ROLE does not read back with its policy"
+ok "role $POLICY_ROLE binds $POLICY_NS/$POLICY_SA to policy $POLICY_ROLE"
+pause
+
+# ── 8 ─────────────────────────────────────────────────────────────────────
 stage "Prove Flux reads the estate repository"
 if ! $KUBECTL -n flux-system get gitrepository platform >/dev/null 2>&1; then
   warn "GitRepository flux-system/platform is not applied yet (fleet-infra's estate.yaml)"
