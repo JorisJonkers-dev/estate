@@ -215,6 +215,13 @@ fi
 gh variable set ESTATE_COLLECTOR_APP_ID --repo "$ORG/estate" --body "$(_existing ESTATE_COLLECTOR_APP_ID)" >/dev/null ||
   die "could not set ESTATE_COLLECTOR_APP_ID on $ORG/estate"
 ok "estate's ESTATE_COLLECTOR_APP_ID is $(_existing ESTATE_COLLECTOR_APP_ID)"
+# A repository secret of the same name is readable from any branch, and is what
+# a job outside the environment would read: none may exist.
+if gh secret list --repo "$ORG/estate" --json name --jq '.[].name' | grep -qx ESTATE_COLLECTOR_APP_PRIVATE_KEY; then
+  gh secret delete ESTATE_COLLECTOR_APP_PRIVATE_KEY --repo "$ORG/estate" >/dev/null ||
+    die "could not remove the repository-wide ESTATE_COLLECTOR_APP_PRIVATE_KEY from $ORG/estate"
+fi
+ok "no repository-wide copy of the Collector's key"
 pause
 
 finish
