@@ -214,12 +214,33 @@ pause
 stage "Vault: the role the policy job logs in as"
 # The job writes every rendered policy and Kubernetes auth role, so its own
 # role is the one thing it cannot create: it exists before the first render.
+#
+# What it may write is everything a render can hold, so a compromised job is
+# a compromised Vault; what is denied below is what a render never needs, so
+# it cannot quietly keep that access: changing its own policy or role, the
+# built-in policies, or minting a role that hands out policy-admin or root.
 vault_exec policy write "$POLICY_ROLE" - >/dev/null <<'HCL'
 path "sys/policies/acl/*" {
   capabilities = ["create", "read", "update", "delete", "list"]
 }
 path "auth/kubernetes/role/*" {
   capabilities = ["create", "read", "update", "delete", "list"]
+  denied_parameters = {
+    "token_policies" = ["policy-admin", "root"]
+    "policies"       = ["policy-admin", "root"]
+  }
+}
+path "sys/policies/acl/policy-admin" {
+  capabilities = ["deny"]
+}
+path "sys/policies/acl/root" {
+  capabilities = ["deny"]
+}
+path "sys/policies/acl/default" {
+  capabilities = ["deny"]
+}
+path "auth/kubernetes/role/policy-admin" {
+  capabilities = ["deny"]
 }
 HCL
 vault_exec write "auth/kubernetes/role/$POLICY_ROLE" \
