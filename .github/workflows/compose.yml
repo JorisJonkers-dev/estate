@@ -440,12 +440,11 @@ jobs:
         run: |
           # The deploy: one commit moves every Project whose artifact changed.
           while read -r project digest; do
-            # A Project delivered for the first time takes the source the
-            # toolkit wrote for it, once; afterwards only its digest moves.
-            if [ ! -f "projects/${project}/source.yaml" ]; then
-              mkdir -p "projects/${project}"
-              cp "composed/projects/${project}/source.yaml" "projects/${project}/source.yaml"
-            fi
+            # The toolkit wrote the source of every artifact whose pin moves;
+            # it replaces the committed one, so a unit the artifact gains is
+            # applied (deploy-kit spec/v1/55-delivery.md#what-a-pin-source-holds).
+            mkdir -p "projects/${project}"
+            cp "composed/projects/${project}/source.yaml" "projects/${project}/source.yaml"
             DIGEST="$digest" yq -i '(select(.kind == "OCIRepository") | .spec.ref.digest) = strenv(DIGEST)' \
               "projects/${project}/source.yaml"
           done < moved.txt
