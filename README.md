@@ -9,6 +9,8 @@ this repository's shape is deploy-kit's `spec/v1/60-setup.md#the-estate-reposito
 |---|---|---|
 | [`platform.intent.yml`](platform.intent.yml) | the Platform document: what the estate offers, and the handover ledger | a human, by pull request |
 | [`platform/`](platform/) | the platform's own project files, `<project>.project.yml`: `edge`, `observability`, `secrets` | a human, by pull request |
+| [`node-contract.yml`](node-contract.yml) | what each node offers a placement, which the Platform document pins by digest | copied from JorisJonkers-dev/nix-config, which generates it from its node files |
+| [`images.lock.yml`](images.lock.yml) | every image the platform's own projects and policies name, by digest and user | a human, by pull request |
 | [`cluster-state.yml`](cluster-state.yml) | the ClusterState snapshot | the Collector |
 | the composition lock | the inputs the last composition rendered from | the composition workflow, from its first run |
 | [`projects/<project>/source.yaml`](projects/) | one pin per Project on the estate path | the composition workflow |

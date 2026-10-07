@@ -16,13 +16,11 @@ owner: joris
 metadata:
   cluster: production
   project: jorisjonkers.dev
-  # The node contract this document is composed against, by digest. The v1
-  # contract (deploy-kit spec/v1/60-setup.md#node-facts) is not generated yet:
-  # nix-config/generated/node-contract.yml is still the earlier
-  # deployment.jorisjonkers.dev/node-contract shape. Until it is, this digest
-  # names no document, so a composition refuses E_NODE_CONTRACT_MISMATCH
-  # rather than placing anything against a contract nobody checked.
-  nodeContract: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  # The node contract this document is composed against, by digest: the
+  # node-contract.yml beside it, which nix-config renders from its node files
+  # (deploy-kit spec/v1/60-setup.md#node-facts). A contract that moves without
+  # this digest moving is E_NODE_CONTRACT_MISMATCH.
+  nodeContract: "sha256:be9cff298537a9625c68e91d52defae064c123d34964f214414a90c14a6d02aa"
 
 # Facts about the cluster, named for what they are.
 substrate:

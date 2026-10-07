@@ -1,0 +1,92 @@
+# GENERATED. Never hand-edit. The node contract, copied from
+# JorisJonkers-dev/nix-config generated/node-contract.v1.yml at 0144ff4bb9f6f9cca6a54dbc6b579840c487535c, which
+# renders it from inventory/nodes/*.yml, the one authored source of node facts
+# (deploy-kit spec/v1/60-setup.md#node-facts). platform.intent.yml pins its digest.
+apiVersion: contract.jorisjonkers.dev/v1
+kind: NodeContract
+schemaVersion: 1.0.0
+cluster: production
+labelPrefix: platform.jorisjonkers.dev
+nodes:
+  - name: frankfurt-contabo-1
+    site: frankfurt
+    arch: amd64
+    allocatable:
+      cpu: 8000m
+      memory: 24034Mi
+    capabilities:
+      - public-ingress
+    disks:
+      - media: ssd
+        usable_gib: 352
+  - name: enschede-gtx-960m-1
+    site: enschede
+    arch: amd64
+    allocatable:
+      cpu: 8000m
+      memory: 15906Mi
+    capabilities:
+      - lan-ingress
+      - nvidia
+      - adguard
+    gpus:
+      - vendor: nvidia
+        model: gtx960m
+        class: transcode
+        memory_mib: 2048
+    disks:
+      - media: ssd
+        usable_gib: 416
+  - name: enschede-t1000-1
+    site: enschede
+    arch: amd64
+    allocatable:
+      cpu: 12000m
+      memory: 39756Mi
+    capabilities:
+      - lan-ingress
+      - samba
+      - adguard
+      - backup-store
+      - nvidia
+    gpus:
+      - vendor: nvidia
+        model: t1000
+        class: transcode
+        memory_mib: 4096
+    disks:
+      - media: nvme
+        usable_gib: 416
+  - name: enschede-pi-1
+    site: enschede
+    arch: arm64
+    allocatable:
+      cpu: 4000m
+      memory: 7768Mi
+    capabilities:
+      - adguard
+    disks:
+      - media: sdcard
+        usable_gib: 40
+  - name: enschede-pi-2
+    site: enschede
+    arch: arm64
+    allocatable:
+      cpu: 4000m
+      memory: 3751Mi
+    capabilities:
+      - adguard
+    disks:
+      - media: sdcard
+        usable_gib: 40
+  - name: enschede-pi-3
+    site: enschede
+    arch: arm64
+    allocatable:
+      cpu: 4000m
+      memory: 3751Mi
+    capabilities:
+      - adguard
+    disks:
+      - media: sdcard
+        usable_gib: 40

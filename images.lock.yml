@@ -1,0 +1,61 @@
+# The images lock: every image the platform's own projects and policies name,
+# by digest, with the user it runs as (deploy-kit
+# spec/v1/20-resolved-deployment.md#the-images-lock). The Platform fragment
+# carries it beside platform.intent.yml; each application Project carries its
+# own share in its fragment.
+#
+# Resolved on 2026-10-07: each tag is the image fleet-infra runs today, or,
+# where fleet-infra runs none yet, the newest stable release, named as such.
+# `uid` and `gid` are the image's own numeric user, read from the pushed
+# image, or, where the image names its user or runs as root, the user it runs
+# as under the restricted posture.
+#
+# Not here yet, because the image is not built: the backup methods
+# (postgres-backup, rabbitmq-backup, file-backup; JorisJonkers-dev/deploy-kit#282)
+# and the Vault policy job (vault-policy; JorisJonkers-dev/delivery#25 publishes
+# it from delivery's first release). A Project whose volume derives a backup is
+# refused with E_UNLOCKED_IMAGE until they are.
+apiVersion: lock.jorisjonkers.dev/v1
+kind: ImagesLock
+schemaVersion: 1.0.0
+name: estate
+
+images:
+  # traefik chart 41.4.0, which fleet-infra runs, ships v3.7.12. The image
+  # runs as root by default; the chart runs it as 65532.
+  traefik:
+    repository: docker.io/library/traefik
+    digest: "sha256:9c2a54d87f76f5c2f5f2682c68394af92fb12c0a2686798d6462a3f84bd78eaf"
+    uid: 65532
+    gid: 65532
+
+  # 1.21.4, which fleet-infra runs. The image starts as root and drops to its
+  # own `vault` user, uid 100 and gid 1000, which is what it runs as here.
+  vault:
+    repository: docker.io/hashicorp/vault
+    digest: "sha256:4e33b126a59c0c333b76fb4e894722462659a6bec7c48c9ee8cea56fccfd2569"
+    uid: 100
+    gid: 1000
+
+  # Not run by fleet-infra yet: 0.162.0, the newest stable release.
+  otel-collector:
+    repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib
+    digest: "sha256:39923a8e431bd1f57be82411999d389fcfe40857492e4365456d97a4c1f74be6"
+    uid: 10001
+    gid: 10001
+
+  # v3.14.0-distroless, the prometheus kube-prometheus-stack 90.0.0 runs in
+  # fleet-infra.
+  prometheus:
+    repository: quay.io/prometheus/prometheus
+    digest: "sha256:50c707e96da5ade383cb1707790576480485e93de06aa60ad8802cb5f744bd0a"
+    uid: 65532
+    gid: 65532
+
+  # v0.1.0. Its image names its user (`liquibase`); this is that user's number
+  # (JorisJonkers-dev/liquibase-runner#5 states it numerically in the image).
+  liquibase-runner:
+    repository: ghcr.io/jorisjonkers-dev/liquibase-runner
+    digest: "sha256:f19a170f0285818c105939da633053b5800a7cc5d1efb4f2d8211e040bb134af"
+    uid: 1001
+    gid: 1001
