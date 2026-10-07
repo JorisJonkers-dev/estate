@@ -58,6 +58,9 @@ open="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "$LABEL" 
   --jq '[.[] | (.body | capture("<!-- estate-condition: (?<key>[^ ]+) -->") | .key) as $key
          | {key: $key, number, body}]')"
 
+# Read whole before anything acts on it: a composition.json that does not parse
+# stops here, rather than reading as no conditions and closing every issue.
+conditions="$(jq -c '.conditions[]' "$composition")"
 current=()
 while read -r condition; do
   [ -n "$condition" ] || continue
@@ -83,7 +86,7 @@ $(jq -r .body <<<"$condition")
     gh issue edit "$number" --repo "$GITHUB_REPOSITORY" --body "$body" > /dev/null
     echo "updated ${key}"
   fi
-done < <(jq -c '.conditions[]' "$composition")
+done <<<"$conditions"
 
 # A condition this run no longer reports has cleared.
 while read -r issue; do
