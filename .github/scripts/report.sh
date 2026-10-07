@@ -34,7 +34,8 @@ else
     # The dispatch App can write a status anywhere it is installed; it writes
     # one only on a commit of this owner's that a fragment named.
     if [[ "${repository,,}" != "${owner,,}/"?* || ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
-      echo "::warning::no status for ${repository}@${sha}: not a commit of ${owner}"
+      # Not printed: a value no check has passed never reaches a log line.
+      echo "::warning::a status names a repository or a commit that is not ${owner}'s; it is not written"
       continue
     fi
     GH_TOKEN="$STATUS_TOKEN" gh api --silent "repos/${repository}/statuses/${sha}" \
@@ -48,6 +49,9 @@ fi
 # Each issue carries its key, `<project>/<condition>`, in a marker the body
 # ends with, so a run finds the issue it owns whatever its title became.
 marker() { printf '<!-- estate-condition: %s -->' "$1"; }
+# A key is checked before it is printed, so no value reaches a log line as a
+# workflow command.
+valid() { [[ "$1" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?/[a-z]+(-[a-z]+)*$ ]]; }
 # shellcheck disable=SC2016 # $key is jq's, not the shell's
 open="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "$LABEL" --limit 500 \
   --json number,body \
@@ -58,6 +62,7 @@ current=()
 while read -r condition; do
   [ -n "$condition" ] || continue
   key="$(jq -r '"\(.project)/\(.condition)"' <<<"$condition")"
+  valid "$key" || { echo "::warning::a condition names no Project; it is not reported"; continue; }
   current+=("$key")
   body="$(jq -r .body <<<"$condition")
 
@@ -84,6 +89,7 @@ done < <(jq -c '.conditions[]' "$composition")
 while read -r issue; do
   [ -n "$issue" ] || continue
   key="$(jq -r .key <<<"$issue")"
+  valid "$key" || continue
   for held in ${current[@]+"${current[@]}"}; do
     [ "$held" = "$key" ] && continue 2
   done

@@ -200,10 +200,10 @@ jobs:
           bound() { # bound <signatures> <directory>: the signer is the repository named
             local named
             named="$(yq '.metadata.repository' "$2/fragment.yml" | tr '[:upper:]' '[:lower:]')"
-            case "$named" in
-              "${OWNER}/"?*) ;;
-              *) echo "::error::$(cat "$2/ref") names ${named}, outside ${OWNER}"; exit 1 ;;
-            esac
+            # Checked before it is ever printed: a value from a fragment never
+            # reaches a log line, where it could read as a workflow command.
+            [[ "$named" =~ ^${OWNER}/[a-z0-9._-]+$ ]] \
+              || { echo "::error::$(cat "$2/ref") names a repository outside ${OWNER}"; exit 1; }
             printf '%s' "$1" | jq -e --arg repository "$named" \
               '[.[].optional.githubWorkflowRepository // "" | ascii_downcase | . == $repository] | any' > /dev/null \
               || { echo "::error::$(cat "$2/ref") is not signed from ${named}, the repository it names"; exit 1; }
@@ -226,8 +226,13 @@ jobs:
             # hand: it is not read, and the Project composes where it was.
             project="$(yq '.spec.project' "$2/fragment.yml")"
             version="$(yq '.spec.version' "$2/fragment.yml")"
+            [[ "$project" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$ && "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+              || { echo "::error::$1@${digest} names no project or no release"; exit 1; }
             composed="$( { [ -f previous/lock.json ] && jq -r --arg p "$project" \
               '.spec.fragments[] | select(.project == $p) | .version' previous/lock.json; } || true)"
+            # Releases are X.Y.Z alone, so a version sort orders them as semver does.
+            [[ -z "$composed" || "$composed" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+              || { echo "::error::the previous lock holds no release for ${project}"; exit 1; }
             if [ -n "$composed" ] && [ "$(printf '%s\n%s\n' "$composed" "$version" | sort -V | tail -n 1)" != "$version" ]; then
               echo "::error::$1@${digest} is ${project} ${version}, older than ${composed} the last composition read"
               rm -rf "$2"
