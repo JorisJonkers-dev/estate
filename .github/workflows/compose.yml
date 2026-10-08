@@ -310,10 +310,11 @@ jobs:
             # Project's below the repository, the estate's beside it.
             artifact="$(yq 'select(.kind == "OCIRepository") | .spec.url' "$source")"
             artifact="${artifact#oci://}"
-            case "$artifact" in
-              "${repository}/${project}" | "${repository}-estate") ;;
-              *) echo "::error::${source} points at an artifact outside ${repository}"; exit 1 ;;
-            esac
+            # Each artifact has exactly one home: the estate's beside the
+            # repository, a Project's below it under its own name.
+            if [ "$project" = "_estate" ]; then expected="${repository}-estate"; else expected="${repository}/${project}"; fi
+            [ "$artifact" = "$expected" ] \
+              || { echo "::error::${source} points at ${artifact}, not ${expected}"; exit 1; }
             content="$(oras manifest fetch "${artifact}@${digest}" \
               | jq -er '.annotations["dev.jorisjonkers.content-hash"]')"
             annotations="$(yq -o=json 'select(.kind == "OCIRepository") | .metadata.annotations // {} | with_entries(select(.key | test("^estate\\.jorisjonkers\\.dev/")))' "$source")"
@@ -408,10 +409,11 @@ jobs:
             [ -n "$project" ] || continue
             [[ "$content" =~ ^sha256:[0-9a-f]{64}$ ]] \
               || { echo "::error::composition.json gives ${project} no content hash"; exit 1; }
-            case "$artifact" in
-              "${repository}/${project}" | "${repository}-estate") ;;
-              *) echo "::error::composition.json publishes ${project} outside ${repository}"; exit 1 ;;
-            esac
+            # Each artifact has exactly one home: the estate's beside the
+            # repository, a Project's below it under its own name.
+            if [ "$project" = "_estate" ]; then expected="${repository}-estate"; else expected="${repository}/${project}"; fi
+            [ "$artifact" = "$expected" ] \
+              || { echo "::error::composition.json publishes ${project} to ${artifact}, not ${expected}"; exit 1; }
             # The digest comes from the push itself, never from a tag another
             # run could move in between.
             digest="$(cd "composed/artifacts/${project}" && oras push "${artifact}:${content#sha256:}" \
