@@ -48,11 +48,25 @@ tokens, and they are the only actors that bypass `main`'s ruleset:
 | App | permissions | used by |
 |---|---|---|
 | `estate-dispatch` | `actions: write`, `contents: read`, `statuses: write`, on every repository | an application repository's publish workflow, to start composition; composition, to report a commit status |
-| `estate-collector` | `contents: write`, on this repository only | the Collector, to commit `cluster-state.yml`, and composition, to commit the moved pins. Its key is in Vault, and also the secret `ESTATE_COLLECTOR_APP_PRIVATE_KEY` of this repository's `compose` environment, which only `main` deploys to; its id is the variable `ESTATE_COLLECTOR_APP_ID` |
+| `estate-collector` | `contents: write`, on this repository only | the Collector, to commit `cluster-state.yml`; composition, to commit the moved pins; and the pause and resume workflows, to commit a hold. Its key is in Vault, and also the secret `ESTATE_COLLECTOR_APP_PRIVATE_KEY` of this repository's `compose` environment, which only `main` deploys to; its id is the variable `ESTATE_COLLECTOR_APP_ID` |
 
 Everything else reaches `main` by pull request. Both Apps, and every
 credential a cluster needs to read this repository, are created by
 [`bootstrap/`](bootstrap/README.md), which is also what a cluster move reruns.
+
+## Holding a Project
+
+Two workflows, run by hand from the Actions tab on `main`, hold one Project
+still without touching its repository
+([deploy-kit chapter 55](https://github.com/JorisJonkers-dev/deploy-kit/blob/main/spec/v1/55-delivery.md#pause-and-rollback)).
+Each is one commit to `projects/<project>/source.yaml`.
+
+- [`pause.yml`](.github/workflows/pause.yml) records who paused the Project,
+  when and why. Composition still checks its newest fragment and reports what
+  it finds, and moves no pin for it.
+- [`resume.yml`](.github/workflows/resume.yml) removes the record, a
+  Rollback's with it, and starts a composition, which moves the pin to the
+  Project's newest fragment.
 
 ## Handover
 
