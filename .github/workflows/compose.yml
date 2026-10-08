@@ -298,7 +298,6 @@ jobs:
           # carries, and the estate annotations on its source
           # (deploy-kit spec/v1/55-delivery.md#pause-and-rollback). _canary is
           # the bootstrap's proof, not an artifact composition publishes.
-          repository="$(yq '.bootstrap.flux.artifacts.repository' platform-fragment/platform.intent.yml)"
           echo '{}' > pins.json
           for source in projects/*/source.yaml; do
             project="$(basename "$(dirname "$source")")"
@@ -306,7 +305,11 @@ jobs:
             digest="$(yq 'select(.kind == "OCIRepository") | .spec.ref.digest' "$source")"
             # A source whose first publish never landed names no artifact.
             [ "$digest" = "sha256:$(printf '0%.0s' $(seq 64))" ] && continue
-            content="$(oras manifest fetch "${repository}/${project}@${digest}" \
+            # Where the artifact is published is what its own source pins,
+            # never a name rebuilt here: the estate-scoped one sits beside the
+            # Projects' repository, not below it.
+            url="$(yq 'select(.kind == "OCIRepository") | .spec.url' "$source")"
+            content="$(oras manifest fetch "${url#oci://}@${digest}" \
               | jq -er '.annotations["dev.jorisjonkers.content-hash"]')"
             annotations="$(yq -o=json 'select(.kind == "OCIRepository") | .metadata.annotations // {} | with_entries(select(.key | test("^estate\\.jorisjonkers\\.dev/")))' "$source")"
             jq --arg p "$project" --arg c "$content" --argjson a "$annotations" \
@@ -388,37 +391,38 @@ jobs:
         env:
           LOCK_DIGEST: ${{ steps.lock.outputs.digest }}
         run: |
-          repository="$(yq '.bootstrap.flux.artifacts.repository' platform-fragment/platform.intent.yml)"
           render_hash="$(jq -r '.spec.composedDigest' composed/lock.json)"
           : > moved.txt
-          for row in $(jq -r '.artifacts[] | select(.moves) | "\(.name)=\(.contentHash)"' composed/composition.json); do
+          # Each artifact is published where composition.json names it, which
+          # is where its pin source points (deploy-kit
+          # spec/v1/55-delivery.md#what-a-pin-source-holds): the estate-scoped
+          # one beside the Projects' repository, since an OCI path component
+          # cannot start with an underscore.
+          for row in $(jq -r '.artifacts[] | select(.moves) | "\(.name)=\(.contentHash)=\(.repository)"' composed/composition.json); do
             project="${row%%=*}"
-            content="${row#*=}"
+            rest="${row#*=}"
+            content="${rest%%=*}"
+            repository="${rest#*=}"
             # The digest comes from the push itself, never from a tag another
             # run could move in between.
-            digest="$(cd "composed/artifacts/${project}" && oras push "${repository}/${project}:${content#sha256:}" \
+            digest="$(cd "composed/artifacts/${project}" && oras push "${repository}:${content#sha256:}" \
               --annotation "dev.jorisjonkers.content-hash=${content}" \
               --annotation "dev.jorisjonkers.render-hash=${render_hash}" \
               --annotation "dev.jorisjonkers.lock-digest=${LOCK_DIGEST}" \
               --annotation "org.opencontainers.image.revision=${GITHUB_SHA}" \
               --format go-template='{{.digest}}' .)"
-            cosign sign --yes "${repository}/${project}@${digest}"
-            echo "${project} ${digest}" >> moved.txt
+            cosign sign --yes "${repository}@${digest}"
+            echo "${project} ${digest} ${repository}" >> moved.txt
           done
-          {
-            echo "repository=${repository}"
-            if [ -s moved.txt ]; then echo "moved=true"; else echo "moved=false"; fi
-          } >> "$GITHUB_OUTPUT"
+          if [ -s moved.txt ]; then echo "moved=true"; else echo "moved=false"; fi >> "$GITHUB_OUTPUT"
 
       # Verified the way Flux will: by digest, against the signer the Platform
       # document records, which the pull step held equal to this workflow's.
       - name: Verify each artifact as Flux will
         if: ${{ success() && github.ref == 'refs/heads/main' }}
-        env:
-          RENDERS: ${{ steps.render.outputs.repository }}
         run: |
-          while read -r project digest; do
-            cosign verify "${RENDERS}/${project}@${digest}" \
+          while read -r project digest repository; do
+            cosign verify "${repository}@${digest}" \
               --certificate-oidc-issuer "$SIGNER_ISSUER" \
               --certificate-identity "$SIGNER_SUBJECT" > /dev/null
             echo "verified ${project}@${digest}"
@@ -439,7 +443,7 @@ jobs:
           TOKEN: ${{ steps.pin-token.outputs.token }}
         run: |
           # The deploy: one commit moves every Project whose artifact changed.
-          while read -r project digest; do
+          while read -r project digest _repository; do
             # The toolkit wrote the source of every artifact whose pin moves;
             # it replaces the committed one, so a unit the artifact gains is
             # applied (deploy-kit spec/v1/55-delivery.md#what-a-pin-source-holds).
