@@ -1,0 +1,58 @@
+# Pause one Project: its pin stays where it is until a resume, though
+# composition still checks its newest fragment and reports what it finds
+# (deploy-kit spec/v1/55-delivery.md#pause-and-rollback). One commit to
+# projects/<project>/source.yaml records who paused it, when and why.
+name: Pause
+
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: The Project to pause, as the participants list names it
+        required: true
+        type: string
+      reason:
+        description: Why, recorded on the pin file
+        required: true
+        type: string
+
+permissions: {}
+
+# One hold edit at a time. A composition's pin commit may still land between
+# the fetch and the push: hold.sh replays its edit on the newer main.
+concurrency:
+  group: hold
+  cancel-in-progress: false
+
+jobs:
+  pause:
+    name: Pause ${{ inputs.project }}
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # The Collector's key lives in this environment alone, which only main
+    # deploys to.
+    environment: compose
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The Collector App commits to the pin files: it alone holds contents:
+      # write on this repository and bypasses main's ruleset
+      # (.github/rulesets/README.md).
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: token
+        with:
+          app-id: ${{ vars.ESTATE_COLLECTOR_APP_ID }}
+          private-key: ${{ secrets.ESTATE_COLLECTOR_APP_PRIVATE_KEY }}
+
+      - name: Pause the Project
+        env:
+          PROJECT: ${{ inputs.project }}
+          ACTOR: ${{ github.actor }}
+          REASON: ${{ inputs.reason }}
+          PUSH_URL: https://x-access-token:${{ steps.token.outputs.token }}@github.com/${{ github.repository }}.git
+        run: .github/scripts/hold.sh pause "$PROJECT"
