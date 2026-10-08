@@ -40,3 +40,12 @@ participants:
     owner: joris
     reason: releases when the delivery machinery changes, not on a weekly cadence
     reviewBy: 2027-03-31
+  # JorisJonkers-dev/home-portal, the Project `app`: the first Project handed
+  # over from fleet-infra, publishing its fragment on each of its releases.
+  # Composition reads it while it is still `legacy` and delivers nothing for
+  # it until the handover ledger moves it to `estate`.
+  app:
+    dormant: true
+    owner: joris
+    reason: releases when the landing page changes, not on a weekly cadence
+    reviewBy: 2027-03-31
