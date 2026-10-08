@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.0](https://github.com/JorisJonkers-dev/estate/compare/v0.1.1...v0.2.0) (2026-10-08)
+
+
+### Features
+
+* compose the estate, publish each moved Project's render and commit its pin ([#21](https://github.com/JorisJonkers-dev/estate/issues/21)) ([64ee3b1](https://github.com/JorisJonkers-dev/estate/commit/64ee3b1fc0f855352c84cc7f5fe986a22c9f4b05))
+* **deploy:** pause and resume a Project by hand ([#25](https://github.com/JorisJonkers-dev/estate/issues/25)) ([6b0c513](https://github.com/JorisJonkers-dev/estate/commit/6b0c513653da33ef57af0cb28c0ef8bddc8b3ad9))
+* list home-portal's Project app as a participant, and compose with deploy-kit 0.9.1 ([#26](https://github.com/JorisJonkers-dev/estate/issues/26)) ([47007d6](https://github.com/JorisJonkers-dev/estate/commit/47007d6e9f5c1f7e9dcea0cc7cec97b74a7a2a28))
+* pull the renders with render-pull, compose with deploy-kit 0.10.0, and write the two unapplied pin sources again ([#29](https://github.com/JorisJonkers-dev/estate/issues/29)) ([60d135f](https://github.com/JorisJonkers-dev/estate/commit/60d135ff35c0946cf6d7d3a43594691747fd9c79))
+
+
+### Bug Fixes
+
+* **compose:** publish each artifact at the repository composition names, and read a pin's from its own source ([#28](https://github.com/JorisJonkers-dev/estate/issues/28)) ([217ca07](https://github.com/JorisJonkers-dev/estate/commit/217ca07b6e30f45c11215bd09bf1420f797399c0))
+* **compose:** pull the Platform fragment beside, not into, the repository's platform directory ([#23](https://github.com/JorisJonkers-dev/estate/issues/23)) ([6b45278](https://github.com/JorisJonkers-dev/estate/commit/6b45278a6bb620e0fcc03de1cfaf98f363d64d60))
+
 ## [0.1.1](https://github.com/JorisJonkers-dev/estate/compare/v0.1.0...v0.1.1) (2026-10-07)
 
 
