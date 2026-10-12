@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/JorisJonkers-dev/estate/compare/v0.2.0...v0.2.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* name grimoire, tribelt, latex and knowledge-platform on the handover ledger ([#31](https://github.com/JorisJonkers-dev/estate/issues/31)) ([b393a28](https://github.com/JorisJonkers-dev/estate/commit/b393a28f265633c922bf2d16667b842f86d86f67))
+
 ## [0.2.0](https://github.com/JorisJonkers-dev/estate/compare/v0.1.1...v0.2.0) (2026-10-08)
 
 
