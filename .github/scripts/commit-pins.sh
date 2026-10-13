@@ -11,8 +11,7 @@
 # - The pin stays, and the committed source no longer says what composition
 #   derives: the Platform document's repository, signer or pull Secret
 #   changed, or a unit it follows joined the estate path. The source replaces
-#   the committed one at the digest that one names, so it deploys nothing. One
-#   that differs from the committed source only in how it is written is left.
+#   the committed one at the digest that one names, so it deploys nothing.
 #
 # Commits nothing where composition wrote nothing. Never pushes: the caller
 # does, with the Collector App's token, and only when `committed=true`.
@@ -27,8 +26,6 @@ composed="${2:-}"
 }
 
 digest_of() { yq 'select(.kind == "OCIRepository") | .spec.ref.digest' "$1"; }
-# Whether two sources hold the same objects, however each is written.
-same() { cmp -s <(yq -o=json -I=0 '.' "$1") <(yq -o=json -I=0 '.' "$2"); }
 
 while read -r project digest _repository; do
   mkdir -p "projects/${project}"
@@ -51,12 +48,6 @@ for source in "${composed}"/*/source.yaml; do
     echo "::error::${project}: composition wrote a pin source that moves a pin it did not publish"
     exit 1
   }
-  # Composition compares the text, and a Pause writes its time quoted where
-  # composition writes it bare: a source that says what the committed one says
-  # is not a change, and committing it would follow every Pause with a commit
-  # that changes nothing. Composition's own to decide; held here until it does
-  # (JorisJonkers-dev/deploy-kit#412).
-  same "$source" "$committed" && continue
   cp "$source" "$committed"
   rewritten="${rewritten:+${rewritten},}${project}"
 done
