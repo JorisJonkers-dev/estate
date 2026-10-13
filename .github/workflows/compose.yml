@@ -2,6 +2,8 @@
 # with the pinned `deploy-kit compose`, publishes one signed Rendered artifact
 # per Project whose render moved, and commits the moved pins: that commit is
 # the deploy (deploy-kit spec/v1/55-delivery.md#rendered-artifacts-and-pins).
+# It also commits a pin source composition rewrites while its pin stays, which
+# deploys nothing (deploy-kit spec/v1/55-delivery.md#what-a-pin-source-holds).
 # Its path and branch are the signer the Platform document names
 # (bootstrap.flux.artifacts.signer), so Flux verifies every render against
 # this workflow on main.
@@ -128,7 +130,8 @@ jobs:
   # Composition proper (deploy-kit spec/v1/examples/workflows/compose.yml,
   # adapted to this repository): pull every participant, run the pinned
   # `deploy-kit compose` once, publish the lock, publish and sign one artifact
-  # per Project whose render moved, commit the moved pins, and report.
+  # per Project whose render moved, commit the moved pins and the pin sources
+  # composition rewrote, and report.
   #
   # Every step that deploys runs only on main and only when every step before
   # it succeeded; the report runs whatever happened, so a failure still
@@ -356,6 +359,9 @@ jobs:
           # The union, every estate-wide invariant, isolation and the render, in
           # one run; only a refused Platform document, or an error no fragment
           # caused, exits 1 (deploy-kit spec/v1/40-composition.md#the-composition-run).
+          # `--sources` hands it the committed pin sources, so it also writes the
+          # source of a pin that stays where the committed one no longer says
+          # what it derives (deploy-kit spec/v1/55-delivery.md#what-a-pin-source-holds).
           integrity="$(node -p "require('./package-lock.json').packages['node_modules/@jorisjonkers-dev/deploy-kit'].integrity")"
           # shellcheck disable=SC2086 # LOCK is two options or none
           npx --no-install deploy-kit compose \
@@ -364,6 +370,7 @@ jobs:
             --participants participants.yml \
             --held held \
             --pins pins.json \
+            --sources projects \
             $LOCK \
             --cluster-state cluster-state.yml \
             --schema-package-integrity "$integrity" \
@@ -386,7 +393,6 @@ jobs:
           echo "digest=${digest}" >> "$GITHUB_OUTPUT"
 
       - name: Publish one signed artifact per moved Project
-        id: render
         if: ${{ success() && github.ref == 'refs/heads/main' }}
         env:
           LOCK_DIGEST: ${{ steps.lock.outputs.digest }}
@@ -414,7 +420,6 @@ jobs:
             cosign sign --yes "${repository}@${digest}"
             echo "${project} ${digest} ${repository}" >> moved.txt
           done
-          if [ -s moved.txt ]; then echo "moved=true"; else echo "moved=false"; fi >> "$GITHUB_OUTPUT"
 
       # Verified the way Flux will: by digest, against the signer the Platform
       # document records, which the pull step held equal to this workflow's.
@@ -428,35 +433,28 @@ jobs:
             echo "verified ${project}@${digest}"
           done < moved.txt
 
-      # The Collector App commits the pins: it alone holds contents: write on
+      # One local commit: every moved pin, and every pin source composition
+      # rewrote while its pin stays. Nothing is committed where it wrote
+      # neither, and then no token is minted and nothing is pushed.
+      - name: Commit the pin sources
+        id: pins
+        if: ${{ success() && github.ref == 'refs/heads/main' }}
+        run: bash .github/scripts/commit-pins.sh moved.txt composed/projects
+
+      # The Collector App pushes the commit: it alone holds contents: write on
       # this repository and bypasses main's ruleset (.github/rulesets/README.md).
       - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         id: pin-token
-        if: ${{ success() && github.ref == 'refs/heads/main' && steps.render.outputs.moved == 'true' }}
+        if: ${{ success() && github.ref == 'refs/heads/main' && steps.pins.outputs.committed == 'true' }}
         with:
           app-id: ${{ vars.ESTATE_COLLECTOR_APP_ID }}
           private-key: ${{ secrets.ESTATE_COLLECTOR_APP_PRIVATE_KEY }}
 
-      - name: Commit the moved pins
-        if: ${{ success() && github.ref == 'refs/heads/main' && steps.render.outputs.moved == 'true' }}
+      - name: Push the pin commit
+        if: ${{ success() && github.ref == 'refs/heads/main' && steps.pins.outputs.committed == 'true' }}
         env:
           TOKEN: ${{ steps.pin-token.outputs.token }}
-        run: |
-          # The deploy: one commit moves every Project whose artifact changed.
-          while read -r project digest _repository; do
-            # The toolkit wrote the source of every artifact whose pin moves;
-            # it replaces the committed one, so a unit the artifact gains is
-            # applied (deploy-kit spec/v1/55-delivery.md#what-a-pin-source-holds).
-            mkdir -p "projects/${project}"
-            cp "composed/projects/${project}/source.yaml" "projects/${project}/source.yaml"
-            DIGEST="$digest" yq -i '(select(.kind == "OCIRepository") | .spec.ref.digest) = strenv(DIGEST)' \
-              "projects/${project}/source.yaml"
-          done < moved.txt
-          git config user.name "estate-composition"
-          git config user.email "estate-composition@users.noreply.github.com"
-          git add projects
-          git commit -m "chore(deploy): $(cut -d' ' -f1 moved.txt | paste -sd, -) [ci skip]"
-          git push "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
+        run: git push "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
 
       # The dispatch App reports a status on each publishing commit: it holds
       # statuses: write on every repository (deploy-kit spec/v1/60-setup.md#the-estate-repository).
