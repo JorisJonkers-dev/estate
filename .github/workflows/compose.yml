@@ -161,9 +161,10 @@ jobs:
   compose:
     name: Deliver to production
     runs-on: ubuntu-latest
-    # The Collector's key lives in this environment alone, which only main
-    # deploys to, so a run from any other branch cannot read it.
-    environment: compose
+    # The Collector's key lives in the production environment alone, which only
+    # main may use. Every run is one deployment to production: the pin commit is
+    # the deploy.
+    environment: production
     timeout-minutes: 20
     permissions:
       contents: read
