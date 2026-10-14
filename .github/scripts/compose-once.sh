@@ -1,23 +1,30 @@
 #!/usr/bin/env bash
-# compose-once.sh <since>: start composition, and wait until one Compose run
-# started at or after <since> (an RFC 3339 time) has succeeded, so it read
-# main as it stood then. A run that composition's concurrency replaced is
-# started again; a run that failed fails this.
+# compose-once.sh <since> <commit>: start composition, and wait until one
+# Compose run started at or after <since> (an RFC 3339 time) has succeeded on
+# a main that holds <commit>, so it composed what that commit asked for. A run
+# that composition's concurrency replaced is started again; a run that failed
+# fails this, and so does a success on a main without <commit>.
 #
-# Reads GH_TOKEN and GITHUB_REPOSITORY.
+# Reads GH_TOKEN, GITHUB_REPOSITORY and PUSH_URL.
 set -euo pipefail
 
-since="${1:?usage: compose-once.sh <since>}"
+since="${1:?usage: compose-once.sh <since> <commit>}"
+commit="${2:?usage: compose-once.sh <since> <commit>}"
 gh workflow run compose.yml --repo "$GITHUB_REPOSITORY" --ref main
 for _ in $(seq 1 80); do
   sleep 15
   runs="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow compose.yml --limit 20 \
-    --json status,conclusion,createdAt,databaseId \
+    --json status,conclusion,createdAt,databaseId,headSha \
     --jq "[.[] | select(.createdAt >= \"${since}\")]")"
-  if jq -e '[.[] | select(.conclusion == "success")] | length > 0' <<< "$runs" > /dev/null; then
-    echo "composed: run $(jq -r '[.[] | select(.conclusion == "success")][0].databaseId' <<< "$runs")"
-    exit 0
-  fi
+  for run in $(jq -r '.[] | select(.conclusion == "success") | "\(.databaseId)/\(.headSha)"' <<< "$runs"); do
+    git fetch --quiet "$PUSH_URL" main
+    if git merge-base --is-ancestor "$commit" "${run#*/}"; then
+      echo "composed: run ${run%%/*}, on ${run#*/}"
+      exit 0
+    fi
+    echo "::error::run ${run%%/*} composed ${run#*/}, which does not hold ${commit}"
+    exit 1
+  done
   if jq -e '[.[] | select(.conclusion == "failure")] | length > 0' <<< "$runs" > /dev/null; then
     echo "::error::composition failed: run $(jq -r '[.[] | select(.conclusion == "failure")][0].databaseId' <<< "$runs")"
     exit 1

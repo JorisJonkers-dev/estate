@@ -4,19 +4,23 @@
 # rollback workflow runs in order.
 #
 #   target  <project> <version>   refuse a release that is not the proven one;
-#                                 write fragment=<image@digest> to $GITHUB_OUTPUT
+#                                 write fragment=<image@digest> and
+#                                 pinned=<image@digest> to $GITHUB_OUTPUT
 #   ask     <project> <request>   pause the Project and ask for its backup
 #   expect  <project> <request>   the backup Jobs composition rendered for the
 #                                 request, one name a line, into expected.txt
 #   await   <project> <request>   wait until each expected Job ended; fail on a
 #                                 failed, unknown or missing one by DEADLINE
-#   record  <project> <version> <fragment>
-#                                 drop the request, record the target
+#   record  <project> <version> <fragment> <pinned>
+#                                 drop the request and record the target, once
+#                                 the pin is still the one the target was
+#                                 proven against
 #   stop    <project> <why>       drop the request, leave the Project paused
 #
 # Reads ACTOR and REASON (ask), PUSH_URL (every step that commits), OWNER,
-# COMPOSED, SIGNER_ISSUER and SIGNER_SUBJECT (target, expect) and DEADLINE, an
-# epoch second (await). Every commit replays its edit on a newer main when a
+# COMPOSED, SIGNER_ISSUER, SIGNER_SUBJECT and FRAGMENT_SIGNER (target, record)
+# and DEADLINE, an epoch second (await). The steps share the job's working
+# directory: expect reads the pinned release target pulled. Every commit replays its edit on a newer main when a
 # composition's pin commit landed first, as hold.sh does.
 set -euo pipefail
 
@@ -56,6 +60,10 @@ commit() { # commit <message> <edit function>: one commit to the pin source, pus
   exit 1
 }
 
+latest_lock() { # latest_lock <directory>: the newest composition's lock, verified
+  composed_lock "$(oras resolve "${COMPOSED}:latest")" "$1"
+}
+
 composed_lock() { # composed_lock <digest> <directory>: a composition's lock, verified
   cosign verify "${COMPOSED}@$1" \
     --certificate-oidc-issuer "$SIGNER_ISSUER" --certificate-identity "$SIGNER_SUBJECT" > /dev/null \
@@ -73,7 +81,7 @@ target)
     || { echo "::error::${project} is already being rolled back; resume it first"; exit 1; }
 
   # What the Project is pinned to: the newest composition's lock says.
-  composed_lock "$(oras resolve "${COMPOSED}:latest")" latest
+  latest_lock latest
   current="$(jq -r --arg p "$project" '.spec.fragments[$p].ref // ""' latest/lock.json)"
   serving="$(jq -r --arg p "$project" '.spec.fragments[$p].version // ""' latest/lock.json)"
   [ -n "$current" ] || { echo "::error::${project} has never composed"; exit 1; }
@@ -84,9 +92,18 @@ target)
   image="ghcr.io/${OWNER}/intent-${project}"
   digest="$(oras resolve "${image}:${version}" 2> /dev/null)" \
     || { echo "::error::${project} has no release ${version}"; exit 1; }
+  # Signed by publish-fragment from the repository it names, as composition
+  # holds every fragment it reads, before anything of it is read.
+  signatures="$(cosign verify "${image}@${digest}" \
+    --certificate-oidc-issuer "$SIGNER_ISSUER" --certificate-identity-regexp "$FRAGMENT_SIGNER")" \
+    || { echo "::error::${image}@${digest} is not signed by publish-fragment"; exit 1; }
   oras pull "${image}@${digest}" --output asked > /dev/null
   [ "$(yq '.spec.project' asked/fragment.yml)" = "$project" ] && [ "$(yq '.spec.version' asked/fragment.yml)" = "$version" ] \
     || { echo "::error::${image}:${version} is not ${project} ${version}"; exit 1; }
+  named="$(yq '.metadata.repository' asked/fragment.yml | tr '[:upper:]' '[:lower:]')"
+  printf '%s' "$signatures" | jq -e --arg repository "$named" \
+    '[.[].optional.githubWorkflowRepository // "" | ascii_downcase | . == $repository] | any' > /dev/null \
+    || { echo "::error::${image}@${digest} is not signed from ${named}, the repository it names"; exit 1; }
 
   # Only a release proven against the schema the pinned release left: the one
   # whose rendered revision every Application's Migration Proof names. A
@@ -112,6 +129,7 @@ target)
       || { echo "::error::${project} ${version} is not the release ${serving}'s Migration Proof names; only that one runs against the current schema"; exit 1; }
   fi
   echo "fragment=${image}@${digest}" >> "$GITHUB_OUTPUT"
+  echo "pinned=${current}" >> "$GITHUB_OUTPUT"
   echo "${project} ${version} is proven: ${image}@${digest}"
   ;;
 
@@ -135,16 +153,27 @@ expect)
   git fetch --quiet "$PUSH_URL" main
   git reset --quiet --hard FETCH_HEAD
   : > expected.txt
+  # Whether the pinned release has anything to back up: a volume of a class
+  # that derives a backup. Only then may the render hold no Job, so a render
+  # that dropped the request fails here rather than rolling back unprotected.
+  backed_up="$(cat pinned/*.project.yml | yq -N '[.. | select(tag == "!!map" and has("durability")) | .durability | select(. == "recoverable" or . == "irreplaceable")] | length')"
+  none() {
+    if [ "$backed_up" = 0 ]; then
+      echo "::notice::${project}'s pinned release has no backed-up volume: there is nothing to back up"
+      exit 0
+    fi
+    echo "::error::${project}'s pinned release has ${backed_up} backed-up volume(s), but $1"
+    exit 1
+  }
   estate="projects/_estate/source.yaml"
   if [ "$(yq 'select(.kind == "Kustomization" and .metadata.name == "estate-rollback-backups") | .metadata.name' "$estate")" = "" ]; then
-    echo "::notice::the render holds no backup Job: ${project} has no backed-up volume"
-    exit 0
+    none "the render applies no backup unit"
   fi
   url="$(yq "${repository} | .spec.url" "$estate")"
   digest="$(yq "${repository} | .spec.ref.digest" "$estate")"
   oras pull "${url#oci://}@${digest}" --output estate-render > /dev/null
   jobs="estate-render/estate/rollback-backups/${project}.yaml"
-  [ -f "$jobs" ] || { echo "::notice::the render holds no backup Job for ${project}"; exit 0; }
+  [ -f "$jobs" ] || none "the render holds no backup Job for it"
   REQUEST="$request" yq -N 'select(.kind == "Job" and .metadata.labels["estate.jorisjonkers.dev/rollback-backup"] == strenv(REQUEST)) | .metadata.name' "$jobs" \
     | sort > expected.txt
   [ -s expected.txt ] || { echo "::error::the render holds backup Jobs for ${project}, but none for request ${request}"; exit 1; }
@@ -183,6 +212,13 @@ await)
 record)
   version="${3:-}"
   fragment="${4:-}"
+  pinned="${5:-}"
+  # The proof was read from the release pinned when the run began. The Pause
+  # froze that pin, but a composition may have moved it before the Pause
+  # landed: a different pin is a different proof, and the run stops.
+  latest_lock now
+  [ "$(jq -r --arg p "$project" '.spec.fragments[$p].ref // ""' now/lock.json)" = "$pinned" ] \
+    || { echo "::error::${project}'s pin moved since its release was proven; run the rollback again"; exit 1; }
   record_edit() {
     VERSION="$version" FRAGMENT="$fragment" yq -i "
       del(${repository} | .metadata.annotations[\"${key}rollback-backup\"]) |
