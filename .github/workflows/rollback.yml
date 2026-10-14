@@ -1,0 +1,149 @@
+# Roll one Project back to an earlier release
+# (deploy-kit spec/v1/55-delivery.md#pause-and-rollback). In order:
+#
+# 1. Only the proven release is taken: the one the pinned release's Migration
+#    Proof names, or any earlier one where it proves nothing. Anything else is
+#    refused before anything runs.
+# 2. A backup first, through Flux: one commit pauses the Project and asks for
+#    its backup, composition renders one-shot backup Jobs beside it, and the
+#    Collector reports in cluster-state.yml how each ended. The run waits 45
+#    minutes for every Job the render holds to succeed.
+# 3. Only then a second commit records the release, and composition moves the
+#    pin there. A backup that failed, or did not end in time, drops the request
+#    and leaves the Project paused where it was.
+# 4. The Project stays paused either way: resuming is a human's call.
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: The Project to roll back, as the participants list names it
+        required: true
+        type: string
+      version:
+        description: The release to go back to, as its repository tagged it (1.4.2)
+        required: true
+        type: string
+      reason:
+        description: Why, recorded on the pin file
+        required: true
+        type: string
+
+permissions: {}
+
+# One hold edit at a time, with Pause and Resume.
+concurrency:
+  group: hold
+  cancel-in-progress: false
+
+env:
+  OWNER: jorisjonkers-dev
+  COMPOSED: ghcr.io/jorisjonkers-dev/composed
+  SIGNER_ISSUER: https://token.actions.githubusercontent.com
+  SIGNER_SUBJECT: https://github.com/JorisJonkers-dev/estate/.github/workflows/compose.yml@refs/heads/main
+
+jobs:
+  rollback:
+    name: Roll ${{ inputs.project }} back to ${{ inputs.version }}
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # The Collector's key lives in this environment alone, which only main
+    # deploys to.
+    environment: compose
+    timeout-minutes: 70
+    permissions:
+      contents: read
+      packages: read
+      # To start composition, and to see when it has run.
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: oras-project/setup-oras@005458ad77f1c8facd38a094e4af2e69e5607ff4 # v2.0.2
+        with:
+          version: 1.3.4
+
+      - uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+        with:
+          cosign-release: v2.6.1
+
+      - name: Log in to the registry
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          echo "$GITHUB_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          echo "$GITHUB_TOKEN" | cosign login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Refuse a release that is not proven
+        id: target
+        env:
+          PROJECT: ${{ inputs.project }}
+          VERSION: ${{ inputs.version }}
+        run: .github/scripts/rollback.sh target "$PROJECT" "$VERSION"
+
+      # The Collector App commits to the pin files: it alone holds contents:
+      # write on this repository and bypasses main's ruleset
+      # (.github/rulesets/README.md).
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: token
+        with:
+          app-id: ${{ vars.ESTATE_COLLECTOR_APP_ID }}
+          private-key: ${{ secrets.ESTATE_COLLECTOR_APP_PRIVATE_KEY }}
+
+      - name: Pause the Project and ask for its backup
+        id: ask
+        env:
+          PROJECT: ${{ inputs.project }}
+          ACTOR: ${{ github.actor }}
+          REASON: ${{ inputs.reason }}
+          PUSH_URL: https://x-access-token:${{ steps.token.outputs.token }}@github.com/${{ github.repository }}.git
+        run: |
+          .github/scripts/rollback.sh ask "$PROJECT" "$GITHUB_RUN_ID"
+          echo "deadline=$(( $(date +%s) + 45 * 60 ))" >> "$GITHUB_OUTPUT"
+          echo "since=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Compose the backup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SINCE: ${{ steps.ask.outputs.since }}
+        run: .github/scripts/compose-once.sh "$SINCE"
+
+      - name: Read the backup Jobs the render holds
+        env:
+          PROJECT: ${{ inputs.project }}
+          PUSH_URL: https://x-access-token:${{ steps.token.outputs.token }}@github.com/${{ github.repository }}.git
+        run: .github/scripts/rollback.sh expect "$PROJECT" "$GITHUB_RUN_ID"
+
+      - name: Wait for every one of them to succeed
+        env:
+          PROJECT: ${{ inputs.project }}
+          DEADLINE: ${{ steps.ask.outputs.deadline }}
+          PUSH_URL: https://x-access-token:${{ steps.token.outputs.token }}@github.com/${{ github.repository }}.git
+        run: .github/scripts/rollback.sh await "$PROJECT" "$GITHUB_RUN_ID"
+
+      - name: Record the release
+        env:
+          PROJECT: ${{ inputs.project }}
+          VERSION: ${{ inputs.version }}
+          FRAGMENT: ${{ steps.target.outputs.fragment }}
+          PUSH_URL: https://x-access-token:${{ steps.token.outputs.token }}@github.com/${{ github.repository }}.git
+        run: .github/scripts/rollback.sh record "$PROJECT" "$VERSION" "$FRAGMENT"
+
+      - name: Stop, leaving the Project paused where it was
+        if: failure() && steps.ask.outcome == 'success'
+        env:
+          PROJECT: ${{ inputs.project }}
+          WHY: "rollback to ${{ inputs.version }} stopped: its backup did not succeed (run ${{ github.run_id }}); ${{ inputs.reason }}"
+          PUSH_URL: https://x-access-token:${{ steps.token.outputs.token }}@github.com/${{ github.repository }}.git
+        run: .github/scripts/rollback.sh stop "$PROJECT" "$WHY"
+
+      # Either way the pin source changed: composition moves the pin to the
+      # release, or takes the backup Jobs out of the render.
+      - name: Compose what was recorded
+        if: always() && steps.ask.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run compose.yml --repo "$GITHUB_REPOSITORY" --ref main
