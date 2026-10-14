@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/JorisJonkers-dev/estate/compare/v0.2.1...v0.2.2) (2026-10-14)
+
+
+### Bug Fixes
+
+* **platform:** state where the old path runs Vault, so the policy job lands beside it ([#37](https://github.com/JorisJonkers-dev/estate/issues/37)) ([5efbea6](https://github.com/JorisJonkers-dev/estate/commit/5efbea6873cb645f9fe203377cc0e22c4c02e759))
+
 ## [0.2.1](https://github.com/JorisJonkers-dev/estate/compare/v0.2.0...v0.2.1) (2026-10-12)
 
 
