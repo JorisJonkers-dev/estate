@@ -48,7 +48,7 @@ tokens, and they are the only actors that bypass `main`'s ruleset:
 | App | permissions | used by |
 |---|---|---|
 | `estate-dispatch` | `actions: write`, `contents: read`, `statuses: write`, on every repository | an application repository's publish workflow, to start composition; composition, to report a commit status |
-| `estate-collector` | `contents: write`, on this repository only | the Collector, to commit `cluster-state.yml`; composition, to commit the moved pins and the pin sources it rewrites; and the pause and resume workflows, to commit a hold. Its key is in Vault, and also the secret `ESTATE_COLLECTOR_APP_PRIVATE_KEY` of this repository's `compose` environment, which only `main` deploys to; its id is the variable `ESTATE_COLLECTOR_APP_ID` |
+| `estate-collector` | `contents: write`, on this repository only | the Collector, to commit `cluster-state.yml`; composition, to commit the moved pins and the pin sources it rewrites; and the pause, resume and rollback workflows, to commit a hold. Its key is in Vault, and also the secret `ESTATE_COLLECTOR_APP_PRIVATE_KEY` of this repository's `compose` environment, which only `main` deploys to; its id is the variable `ESTATE_COLLECTOR_APP_ID` |
 
 Everything else reaches `main` by pull request. Both Apps, and every
 credential a cluster needs to read this repository, are created by
@@ -56,10 +56,11 @@ credential a cluster needs to read this repository, are created by
 
 ## Holding a Project
 
-Two workflows, run by hand from the Actions tab on `main`, hold one Project
-still without touching its repository
+Three workflows, run by hand from the Actions tab on `main`, hold one Project
+still, or take it back to an earlier release, without touching its repository
 ([deploy-kit chapter 55](https://github.com/JorisJonkers-dev/deploy-kit/blob/main/spec/v1/55-delivery.md#pause-and-rollback)).
-Each is one commit to `projects/<project>/source.yaml`.
+Pause and resume are one commit each to `projects/<project>/source.yaml`; a
+rollback is two.
 
 - [`pause.yml`](.github/workflows/pause.yml) records who paused the Project,
   when and why. Composition still checks its newest fragment and reports what
@@ -67,6 +68,18 @@ Each is one commit to `projects/<project>/source.yaml`.
 - [`resume.yml`](.github/workflows/resume.yml) removes the record, a
   Rollback's with it, and starts a composition, which moves the pin to the
   Project's newest fragment.
+- [`rollback.yml`](.github/workflows/rollback.yml) takes a version, and
+  refuses it before anything runs unless it is earlier than the pinned release
+  and, where that release carries a Migration Proof, the one the proof names
+  (found by walking every composition's lock). Its first commit pauses the
+  Project and asks for a backup; composition renders one-shot backup Jobs, and
+  the run waits up to 45 minutes for the Collector to report in
+  `cluster-state.yml` that every Job the render holds succeeded. Only then does
+  its second commit record the release, and composition moves the pin there. A
+  failed, unexpected or late Job stops it with the pin where it was. Either
+  way the Project stays paused until a resume. The dump of the Project's own
+  database is not rendered yet (JorisJonkers-dev/deploy-kit#423), so a
+  Project with no backed-up volume rolls back with no backup at all.
 
 ## Handover
 
