@@ -25,7 +25,7 @@ source "$here/lib/wizard.sh"
 # shellcheck source=lib/estate.sh
 source "$here/lib/estate.sh"
 
-TOTAL_STAGES=8
+TOTAL_STAGES=9
 
 AUTH_NS=auth-system
 AUTH_HOST=${AUTH_HOST:-https://auth.jorisjonkers.dev}
@@ -40,6 +40,11 @@ DEPLOY_KEY_TITLE="flux-system/estate (read-only)"
 POLICY_ROLE=policy-admin
 POLICY_SA=vault-policy
 POLICY_NS=data-system
+# The CRDs of the bootstrap set that no render holds (platform.intent.yml
+# bootstrap.crds): Flagger's, at the release its image in the delivery Project is.
+FLAGGER_VERSION=v1.45.0
+FLAGGER_CRDS_URL="https://raw.githubusercontent.com/fluxcd/flagger/$FLAGGER_VERSION/artifacts/flagger/crd.yaml"
+FLAGGER_CRDS_SHA256=58bd594b9e33deb0edceac81f6ed160b458a7933039fb295552724f656033ee5
 
 WORK=$(umask 077 && mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
@@ -257,6 +262,24 @@ ok "role $POLICY_ROLE binds $POLICY_NS/$POLICY_SA to policy $POLICY_ROLE"
 pause
 
 # ── 8 ─────────────────────────────────────────────────────────────────────
+stage "The bootstrap set: Flagger's CRDs"
+# platform.intent.yml lists flagger.app/v1beta1 in the bootstrap set: the
+# render holds Flagger's Deployment, never its CRDs, and Flagger exits at start
+# while canaries.flagger.app is not registered. Pinned to the release the
+# delivery Project's Flagger image is, by the file's own digest.
+curl -fsSL "$FLAGGER_CRDS_URL" -o "$WORK/flagger-crds.yaml" \
+  || die "could not download $FLAGGER_CRDS_URL"
+[[ "$(shasum -a 256 "$WORK/flagger-crds.yaml" | cut -d' ' -f1)" == "$FLAGGER_CRDS_SHA256" ]] \
+  || die "$FLAGGER_CRDS_URL does not hash to $FLAGGER_CRDS_SHA256"
+$KUBECTL apply --server-side --field-manager=estate-bootstrap -f "$WORK/flagger-crds.yaml" >/dev/null \
+  || die "Flagger's CRDs did not apply"
+$KUBECTL wait --for=condition=Established --timeout=60s \
+  crd/canaries.flagger.app crd/metrictemplates.flagger.app crd/alertproviders.flagger.app >/dev/null \
+  || die "Flagger's CRDs are not established"
+ok "Flagger $FLAGGER_VERSION's CRDs are established"
+pause
+
+# ── 9 ─────────────────────────────────────────────────────────────────────
 stage "Prove Flux reads the estate repository"
 if ! $KUBECTL -n flux-system get gitrepository platform >/dev/null 2>&1; then
   warn "GitRepository flux-system/platform is not applied yet (fleet-infra's estate.yaml)"

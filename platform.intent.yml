@@ -55,7 +55,7 @@ bootstrap:
     - traefik.io/v1alpha1
     - secrets.hashicorp.com/v1beta1
     - monitoring.coreos.com/v1
-    - flagger.app/v1beta1 # the Canary every blue-green Process renders; Flagger, of the delivery Project, installs it
+    - flagger.app/v1beta1 # the Canary every blue-green Process renders; bootstrap/cluster.sh applies it, Flagger's binary never does
 
 # Where the edge terminates. A route's audience is the only way it reaches a tier.
 tiers:
