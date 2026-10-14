@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/JorisJonkers-dev/estate/compare/v0.2.2...v0.2.3) (2026-10-14)
+
+
+### Bug Fixes
+
+* **bootstrap:** apply Flagger's CRDs, which no render holds ([#39](https://github.com/JorisJonkers-dev/estate/issues/39)) ([fac623c](https://github.com/JorisJonkers-dev/estate/commit/fac623ce1c013533fc972872959ebf85ac3ad019))
+
 ## [0.2.2](https://github.com/JorisJonkers-dev/estate/compare/v0.2.1...v0.2.2) (2026-10-14)
 
 
