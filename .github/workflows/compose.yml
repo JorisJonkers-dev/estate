@@ -517,6 +517,17 @@ jobs:
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: bash .github/scripts/report.sh composed/composition.json
 
+      # One GitHub Deployment per Project whose pin reached main, on the
+      # repository that released it, as the dispatch App, which holds
+      # deployments: write on every repository (deploy-kit spec/v1/55-delivery.md#rollouts).
+      - name: Open a Deployment per moved Project
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.push.outputs.sha != '' }}
+        continue-on-error: true
+        env:
+          DEPLOY_TOKEN: ${{ steps.status-token.outputs.token }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash .github/scripts/deployments.sh composed/composition.json composed/lock.json
+
       # Last, so it never holds back what the steps above delivered: a Project
       # composition isolated (a refused, missing or stale fragment) turns the
       # run red, with one annotation per Project. compose-once.sh treats a run
