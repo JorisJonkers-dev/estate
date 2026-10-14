@@ -114,8 +114,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SINCE: ${{ steps.ask.outputs.since }}
           COMMIT: ${{ steps.ask.outputs.commit }}
+          PROJECT: ${{ inputs.project }}
+          VERSION: ${{ inputs.version }}
           PUSH_URL: https://x-access-token:${{ steps.token.outputs.token }}@github.com/${{ github.repository }}.git
-        run: .github/scripts/compose-once.sh "$SINCE" "$COMMIT"
+        run: .github/scripts/compose-once.sh "$SINCE" "$COMMIT" "back up ${PROJECT} before its rollback to ${VERSION}"
 
       - name: Read the backup Jobs the render holds
         env:
@@ -153,4 +155,13 @@ jobs:
         if: always() && steps.ask.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run compose.yml --repo "$GITHUB_REPOSITORY" --ref main
+          PROJECT: ${{ inputs.project }}
+          VERSION: ${{ inputs.version }}
+          OUTCOME: ${{ job.status }}
+        run: |
+          if [ "$OUTCOME" = success ]; then
+            reason="${PROJECT} rolled back to ${VERSION}"
+          else
+            reason="${PROJECT} rollback to ${VERSION} stopped, paused where it was"
+          fi
+          gh workflow run compose.yml --repo "$GITHUB_REPOSITORY" --ref main -f reason="$reason"

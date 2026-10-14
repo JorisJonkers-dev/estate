@@ -40,7 +40,7 @@ else
     fi
     GH_TOKEN="$STATUS_TOKEN" gh api --silent "repos/${repository}/statuses/${sha}" \
       -f state="$(jq -r .state <<<"$status")" \
-      -f context=estate/compose \
+      -f context=estate/production \
       -f description="$(jq -r '.description[0:140]' <<<"$status")" \
       -f target_url="$RUN"
   done

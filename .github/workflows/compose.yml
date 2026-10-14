@@ -1,4 +1,4 @@
-# The composition workflow. It composes every participant's Intent Fragment
+# The delivery to production. It composes every participant's Intent Fragment
 # with the pinned `deploy-kit compose`, publishes one signed Rendered artifact
 # per Project whose render moved, and commits the moved pins: that commit is
 # the deploy (deploy-kit spec/v1/55-delivery.md#rendered-artifacts-and-pins).
@@ -12,14 +12,36 @@
 # schedule is a safety net for a dispatch that never arrived, not the primary
 # path (deploy-kit spec/v1/60-setup.md#the-estate-repository).
 #
+# The file keeps its name, compose.yml, because its path on main is the
+# identity every render is signed as: renaming it is a signer migration, not a
+# rename. Everything a reader sees (the workflow, its runs, its jobs) names
+# what it does instead: it delivers to the cluster `production`.
+#
+# Every run writes a job summary a human can review: one row per Project with
+# the release it ran before, the release it runs now, whether its pin moved,
+# and the codes of any Project composition refused. A run where composition
+# isolated a Project fails, last, once everything else is delivered.
+#
 # The canary job stays beside composition until the first Project is delivered
 # on the estate path (JorisJonkers-dev/home-portal#70): it proves the signature
 # check end to end with one ConfigMap Flux fetches from
 # ghcr.io/jorisjonkers-dev/render/canary.
-name: Compose
+name: Deliver to production
+# The title says why the run started: a release, a rollback, a resume. The
+# version a run actually delivers is composition's to decide, so it is in the
+# job summary and the pin commit, not here.
+run-name: >-
+  ${{ github.event_name == 'schedule' && 'Deliver to production: nightly safety net'
+  || format('Deliver to production: {0}', inputs.reason || format('started by {0}', github.actor)) }}
 
 on:
   workflow_dispatch:
+    inputs:
+      reason:
+        description: Why this delivery runs, shown as its title (delivery 0.4.0 released)
+        required: false
+        type: string
+        default: ""
   schedule:
     - cron: "41 2 * * *" # safety net only; see above
 
@@ -137,7 +159,7 @@ jobs:
   # it succeeded; the report runs whatever happened, so a failure still
   # reaches the commits and issues it concerns.
   compose:
-    name: Compose and deliver
+    name: Deliver to production
     runs-on: ubuntu-latest
     # The Collector's key lives in this environment alone, which only main
     # deploys to, so a run from any other branch cannot read it.
@@ -353,9 +375,12 @@ jobs:
           done
 
       - name: Compose
+        id: compose
         env:
           LOCK: ${{ steps.pull.outputs.lock }}
         run: |
+          # What composition refused on, kept for the summary as well as the log.
+          exec 2> >(tee refusal.txt >&2)
           # The union, every estate-wide invariant, isolation and the render, in
           # one run; only a refused Platform document, or an error no fragment
           # caused, exits 1 (deploy-kit spec/v1/40-composition.md#the-composition-run).
@@ -375,7 +400,6 @@ jobs:
             --cluster-state cluster-state.yml \
             --schema-package-integrity "$integrity" \
             --out composed
-          jq . composed/composition.json >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish the lock
         id: lock
@@ -439,7 +463,7 @@ jobs:
       - name: Commit the pin sources
         id: pins
         if: ${{ success() && github.ref == 'refs/heads/main' }}
-        run: bash .github/scripts/commit-pins.sh moved.txt composed/projects
+        run: bash .github/scripts/commit-pins.sh moved.txt composed/projects composed/composition.json
 
       # The Collector App pushes the commit: it alone holds contents: write on
       # this repository and bypasses main's ruleset (.github/rulesets/README.md).
@@ -451,10 +475,27 @@ jobs:
           private-key: ${{ secrets.ESTATE_COLLECTOR_APP_PRIVATE_KEY }}
 
       - name: Push the pin commit
+        id: push
         if: ${{ success() && github.ref == 'refs/heads/main' && steps.pins.outputs.committed == 'true' }}
         env:
           TOKEN: ${{ steps.pin-token.outputs.token }}
-        run: git push "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
+        run: |
+          git push "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # The review copy of what this run did, whatever happened before it: a
+      # composition that refused outright says what it refused on.
+      - name: Summarize the delivery
+        if: ${{ !cancelled() && (steps.compose.outcome == 'success' || steps.compose.outcome == 'failure') }}
+        # A summary that cannot be written is a warning, never a failed delivery.
+        continue-on-error: true
+        env:
+          BASE: ${{ github.sha }}
+          DELIVERED: ${{ steps.push.outputs.sha }}
+          PUBLISHED: ${{ github.ref == 'refs/heads/main' }}
+          LOCK_DIGEST: ${{ steps.lock.outputs.digest }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash .github/scripts/delivery-report.sh summary >> "$GITHUB_STEP_SUMMARY"
 
       # The dispatch App reports a status on each publishing commit: it holds
       # statuses: write on every repository (deploy-kit spec/v1/60-setup.md#the-estate-repository).
@@ -466,7 +507,7 @@ jobs:
           private-key: ${{ secrets.ESTATE_DISPATCH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
-      - name: Report what composition decided
+      - name: Report to each repository and the issues
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' && hashFiles('composed/composition.json') != '' }}
         env:
           STATUS_TOKEN: ${{ steps.status-token.outputs.token }}
@@ -474,3 +515,11 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: bash .github/scripts/report.sh composed/composition.json
+
+      # Last, so it never holds back what the steps above delivered: a Project
+      # composition isolated (a refused, missing or stale fragment) turns the
+      # run red, with one annotation per Project. compose-once.sh treats a run
+      # that failed here alone as delivered. Keep the name: it matches on it.
+      - name: Fail when a Project is refused
+        if: ${{ !cancelled() && hashFiles('composed/lock.json') != '' }}
+        run: bash .github/scripts/delivery-report.sh verdict
