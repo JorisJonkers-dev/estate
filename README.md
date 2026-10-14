@@ -46,6 +46,14 @@ migration, not a rename.
 - **The pin commit** names each Project it moves and the release it delivers,
   `chore(deploy): delivery 0.4.0`, with the repository and commit that
   released it in the body.
+- **A Deployment** opens on the repository that released each moved
+  Project: environment `production`, at the release's commit, with the
+  release's URL where the Project is exposed, and first status "<project>
+  <version> pinned". An earlier Deployment of the same Project still in
+  progress is marked superseded. One opens only where the fragment was signed
+  by a run of that repository at that commit
+  ([`deployments.sh`](.github/scripts/deployments.sh); its fixtures run with
+  `bash .github/scripts/test-deployments.sh`).
 - **A run fails** when composition isolated any Project (a refused, missing
   or stale fragment), on its last step, so everything else was delivered
   first. Each repository's commit then carries the `estate/production` status,
@@ -69,7 +77,7 @@ tokens, and they are the only actors that bypass `main`'s ruleset:
 
 | App | permissions | used by |
 |---|---|---|
-| `estate-dispatch` | `actions: write`, `contents: read`, `statuses: write`, on every repository | an application repository's publish workflow, to start composition; composition, to report a commit status |
+| `estate-dispatch` | `actions: write`, `contents: read`, `deployments: write`, `statuses: write`, on every repository | an application repository's publish workflow, to start composition; composition, to report a commit status and open each moved Project's Deployment |
 | `estate-collector` | `contents: write`, on this repository only | the Collector, to commit `cluster-state.yml`; composition, to commit the moved pins and the pin sources it rewrites; and the pause, resume and rollback workflows, to commit a hold. Its key is in Vault, and also the secret `ESTATE_COLLECTOR_APP_PRIVATE_KEY` of this repository's `production` environment, which only `main` deploys to; its id is the variable `ESTATE_COLLECTOR_APP_ID` |
 
 Everything else reaches `main` by pull request. Both Apps, and every
