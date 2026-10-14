@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render-estate
   ref:
-    digest: sha256:649cf10948b28b7a49fdaf129c13019e612e8897b037067896d9ad4e9c1287da
+    digest: sha256:23c1454a2639c05ccb43cf66279ad176005db006070053179693a088ad33c647
   secretRef:
     name: render-pull
   verify:
@@ -35,3 +35,19 @@ spec:
     kind: OCIRepository
     name: estate
   path: ./estate/vso-secrets
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: estate-rollout-events
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/managed-by: deploy-kit
+spec:
+  interval: 10m
+  prune: true
+  wait: true
+  sourceRef:
+    kind: OCIRepository
+    name: estate
+  path: ./estate/rollout-events
