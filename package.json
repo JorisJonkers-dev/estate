@@ -3,6 +3,6 @@
   "private": true,
   "description": "Pins the deploy-kit release this repository composes the estate with, and validates and packs the Platform's fragments with.",
   "devDependencies": {
-    "@jorisjonkers-dev/deploy-kit": "0.12.0"
+    "@jorisjonkers-dev/deploy-kit": "0.13.0"
   }
 }
