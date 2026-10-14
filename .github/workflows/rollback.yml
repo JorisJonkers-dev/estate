@@ -42,6 +42,7 @@ env:
   COMPOSED: ghcr.io/jorisjonkers-dev/composed
   SIGNER_ISSUER: https://token.actions.githubusercontent.com
   SIGNER_SUBJECT: https://github.com/JorisJonkers-dev/estate/.github/workflows/compose.yml@refs/heads/main
+  FRAGMENT_SIGNER: ^https://github\.com/JorisJonkers-dev/github-workflows/\.github/workflows/publish-fragment\.yml@
 
 jobs:
   rollback:
@@ -102,14 +103,19 @@ jobs:
           PUSH_URL: https://x-access-token:${{ steps.token.outputs.token }}@github.com/${{ github.repository }}.git
         run: |
           .github/scripts/rollback.sh ask "$PROJECT" "$GITHUB_RUN_ID"
-          echo "deadline=$(( $(date +%s) + 45 * 60 ))" >> "$GITHUB_OUTPUT"
-          echo "since=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          {
+            echo "commit=$(git rev-parse HEAD)"
+            echo "deadline=$(( $(date +%s) + 45 * 60 ))"
+            echo "since=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Compose the backup
         env:
           GH_TOKEN: ${{ github.token }}
           SINCE: ${{ steps.ask.outputs.since }}
-        run: .github/scripts/compose-once.sh "$SINCE"
+          COMMIT: ${{ steps.ask.outputs.commit }}
+          PUSH_URL: https://x-access-token:${{ steps.token.outputs.token }}@github.com/${{ github.repository }}.git
+        run: .github/scripts/compose-once.sh "$SINCE" "$COMMIT"
 
       - name: Read the backup Jobs the render holds
         env:
@@ -129,8 +135,9 @@ jobs:
           PROJECT: ${{ inputs.project }}
           VERSION: ${{ inputs.version }}
           FRAGMENT: ${{ steps.target.outputs.fragment }}
+          PINNED: ${{ steps.target.outputs.pinned }}
           PUSH_URL: https://x-access-token:${{ steps.token.outputs.token }}@github.com/${{ github.repository }}.git
-        run: .github/scripts/rollback.sh record "$PROJECT" "$VERSION" "$FRAGMENT"
+        run: .github/scripts/rollback.sh record "$PROJECT" "$VERSION" "$FRAGMENT" "$PINNED"
 
       - name: Stop, leaving the Project paused where it was
         if: failure() && steps.ask.outcome == 'success'
