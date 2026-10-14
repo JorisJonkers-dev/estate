@@ -9,9 +9,10 @@
 #              cluster whose public half is a read-only deploy key on estate,
 #              and Secret flux-system/render-pull, the ghcr.io credential every
 #              pin names.
-#   Vault      the Collector's and the Reporter's App keys, the estate-dashboard's OIDC client
-#              secret in both the copy auth-api reads and the dashboard's own,
-#              and the role the Vault policy job logs in as.
+#   Vault      the Collector's and the Reporter's App keys; the estate-dashboard's
+#              OIDC client secret, in both the copy auth-api reads and the
+#              dashboard's own sign-in document, beside its session key and its
+#              GitHub token; and the role the Vault policy job logs in as.
 #              A restored Vault already holds both and this only checks them; a
 #              fresh one gets them back here.
 #
@@ -176,7 +177,7 @@ fi
 pause
 
 # ── 6 ─────────────────────────────────────────────────────────────────────
-stage "Vault: the estate-dashboard's OIDC client secret"
+stage "Vault: the estate-dashboard's sign-in document"
 say "auth-api reads secret/$AUTH_KV_PATH → $DASHBOARD_CLIENT_KV_KEY;"
 say "the dashboard reads secret/$DASHBOARD_KV_PATH → $DASHBOARD_KV_KEY. They must be equal."
 AUTH_COPY=$(vault_field "$AUTH_KV_PATH" "$DASHBOARD_CLIENT_KV_KEY")
@@ -202,6 +203,41 @@ else
     && "$(vault_field "$DASHBOARD_KV_PATH" "$DASHBOARD_KV_KEY")" == "$CLIENT_SECRET" ]] \
     || die "the two Vault copies do not read back equal"
   ok "both Vault copies read back equal"
+fi
+# The session key seals the dashboard's cookie and the refresh tokens it stores. Kept where it
+# exists: a new one signs every admin out and makes every stored token unreadable.
+SESSION_HELD=$(vault_field "$DASHBOARD_KV_PATH" "$DASHBOARD_SESSION_KV_KEY")
+if [[ ${#SESSION_HELD} -ge 32 ]]; then
+  ok "secret/$DASHBOARD_KV_PATH holds a session key"
+  unset SESSION_HELD
+else
+  SESSION_KEY=$(openssl rand -base64 48 | tr -d '/+=\n' | cut -c1-48)
+  [[ ${#SESSION_KEY} -eq 48 ]] || die "could not generate a 48-character session key"
+  printf '%s' "$SESSION_KEY" | vault_set "$DASHBOARD_KV_PATH" "$DASHBOARD_SESSION_KV_KEY"
+  [[ "$(vault_field "$DASHBOARD_KV_PATH" "$DASHBOARD_SESSION_KV_KEY")" == "$SESSION_KEY" ]] \
+    || die "the session key does not read back"
+  unset SESSION_KEY
+  ok "secret/$DASHBOARD_KV_PATH holds a new 48-character session key"
+fi
+# The dashboard reads pins, the deploy log and open issues from the Estate repository, which is
+# private. GitHub shows a token only once, so a fresh Vault needs a new one.
+if [[ -n "$(vault_field "$DASHBOARD_KV_PATH" "$DASHBOARD_GITHUB_KV_KEY")" ]]; then
+  ok "secret/$DASHBOARD_KV_PATH holds a GitHub token"
+else
+  say "The dashboard reads the Estate repository with a token that may read it and nothing else."
+  open_url "https://github.com/settings/personal-access-tokens/new"
+  step "Resource owner: $ORG. Repository access: Only select repositories, estate."
+  step "Repository permissions: Contents, Issues and Metadata, read-only. Nothing else."
+  step "Generate token, and copy it."
+  ask_secret DASHBOARD_GITHUB_TOKEN "Paste the token (Enter skips; the dashboard then reads no estate):"
+  if [[ -n "${DASHBOARD_GITHUB_TOKEN:-}" ]]; then
+    printf '%s' "$DASHBOARD_GITHUB_TOKEN" | vault_set "$DASHBOARD_KV_PATH" "$DASHBOARD_GITHUB_KV_KEY"
+    [[ -n "$(vault_field "$DASHBOARD_KV_PATH" "$DASHBOARD_GITHUB_KV_KEY")" ]] || die "the GitHub token does not read back"
+    unset DASHBOARD_GITHUB_TOKEN
+    ok "secret/$DASHBOARD_KV_PATH holds the GitHub token"
+  else
+    SKIPPED+=("the estate-dashboard's GitHub token: re-run cluster.sh to add it")
+  fi
 fi
 pause
 

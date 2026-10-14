@@ -8,7 +8,7 @@ write, read back what they wrote, and are safe to re-run.
 | script | run | does |
 |---|---|---|
 | [`github-apps.sh`](github-apps.sh) | once per organization | creates the dispatch, Collector and Reporter GitHub Apps, puts the dispatch App's id and key in an org variable and secret every repository reads, the Reporter key in Vault, and the Collector key in Vault and in the estate repository's `production` environment, which only `main` deploys to and no administrator bypasses, for composition's pin commit |
-| [`cluster.sh`](cluster.sh) | once per cluster, and after every move | writes Flux's read access to this repository and its pull access to the render packages, restores the Collector and Reporter keys and the estate-dashboard's OIDC client secret to a fresh Vault, creates the Vault role the policy job logs in as, applies Flagger's CRDs, and proves auth and Flux both see them |
+| [`cluster.sh`](cluster.sh) | once per cluster, and after every move | writes Flux's read access to this repository and its pull access to the render packages, restores the Collector and Reporter keys and the estate-dashboard's sign-in document (its OIDC client secret, session key and GitHub token) to a fresh Vault, creates the Vault role the policy job logs in as, applies Flagger's CRDs, and proves auth and Flux both see them |
 
 ## On a new cluster
 
