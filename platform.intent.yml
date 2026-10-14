@@ -149,6 +149,10 @@ delivery:
     interval: 30s
     iterations: 4
     threshold: 3
+    # A check fails when more than this share of the Canary's requests errors,
+    # or when one is slower than this. Every release is held to both.
+    errorRate: 1%
+    latency: 500ms
 
 # The Applications whose Processes may hold Kubernetes API access, and where
 # the API server answers. Each is in the delivery Project.
