@@ -7,12 +7,6 @@ metadata:
   namespace: flux-system
   labels:
     app.kubernetes.io/managed-by: deploy-kit
-  annotations:
-    estate.jorisjonkers.dev/paused-by: ExtraToast
-    estate.jorisjonkers.dev/paused-at: 2026-10-14T17:34:07Z
-    estate.jorisjonkers.dev/paused-reason: Live check of per-Project Deployments (JorisJonkers-dev/estate#30)
-    estate.jorisjonkers.dev/rollback-version: 0.3.0
-    estate.jorisjonkers.dev/rollback-fragment: ghcr.io/jorisjonkers-dev/intent-delivery@sha256:45c3d231e06018ec1f255127f6acd32b592541da1850e1cea4c01dbcb60d9cea
 spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/delivery
