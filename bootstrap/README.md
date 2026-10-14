@@ -1,14 +1,14 @@
 # Bootstrap
 
-What the estate path needs that git cannot hold: two GitHub Apps, their keys,
+What the estate path needs that git cannot hold: three GitHub Apps, their keys,
 and the credentials a cluster reads the estate with. Two scripts, split by what
 a cluster move repeats. Both walk you through each step, ask before every
 write, read back what they wrote, and are safe to re-run.
 
 | script | run | does |
 |---|---|---|
-| [`github-apps.sh`](github-apps.sh) | once per organization | creates the dispatch and Collector GitHub Apps, puts the dispatch App's id and key in an org variable and secret every repository reads, and the Collector key in Vault and in the estate repository's `compose` environment, which only `main` deploys to, for composition's pin commit |
-| [`cluster.sh`](cluster.sh) | once per cluster, and after every move | writes Flux's read access to this repository and its pull access to the render packages, restores the Collector key and the estate-dashboard's OIDC client secret to a fresh Vault, creates the Vault role the policy job logs in as, applies Flagger's CRDs, and proves auth and Flux both see them |
+| [`github-apps.sh`](github-apps.sh) | once per organization | creates the dispatch, Collector and Reporter GitHub Apps, puts the dispatch App's id and key in an org variable and secret every repository reads, the Reporter key in Vault, and the Collector key in Vault and in the estate repository's `production` environment, which only `main` deploys to and no administrator bypasses, for composition's pin commit |
+| [`cluster.sh`](cluster.sh) | once per cluster, and after every move | writes Flux's read access to this repository and its pull access to the render packages, restores the Collector and Reporter keys and the estate-dashboard's OIDC client secret to a fresh Vault, creates the Vault role the policy job logs in as, applies Flagger's CRDs, and proves auth and Flux both see them |
 
 ## On a new cluster
 
@@ -18,9 +18,9 @@ write, read back what they wrote, and are safe to re-run.
 2. Run `./bootstrap/cluster.sh` against the new cluster's kubectl context.
 
 The GitHub Apps live on GitHub, so a move does not touch them. A restored Vault
-already holds both keys and the client secret, and `cluster.sh` only checks
-them; a fresh Vault gets a newly generated Collector key and a newly minted
-client secret.
+already holds the keys and the client secret, and `cluster.sh` only checks
+them; a fresh Vault gets newly generated Collector and Reporter keys and a newly
+minted client secret.
 
 ## What they need
 

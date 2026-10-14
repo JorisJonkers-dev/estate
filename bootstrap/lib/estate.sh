@@ -17,6 +17,8 @@ mkdir -p "$(dirname "$ENV_FILE")"
 # The Collector reads its key where the render derives it, <namespace>/<application>
 # of the delivery Project's collector; its rendered Vault policy grants that path alone.
 COLLECTOR_KV_PATH="delivery-system/collector"
+# The Reporter's, likewise: the delivery Project's reporter.
+REPORTER_KV_PATH="delivery-system/reporter"
 AUTH_KV_PATH="auth-api"
 DASHBOARD_CLIENT_KV_KEY="auth.clients.estate-dashboard.secret"
 DASHBOARD_KV_PATH="platform/estate-dashboard"
@@ -82,25 +84,32 @@ vault_set() {
   fi
 }
 
-# store_collector_key PEM_FILE writes the Collector App's key, id and
-# installation id to Vault, and stops unless all three read back.
-store_collector_key() {
-  local pem="$1" app_id installation_id
-  app_id=$(_existing ESTATE_COLLECTOR_APP_ID || true)
-  installation_id=$(_existing ESTATE_COLLECTOR_INSTALLATION_ID || true)
+# store_app_key PREFIX KV_PATH PEM_FILE writes an App's key, and the id and
+# installation id saved as PREFIX_APP_ID and PREFIX_INSTALLATION_ID, to Vault,
+# and stops unless all three read back.
+store_app_key() {
+  local prefix="$1" path="$2" pem="$3" app_id installation_id
+  app_id=$(_existing "${prefix}_APP_ID" || true)
+  installation_id=$(_existing "${prefix}_INSTALLATION_ID" || true)
   [[ -n "$app_id" && -n "$installation_id" ]] \
-    || die "$ENV_FILE lacks ESTATE_COLLECTOR_APP_ID or ESTATE_COLLECTOR_INSTALLATION_ID; run github-apps.sh first"
+    || die "$ENV_FILE lacks ${prefix}_APP_ID or ${prefix}_INSTALLATION_ID; run github-apps.sh first"
   grep -q "PRIVATE KEY" "$pem" || die "$pem is not a private key"
-  # One put: the entry is the Collector's alone, so nothing else is overwritten.
-  vault_exec kv put -mount=secret "$COLLECTOR_KV_PATH" \
+  # One put: the entry is the App's alone, so nothing else is overwritten.
+  vault_exec kv put -mount=secret "$path" \
     app-id="$app_id" installation-id="$installation_id" private-key=- < "$pem" >/dev/null
-  check_collector_key || die "secret/$COLLECTOR_KV_PATH did not read back"
+  check_app_key "$prefix" "$path" || die "secret/$path did not read back"
 }
 
-# check_collector_key succeeds when Vault holds the Collector's id,
+# check_app_key PREFIX KV_PATH succeeds when Vault holds the App's id,
 # installation id and a private key matching the saved ids.
-check_collector_key() {
-  [[ "$(vault_field "$COLLECTOR_KV_PATH" app-id)" == "$(_existing ESTATE_COLLECTOR_APP_ID || true)" ]] \
-    && [[ "$(vault_field "$COLLECTOR_KV_PATH" installation-id)" == "$(_existing ESTATE_COLLECTOR_INSTALLATION_ID || true)" ]] \
-    && [[ "$(vault_field "$COLLECTOR_KV_PATH" private-key)" == *"PRIVATE KEY"* ]]
+check_app_key() {
+  local prefix="$1" path="$2"
+  [[ "$(vault_field "$path" app-id)" == "$(_existing "${prefix}_APP_ID" || true)" ]] \
+    && [[ "$(vault_field "$path" installation-id)" == "$(_existing "${prefix}_INSTALLATION_ID" || true)" ]] \
+    && [[ "$(vault_field "$path" private-key)" == *"PRIVATE KEY"* ]]
 }
+
+store_collector_key() { store_app_key ESTATE_COLLECTOR "$COLLECTOR_KV_PATH" "$1"; }
+check_collector_key() { check_app_key ESTATE_COLLECTOR "$COLLECTOR_KV_PATH"; }
+store_reporter_key() { store_app_key ESTATE_REPORTER "$REPORTER_KV_PATH" "$1"; }
+check_reporter_key() { check_app_key ESTATE_REPORTER "$REPORTER_KV_PATH"; }

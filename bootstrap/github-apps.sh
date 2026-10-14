@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
 #
-# The estate's two GitHub Apps, once per organization (deploy-kit
+# The estate's three GitHub Apps, once per organization (deploy-kit
 # spec/v1/60-setup.md#the-estate-repository). They live on GitHub, not in the
 # cluster, so moving the cluster does not repeat this; cluster.sh restores the
-# one key that lives in Vault.
+# keys that live in Vault.
 #
-#   dispatch   actions write, contents read, statuses write, installed on every
-#              repository so any one can publish. Its key and id are an org secret
-#              and an org variable that every repository's workflows read.
+#   dispatch   actions write, contents read, statuses write, deployments write,
+#              installed on every repository so any one can publish. Its key and
+#              id are an org secret and an org variable that every repository's
+#              workflows read.
 #   Collector  contents write, on estate only. Its key is in Vault, and in
-#              estate's `compose` environment for composition's pin commit.
+#              estate's `production` environment for composition's pin commit.
+#   Reporter   deployments write, installed on every repository, so it can write
+#              each Rollout's stages to the repository that released it (deploy-kit
+#              spec/v1/55-delivery.md#rollouts). Its key is in Vault alone.
 #
 # Safe to re-run: a stage whose result exists is checked, not redone. The App
 # ids it saves are not secret; it never writes a key to disk outside a 0600
@@ -21,7 +25,7 @@ source "$here/lib/wizard.sh"
 # shellcheck source=lib/estate.sh
 source "$here/lib/estate.sh"
 
-TOTAL_STAGES=7
+TOTAL_STAGES=10
 
 WORK=$(umask 077 && mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
@@ -85,7 +89,7 @@ require_selected() {
   ok "$(_existing "$1_APP_SLUG") is limited to selected repositories"
 }
 
-banner "Estate: the dispatch and Collector GitHub Apps"
+banner "Estate: the dispatch, Collector and Reporter GitHub Apps"
 
 # ── 1 ─────────────────────────────────────────────────────────────────────
 stage "Preflight: tools, organization scope and Vault"
@@ -99,7 +103,7 @@ else
   gh auth status 2>&1 | grep -q "admin:org" || die "admin:org still missing"
   ok "admin:org granted"
 fi
-say "The Collector's key goes to Vault, so Vault is checked before it exists."
+say "The Collector's and the Reporter's keys go to Vault, so Vault is checked first."
 require_cluster
 require_vault_token
 pause
@@ -112,7 +116,7 @@ if [[ -n "$(_existing ESTATE_DISPATCH_APP_ID || true)" ]]; then
   ok "already created: $(_existing ESTATE_DISPATCH_APP_SLUG) ($(_existing ESTATE_DISPATCH_APP_ID))"
 else
   create_app ESTATE_DISPATCH "jorisjonkers-dev-estate-dispatch" \
-    '{"actions":"write","contents":"read","statuses":"write","metadata":"read"}' "$WORK/dispatch.pem"
+    '{"actions":"write","contents":"read","statuses":"write","deployments":"write","metadata":"read"}' "$WORK/dispatch.pem"
   gh secret set ESTATE_DISPATCH_APP_PRIVATE_KEY --org "$ORG" --visibility all \
     < "$WORK/dispatch.pem" >/dev/null
   rm -f "$WORK/dispatch.pem"
@@ -183,23 +187,69 @@ ok "secret/$COLLECTOR_KV_PATH holds the Collector's id, installation id and key"
 pause
 
 # ── 7 ─────────────────────────────────────────────────────────────────────
+stage "Create the Reporter App"
+say "Writes each release's stages to the GitHub Deployment of the repository that"
+say "released it. Deployments write and nothing else. Its key goes to Vault."
+if [[ -n "$(_existing ESTATE_REPORTER_APP_ID || true)" ]]; then
+  ok "already created: $(_existing ESTATE_REPORTER_APP_SLUG) ($(_existing ESTATE_REPORTER_APP_ID))"
+else
+  create_app ESTATE_REPORTER "jorisjonkers-dev-estate-reporter" \
+    '{"deployments":"write","metadata":"read"}' "$WORK/reporter.pem"
+fi
+pause
+
+# ── 8 ─────────────────────────────────────────────────────────────────────
+stage "Install the Reporter App"
+open_url "https://github.com/apps/$(_existing ESTATE_REPORTER_APP_SLUG)/installations/new"
+step "Choose $ORG (or Configure, if it is installed already)."
+step "All repositories: any repository may come to release to the estate."
+step "Install or Save."
+REPORTER_INSTALLATION=$(gh api "orgs/$ORG/installations" --paginate \
+  --jq ".installations[] | select(.app_id == $(_existing ESTATE_REPORTER_APP_ID)) | .id")
+[[ "$REPORTER_INSTALLATION" =~ ^[0-9]+$ ]] \
+  || die "$(_existing ESTATE_REPORTER_APP_SLUG) is not installed on $ORG; install it, then re-run"
+write_env ESTATE_REPORTER_INSTALLATION_ID "$REPORTER_INSTALLATION"
+ok "$(_existing ESTATE_REPORTER_APP_SLUG) is installed on $ORG (installation $REPORTER_INSTALLATION)"
+pause
+
+# ── 9 ─────────────────────────────────────────────────────────────────────
+stage "Store the Reporter's key in Vault"
+if [[ -s "$WORK/reporter.pem" ]]; then
+  store_reporter_key "$WORK/reporter.pem"
+elif check_reporter_key; then
+  :
+else
+  say "Vault does not hold the Reporter's key, and GitHub shows a key only once."
+  open_url "https://github.com/organizations/$ORG/settings/apps/$(_existing ESTATE_REPORTER_APP_SLUG)"
+  step "Private keys → Generate a private key. Your browser downloads a .pem file."
+  ask REPORTER_PEM "Path of the downloaded .pem:"
+  [[ -s "$REPORTER_PEM" ]] || die "no file at $REPORTER_PEM"
+  store_reporter_key "$REPORTER_PEM"
+  if confirm "Delete $REPORTER_PEM now that Vault holds it?"; then rm -f "$REPORTER_PEM"; fi
+fi
+ok "secret/$REPORTER_KV_PATH holds the Reporter's id, installation id and key"
+pause
+
+# ── 10 ────────────────────────────────────────────────────────────────────
 # Composition commits the moved pins as the Collector, the one App that
 # bypasses main's ruleset with contents: write (deploy-kit
-# spec/v1/60-setup.md#the-estate-repository). Its key goes to the `compose`
-# environment of this repository alone, which only main deploys to: no other
-# repository, and no workflow run from another branch, can read it.
+# spec/v1/60-setup.md#the-estate-repository). Its key goes to the `production`
+# environment of this repository alone, which only main deploys to, and which
+# no administrator bypasses: no other repository, and no workflow run from
+# another branch, can read it.
 stage "Give composition the Collector's key"
-gh api -X PUT "repos/$ORG/estate/environments/compose" \
+gh api -X PUT "repos/$ORG/estate/environments/production" \
+  -F 'can_admins_bypass=false' \
   -F 'deployment_branch_policy[protected_branches]=false' \
   -F 'deployment_branch_policy[custom_branch_policies]=true' >/dev/null ||
-  die "could not create the compose environment on $ORG/estate"
-if ! gh api "repos/$ORG/estate/environments/compose/deployment-branch-policies" \
+  die "could not create the production environment on $ORG/estate"
+if ! gh api "repos/$ORG/estate/environments/production/deployment-branch-policies" \
   --jq '.branch_policies[].name' | grep -qx main; then
-  gh api -X POST "repos/$ORG/estate/environments/compose/deployment-branch-policies" \
-    -f name=main -f type=branch >/dev/null || die "could not limit the compose environment to main"
+  gh api -X POST "repos/$ORG/estate/environments/production/deployment-branch-policies" \
+    -f name=main -f type=branch >/dev/null || die "could not limit the production environment to main"
 fi
-ok "the compose environment deploys from main alone"
-if gh secret list --repo "$ORG/estate" --env compose --json name --jq '.[].name' | grep -qx ESTATE_COLLECTOR_APP_PRIVATE_KEY; then
+ok "the production environment deploys from main alone, with no administrator bypass"
+if gh secret list --repo "$ORG/estate" --env production --json name --jq '.[].name' | grep -qx ESTATE_COLLECTOR_APP_PRIVATE_KEY; then
   ok "estate already holds ESTATE_COLLECTOR_APP_PRIVATE_KEY"
 else
   # From Vault into the secret through memory alone: the key never touches the
@@ -207,7 +257,7 @@ else
   key="$(vault_exec kv get -mount=secret -field=private-key "$COLLECTOR_KV_PATH")" ||
     die "could not read secret/$COLLECTOR_KV_PATH"
   [[ "$key" == *"PRIVATE KEY"* ]] || die "secret/$COLLECTOR_KV_PATH holds no private key"
-  printf '%s\n' "$key" | gh secret set ESTATE_COLLECTOR_APP_PRIVATE_KEY --repo "$ORG/estate" --env compose >/dev/null ||
+  printf '%s\n' "$key" | gh secret set ESTATE_COLLECTOR_APP_PRIVATE_KEY --repo "$ORG/estate" --env production >/dev/null ||
     die "could not set ESTATE_COLLECTOR_APP_PRIVATE_KEY on $ORG/estate"
   unset key
   ok "estate holds ESTATE_COLLECTOR_APP_PRIVATE_KEY"
@@ -228,3 +278,4 @@ finish
 note "App ids, for the ruleset's bypass actors (also in $ENV_FILE):"
 note "  dispatch   $(_existing ESTATE_DISPATCH_APP_ID)"
 note "  Collector  $(_existing ESTATE_COLLECTOR_APP_ID)"
+note "  Reporter   $(_existing ESTATE_REPORTER_APP_ID)"

@@ -9,7 +9,7 @@
 #              cluster whose public half is a read-only deploy key on estate,
 #              and Secret flux-system/render-pull, the ghcr.io credential every
 #              pin names.
-#   Vault      the Collector App's key, the estate-dashboard's OIDC client
+#   Vault      the Collector's and the Reporter's App keys, the estate-dashboard's OIDC client
 #              secret in both the copy auth-api reads and the dashboard's own,
 #              and the role the Vault policy job logs in as.
 #              A restored Vault already holds both and this only checks them; a
@@ -25,7 +25,7 @@ source "$here/lib/wizard.sh"
 # shellcheck source=lib/estate.sh
 source "$here/lib/estate.sh"
 
-TOTAL_STAGES=9
+TOTAL_STAGES=10
 
 AUTH_NS=auth-system
 AUTH_HOST=${AUTH_HOST:-https://auth.jorisjonkers.dev}
@@ -61,7 +61,7 @@ ok "Flux is installed"
 gh auth status >/dev/null 2>&1 || die "gh is not signed in: run 'gh auth login'"
 ok "gh signed in"
 require_vault_token
-for key in ESTATE_COLLECTOR_APP_ID ESTATE_COLLECTOR_INSTALLATION_ID; do
+for key in ESTATE_COLLECTOR_APP_ID ESTATE_COLLECTOR_INSTALLATION_ID ESTATE_REPORTER_APP_ID ESTATE_REPORTER_INSTALLATION_ID; do
   if [[ -z "$(_existing "$key" || true)" ]]; then
     note "$ENV_FILE has no $key (a new machine?). The App's settings page shows it."
     value=""
@@ -156,6 +156,24 @@ fi
 pause
 
 # ── 5 ─────────────────────────────────────────────────────────────────────
+stage "Vault: the Reporter's key"
+if check_reporter_key; then
+  ok "secret/$REPORTER_KV_PATH holds the Reporter's id, installation id and key"
+else
+  say "Vault does not hold the Reporter's key (a fresh Vault?). GitHub shows a key"
+  say "only once, so generate a new one; the old one keeps working until deleted."
+  open_url "https://github.com/organizations/$ORG/settings/apps/$(_existing ESTATE_REPORTER_APP_SLUG || echo jorisjonkers-dev-estate-reporter)"
+  step "Private keys → Generate a private key. Your browser downloads a .pem file."
+  ask REPORTER_PEM "Path of the downloaded .pem:"
+  [[ -s "$REPORTER_PEM" ]] || die "no file at $REPORTER_PEM"
+  store_reporter_key "$REPORTER_PEM"
+  if confirm "Delete $REPORTER_PEM now that Vault holds it?"; then rm -f "$REPORTER_PEM"; fi
+  ok "secret/$REPORTER_KV_PATH restored"
+  note "Delete the older key in the App's settings once the Reporter has run."
+fi
+pause
+
+# ── 6 ─────────────────────────────────────────────────────────────────────
 stage "Vault: the estate-dashboard's OIDC client secret"
 say "auth-api reads secret/$AUTH_KV_PATH → $DASHBOARD_CLIENT_KV_KEY;"
 say "the dashboard reads secret/$DASHBOARD_KV_PATH → $DASHBOARD_KV_KEY. They must be equal."
@@ -185,7 +203,7 @@ else
 fi
 pause
 
-# ── 6 ─────────────────────────────────────────────────────────────────────
+# ── 7 ─────────────────────────────────────────────────────────────────────
 stage "Prove auth accepts the estate-dashboard client"
 # token_error SECRET prints the OAuth error the token endpoint answers a bogus
 # code with: invalid_grant means the client and secret were accepted.
@@ -218,7 +236,7 @@ else
 fi
 pause
 
-# ── 7 ─────────────────────────────────────────────────────────────────────
+# ── 8 ─────────────────────────────────────────────────────────────────────
 stage "Vault: the role the policy job logs in as"
 # The job writes every rendered policy and Kubernetes auth role, so its own
 # role is the one thing it cannot create: it exists before the first render.
@@ -261,7 +279,7 @@ vault_exec write "auth/kubernetes/role/$POLICY_ROLE" \
 ok "role $POLICY_ROLE binds $POLICY_NS/$POLICY_SA to policy $POLICY_ROLE"
 pause
 
-# ── 8 ─────────────────────────────────────────────────────────────────────
+# ── 9 ─────────────────────────────────────────────────────────────────────
 stage "The bootstrap set: Flagger's CRDs"
 # platform.intent.yml lists flagger.app/v1beta1 in the bootstrap set: the
 # render holds Flagger's Deployment, never its CRDs, and Flagger exits at start
@@ -279,7 +297,7 @@ $KUBECTL wait --for=condition=Established --timeout=60s \
 ok "Flagger $FLAGGER_VERSION's CRDs are established"
 pause
 
-# ── 9 ─────────────────────────────────────────────────────────────────────
+# ── 10 ────────────────────────────────────────────────────────────────────
 stage "Prove Flux reads the estate repository"
 if ! $KUBECTL -n flux-system get gitrepository platform >/dev/null 2>&1; then
   warn "GitRepository flux-system/platform is not applied yet (fleet-infra's estate.yaml)"
