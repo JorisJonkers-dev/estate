@@ -139,6 +139,7 @@ open_url "https://github.com/apps/$(_existing ESTATE_DISPATCH_APP_SLUG)/installa
 step "Choose $ORG (or Configure, if it is installed already)."
 step "All repositories: any repository may come to publish a fragment."
 step "Install or Save."
+pause "Press Enter once GitHub shows it installed"
 gh api "orgs/$ORG/installations" --paginate \
   --jq ".installations[] | select(.app_id == $DISPATCH_ID) | .id" | grep -q . \
   || die "$(_existing ESTATE_DISPATCH_APP_SLUG) is not installed on $ORG; install it, then re-run"
@@ -177,7 +178,8 @@ elif check_collector_key; then
 else
   say "Vault does not hold the Collector's key, and GitHub shows a key only once."
   open_url "https://github.com/organizations/$ORG/settings/apps/$(_existing ESTATE_COLLECTOR_APP_SLUG)"
-  step "Private keys → Generate a private key. Your browser downloads a .pem file."
+  step "Credentials → Key pairs → Generate a private key. Your browser downloads a .pem file."
+  step "Paste its full path below (/Users/…, not ~/…)."
   ask COLLECTOR_PEM "Path of the downloaded .pem:"
   [[ -s "$COLLECTOR_PEM" ]] || die "no file at $COLLECTOR_PEM"
   store_collector_key "$COLLECTOR_PEM"
@@ -204,6 +206,7 @@ open_url "https://github.com/apps/$(_existing ESTATE_REPORTER_APP_SLUG)/installa
 step "Choose $ORG (or Configure, if it is installed already)."
 step "All repositories: any repository may come to release to the estate."
 step "Install or Save."
+pause "Press Enter once GitHub shows it installed"
 REPORTER_INSTALLATION=$(gh api "orgs/$ORG/installations" --paginate \
   --jq ".installations[] | select(.app_id == $(_existing ESTATE_REPORTER_APP_ID)) | .id")
 [[ "$REPORTER_INSTALLATION" =~ ^[0-9]+$ ]] \
@@ -221,7 +224,8 @@ elif check_reporter_key; then
 else
   say "Vault does not hold the Reporter's key, and GitHub shows a key only once."
   open_url "https://github.com/organizations/$ORG/settings/apps/$(_existing ESTATE_REPORTER_APP_SLUG)"
-  step "Private keys → Generate a private key. Your browser downloads a .pem file."
+  step "Credentials → Key pairs → Generate a private key. Your browser downloads a .pem file."
+  step "Paste its full path below (/Users/…, not ~/…)."
   ask REPORTER_PEM "Path of the downloaded .pem:"
   [[ -s "$REPORTER_PEM" ]] || die "no file at $REPORTER_PEM"
   store_reporter_key "$REPORTER_PEM"
