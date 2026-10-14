@@ -24,9 +24,12 @@ jobs:
     name: Resume ${{ inputs.project }}
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    # The Collector's key lives in this environment alone, which only main
-    # deploys to.
-    environment: compose
+    # The Collector's key lives in the production environment alone, which only
+    # main may use. This job holds a pin still or records a release; it deploys
+    # nothing itself, so it records no deployment: the delivery it starts does.
+    environment:
+      name: production
+      deployment: false
     timeout-minutes: 5
     permissions:
       contents: read
