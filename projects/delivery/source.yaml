@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/delivery
   ref:
-    digest: sha256:3d3c8bdf4b63daf6ad85705fdda68373eb001364a92f11e3fc3ca3cfe8aebe08
+    digest: sha256:0557ad492eb259b80570248d4cf46c4ca34196729987e58edfc8ce6ea19a56c4
   secretRef:
     name: render-pull
   verify:
@@ -37,13 +37,3 @@ spec:
   path: ./apps/delivery
   dependsOn:
     - name: estate-vso-secrets
-  patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-          annotations:
-            kustomize.toolkit.fluxcd.io/force: Enabled
-      target:
-        kind: Deployment
