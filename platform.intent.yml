@@ -138,13 +138,19 @@ migration:
   cpu: 100m
 
 # How a release is switched. The machinery performs the switch and is never
-# switched by it. Flagger and the Release Gate are Applications of the
-# `delivery` Project, which JorisJonkers-dev/delivery publishes as its own
-# fragment, so this document validates only beside that project file:
-# validated alone it refuses E_UNKNOWN_MACHINERY and E_UNKNOWN_RELEASE_GATE.
+# switched by it. Flagger, the Release Gate and the Reporter are Applications
+# of the `delivery` Project, which JorisJonkers-dev/delivery publishes as its
+# own fragment, so this document validates only beside that project file:
+# validated alone it refuses E_UNKNOWN_MACHINERY, E_UNKNOWN_RELEASE_GATE and
+# E_UNKNOWN_REPORTER.
 delivery:
   machinery: [traefik-public, traefik-lan, flagger, release-gate]
   gate: release-gate
+  # Writes each Rollout's stages to its GitHub Deployment, from Flux's events
+  # and its own reads (deploy-kit spec/v1/55-delivery.md#rollouts). Naming it
+  # renders the Provider and Alert that send it Flux's events, and admits
+  # Flux's notification controller to its `http` surface.
+  reporter: reporter
   analysis:
     interval: 30s
     iterations: 4
@@ -157,7 +163,7 @@ delivery:
 # The Applications whose Processes may hold Kubernetes API access, and where
 # the API server answers. Each is in the delivery Project.
 apiAccess:
-  holders: [flagger, release-gate, collector]
+  holders: [flagger, release-gate, collector, reporter]
   server:
     - { cidr: 10.43.0.1/32, port: 443 } # Service default/kubernetes, read 2026-10-07
 
