@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/JorisJonkers-dev/estate/compare/v0.3.0...v0.4.0) (2026-10-14)
+
+
+### Features
+
+* **rollback:** roll a Project back to its proven release, after a backup through Flux ([#47](https://github.com/JorisJonkers-dev/estate/issues/47)) ([22843bb](https://github.com/JorisJonkers-dev/estate/commit/22843bb9acb9a3b8576cecf9dcde54c99a8d36af)), closes [#3](https://github.com/JorisJonkers-dev/estate/issues/3)
+
 ## [0.3.0](https://github.com/JorisJonkers-dev/estate/compare/v0.2.4...v0.3.0) (2026-10-14)
 
 
