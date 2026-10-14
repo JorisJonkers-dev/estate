@@ -14,7 +14,9 @@ ENV_FILE="${ESTATE_ENV_FILE:-$HOME/.config/estate-bootstrap.env}"
 mkdir -p "$(dirname "$ENV_FILE")"
 
 # Vault paths, on the KV v2 mount `secret`.
-COLLECTOR_KV_PATH="platform/estate/collector-app"
+# The Collector reads its key where the render derives it, <namespace>/<application>
+# of the delivery Project's collector; its rendered Vault policy grants that path alone.
+COLLECTOR_KV_PATH="delivery-system/collector"
 AUTH_KV_PATH="auth-api"
 DASHBOARD_CLIENT_KV_KEY="auth.clients.estate-dashboard.secret"
 DASHBOARD_KV_PATH="platform/estate-dashboard"
