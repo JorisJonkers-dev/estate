@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/JorisJonkers-dev/estate/compare/v0.2.4...v0.3.0) (2026-10-14)
+
+
+### Features
+
+* **platform:** hold every release to a 1% error rate and 500ms latency, with deploy-kit 0.12.0 ([#44](https://github.com/JorisJonkers-dev/estate/issues/44)) ([8c7ddb5](https://github.com/JorisJonkers-dev/estate/commit/8c7ddb5fff2cece51dfd972c46138e01f02d4cf7)), closes [#36](https://github.com/JorisJonkers-dev/estate/issues/36)
+
 ## [0.2.4](https://github.com/JorisJonkers-dev/estate/compare/v0.2.3...v0.2.4) (2026-10-14)
 
 
