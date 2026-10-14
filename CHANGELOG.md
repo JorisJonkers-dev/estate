@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/JorisJonkers-dev/estate/compare/v0.4.1...v0.5.0) (2026-10-14)
+
+
+### Features
+
+* **deliver:** open a GitHub Deployment on each moved Project's repository ([#57](https://github.com/JorisJonkers-dev/estate/issues/57)) ([0fcb54e](https://github.com/JorisJonkers-dev/estate/commit/0fcb54e980a08d1e1d916952a31936200f61bf61)), closes [#30](https://github.com/JorisJonkers-dev/estate/issues/30)
+* **deliver:** report each delivery to production per Project, and fail on a refused one ([#53](https://github.com/JorisJonkers-dev/estate/issues/53)) ([e5517d1](https://github.com/JorisJonkers-dev/estate/commit/e5517d19a0f2ebba67ad0fe0c803c7778b334fdf))
+
 ## [0.4.1](https://github.com/JorisJonkers-dev/estate/compare/v0.4.0...v0.4.1) (2026-10-14)
 
 
