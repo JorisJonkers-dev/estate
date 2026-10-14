@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/JorisJonkers-dev/estate/compare/v0.5.0...v0.6.0) (2026-10-14)
+
+
+### Features
+
+* **bootstrap:** create the Reporter App and keep its key in Vault ([#61](https://github.com/JorisJonkers-dev/estate/issues/61)) ([d17a2ba](https://github.com/JorisJonkers-dev/estate/commit/d17a2ba46d8efcfbd70ca6d4924b664be146b53f))
+* name the Reporter, and admit its API access ([#64](https://github.com/JorisJonkers-dev/estate/issues/64)) ([2704c4c](https://github.com/JorisJonkers-dev/estate/commit/2704c4c2fc0b7203c230a368a0696a567dc30953))
+
 ## [0.5.0](https://github.com/JorisJonkers-dev/estate/compare/v0.4.1...v0.5.0) (2026-10-14)
 
 
