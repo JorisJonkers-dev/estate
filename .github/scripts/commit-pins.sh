@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# commit-pins.sh <moved> <composed>: one local commit holding every pin source
-# a composition changes (deploy-kit spec/v1/55-delivery.md#what-a-pin-source-holds).
+# commit-pins.sh <moved> <composed> [<composition>]: one local commit holding
+# every pin source a composition changes
+# (deploy-kit spec/v1/55-delivery.md#what-a-pin-source-holds).
 #
 # <moved> lists one published artifact a line, as `<project> <digest>
-# <repository>`; <composed> is the `projects` directory composition wrote.
+# <repository>`; <composed> is the `projects` directory composition wrote;
+# <composition> is the composition.json it wrote beside it, whose Rollouts name
+# the release each moved pin delivers, so the commit, the estate's deploy log,
+# says which version reached production.
 # Composition writes a source there in two cases, and this commits both:
 #
 # - The pin moves. The source replaces the committed one, naming the digest
@@ -20,9 +24,23 @@ shopt -s nullglob
 
 moved="${1:-}"
 composed="${2:-}"
+composition="${3:-}"
 [ -f "$moved" ] && [ -n "$composed" ] || {
-  echo "::error::usage: commit-pins.sh <moved> <composed>"
+  echo "::error::usage: commit-pins.sh <moved> <composed> [<composition>]"
   exit 2
+}
+
+# rollout <project>: `<version> <repository> <sha>` of the release a moved pin
+# delivers, or nothing. Each value comes from a fragment, so it is held to the
+# shape it must have before it reaches the commit or a log line.
+rollout() {
+  [ -f "$composition" ] || return 0
+  local version repository sha
+  read -r version repository sha < <(jq -r --arg p "$1" \
+    'first(.rollouts[] | select(.project == $p)) | "\(.version) \(.repository) \(.sha)"' "$composition") || return 0
+  [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$repository" =~ ^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$ && "$sha" =~ ^[0-9a-f]{40}$ ]] \
+    && echo "${version} ${repository} ${sha}"
+  return 0
 }
 
 digest_of() { yq 'select(.kind == "OCIRepository") | .spec.ref.digest' "$1"; }
@@ -62,13 +80,22 @@ fi
 git config user.name "estate-composition"
 git config user.email "estate-composition@users.noreply.github.com"
 if [ -s "$moved" ]; then
-  # The deploy: one commit moves every Project whose artifact changed.
-  subject="chore(deploy): $(cut -d' ' -f1 "$moved" | paste -sd, -) [ci skip]"
-  if [ -n "$rewritten" ]; then
-    git commit --quiet -m "$subject" -m "Pin sources rewritten at the digest they name: ${rewritten}"
-  else
-    git commit --quiet -m "$subject"
-  fi
+  # The deploy: one commit moves every Project whose artifact changed, and
+  # names the release each one now runs in production.
+  names=""
+  details=""
+  while read -r project digest _repository; do
+    read -r version repository sha <<<"$(rollout "$project")" || true
+    names="${names:+${names}, }${project}${version:+ ${version}}"
+    if [ -n "${version:-}" ]; then
+      details="${details}${project} ${version}, released from ${repository}@${sha:0:12}, at ${digest}"$'\n'
+    else
+      details="${details}${project}, at ${digest}"$'\n'
+    fi
+  done < "$moved"
+  body="Delivered to production:"$'\n\n'"${details}"
+  [ -n "$rewritten" ] && body="${body}"$'\n'"Pin sources rewritten at the digest they name: ${rewritten}"
+  git commit --quiet -m "chore(deploy): ${names} [ci skip]" -m "$body"
 else
   git commit --quiet -m "chore(deploy): rewrite the pin source of ${rewritten} [ci skip]"
 fi

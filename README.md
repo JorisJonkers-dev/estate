@@ -29,6 +29,28 @@ JorisJonkers-dev/github-workflows' `publish-fragment`
 ([`release.yml`](.github/workflows/release.yml)). A change to the platform
 reaches composition only by a release.
 
+## Reading a delivery
+
+[`compose.yml`](.github/workflows/compose.yml) shows in the Actions tab as
+**Deliver to production**, after the cluster the Platform document names. Its
+file keeps the name `compose.yml` because that path on `main` is the identity
+every render is signed as and Flux verifies against; renaming it is a signer
+migration, not a rename.
+
+- **The run title** says why the run started: the release that published, a
+  rollback, a resume, or the nightly safety net.
+- **The job summary** has one row per Project: the release it ran before the
+  run and the one it runs after, whether its pin moved, and, for a Project
+  composition refused, the `E_` codes that say what to fix. A composition that
+  refused the estate as a whole says what it refused on.
+- **The pin commit** names each Project it moves and the release it delivers,
+  `chore(deploy): delivery 0.4.0`, with the repository and commit that
+  released it in the body.
+- **A run fails** when composition isolated any Project (a refused, missing
+  or stale fragment), on its last step, so everything else was delivered
+  first. Each repository's commit then carries the `estate/production` status,
+  and the condition's issue is open here.
+
 ## How Flux reads it
 
 Flux's controllers are still owned by `JorisJonkers-dev/fleet-infra`, which
@@ -66,7 +88,7 @@ rollback is two.
   when and why. Composition still checks its newest fragment and reports what
   it finds, and moves no pin for it.
 - [`resume.yml`](.github/workflows/resume.yml) removes the record, a
-  Rollback's with it, and starts a composition, which moves the pin to the
+  Rollback's with it, and starts a delivery, which moves the pin to the
   Project's newest fragment.
 - [`rollback.yml`](.github/workflows/rollback.yml) takes a version, and
   refuses it before anything runs unless it is earlier than the pinned release
