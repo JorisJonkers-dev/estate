@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/JorisJonkers-dev/estate/compare/v0.2.3...v0.2.4) (2026-10-14)
+
+
+### Bug Fixes
+
+* **bootstrap:** store the Collector's key where the render reads it ([#42](https://github.com/JorisJonkers-dev/estate/issues/42)) ([1095176](https://github.com/JorisJonkers-dev/estate/commit/10951765c01659554313bb0227dcd5a8b21594ec))
+
 ## [0.2.3](https://github.com/JorisJonkers-dev/estate/compare/v0.2.2...v0.2.3) (2026-10-14)
 
 
