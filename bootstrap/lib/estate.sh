@@ -21,8 +21,14 @@ COLLECTOR_KV_PATH="delivery-system/collector"
 REPORTER_KV_PATH="delivery-system/reporter"
 AUTH_KV_PATH="auth-api"
 DASHBOARD_CLIENT_KV_KEY="auth.clients.estate-dashboard.secret"
-DASHBOARD_KV_PATH="platform/estate-dashboard"
-DASHBOARD_KV_KEY="oidc.client_secret"
+# The dashboard's sign-in document, where its project file grants its Process a read
+# (JorisJonkers-dev/estate-dashboard deploy/estate-dashboard.project.yml): the OIDC client
+# secret, the key its session cookie is sealed with, and the token it reads the Estate
+# repository with. One document, because its reader set is that one Process.
+DASHBOARD_KV_PATH="estate-dashboard-system/sign-in"
+DASHBOARD_KV_KEY="oidc-client-secret"
+DASHBOARD_SESSION_KV_KEY="session-key"
+DASHBOARD_GITHUB_KV_KEY="github-token"
 
 ok()  { printf '  %s✓%s %s\n' "$GREEN" "$RESET" "$1"; }
 die() { printf '\n  %s✗ %s%s\n\n' "$RED" "$1" "$RESET" >&2; exit 1; }
