@@ -33,10 +33,13 @@ DASHBOARD_CLIENT_ID=estate-dashboard
 DASHBOARD_REDIRECT_URI=https://estate.jorisjonkers.dev/auth/callback
 DEPLOY_KEY_TITLE="flux-system/estate (read-only)"
 # The Vault policy job (platform.intent.yml policyJob): the role it logs in as,
-# and the ServiceAccount it runs as, in the Secret Store's namespace.
+# and the ServiceAccount it runs as, in the Secret Store's namespace. While
+# `secrets` is legacy that is where the old path runs Vault, data-system, as
+# platform.intent.yml's handover.serving states; it becomes secrets-system in
+# the change that hands `secrets` over and removes that statement.
 POLICY_ROLE=policy-admin
 POLICY_SA=vault-policy
-POLICY_NS=secrets-system
+POLICY_NS=data-system
 
 WORK=$(umask 077 && mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
