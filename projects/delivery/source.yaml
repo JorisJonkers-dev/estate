@@ -7,6 +7,11 @@ metadata:
   namespace: flux-system
   labels:
     app.kubernetes.io/managed-by: deploy-kit
+  annotations:
+    estate.jorisjonkers.dev/paused-by: ExtraToast
+    estate.jorisjonkers.dev/paused-at: "2026-10-14T13:02:29Z"
+    estate.jorisjonkers.dev/paused-reason: first live test of the rollback workflow; resumed straight after
+    estate.jorisjonkers.dev/rollback-backup: "38568483172"
 spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/delivery
