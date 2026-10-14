@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/JorisJonkers-dev/estate/compare/v0.4.0...v0.4.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **rollback:** fail closed where the backup or the proof could be skipped ([#49](https://github.com/JorisJonkers-dev/estate/issues/49)) ([cca7566](https://github.com/JorisJonkers-dev/estate/commit/cca7566f31a0239acf6a381d24aceec81840a6d3))
+
 ## [0.4.0](https://github.com/JorisJonkers-dev/estate/compare/v0.3.0...v0.4.0) (2026-10-14)
 
 
