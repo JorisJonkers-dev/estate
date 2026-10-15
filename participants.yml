@@ -33,6 +33,20 @@ participants:
     owner: joris
     reason: publishes with the Platform document, on this repository's releases
     reviewBy: 2027-03-31
+  # The datastores and the mail server, still delivered by fleet-infra. Their
+  # fragments publish from this repository too, so a Project on the estate
+  # path can depend on them; composition delivers nothing for either while
+  # the handover ledger keeps them `legacy`.
+  data:
+    dormant: true
+    owner: joris
+    reason: publishes with the Platform document, on this repository's releases
+    reviewBy: 2027-03-31
+  mail:
+    dormant: true
+    owner: joris
+    reason: publishes with the Platform document, on this repository's releases
+    reviewBy: 2027-03-31
   # JorisJonkers-dev/delivery: the Release Gate, the Collector and the Vault
   # policy job. Its releases follow the delivery machinery's own changes.
   delivery:

@@ -1,0 +1,105 @@
+# deploy-kit Project Intent for the estate's mail server, Stalwart.
+#
+# The Project is `mail`, so the namespace derives as `mail-system`, where Stalwart already runs.
+# It is still `legacy` (platform.intent.yml's `handover`): fleet-infra delivers it, and the
+# estate composes this file without delivering anything for it. Its fragment exists because
+# `auth` sends its mail through Stalwart, and a fragment that names an Application no other
+# fragment declares does not compose
+# (deploy-kit spec/v1/60-setup.md#handing-over-one-project-at-a-time). It publishes with the
+# Platform document, on this repository's releases, and its images are in images.lock.yml.
+#
+# Each value below is read from the live objects. What the model cannot say yet is in a comment:
+# the mail ports reach the internet through a host address the old path assigns, which is
+# JorisJonkers-dev/deploy-kit#391 and #392, and the provisioner calls Cloudflare's API, which is
+# internet egress, JorisJonkers-dev/deploy-kit#385.
+
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Project
+schemaVersion: 1.0.0
+
+project: mail # the namespace derives: mail-system
+owner: joris
+
+applications:
+  - id: stalwart
+    # The admin UI, behind forward-auth: the mail protocols never pass through the edge.
+    exposure:
+      - name: admin
+        host: stalwart.jorisjonkers.dev
+        audience: authenticated
+        routes:
+          - { path: /, match: prefix, process: stalwart, surface: http }
+
+    processes:
+      - name: stalwart
+        lifecycle: application
+        image: stalwart # stalwartlabs/stalwart; the lock resolves digest, uid and gid
+        runtime: none
+        engine: files # the backup method reads the volume
+
+        provides:
+          http: 8080
+          smtp: 25
+          pop3: 110
+          imap: 143
+          submissions: 465
+          submission: 587 # what auth sends its mail to
+          imaps: 993
+          pop3s: 995
+          sieve: 4190
+
+        # The live pod requests 1536Mi and is limited at 3Gi; the model sets request to limit.
+        placement:
+          memory: 3Gi
+          cpu: 300m
+
+        # Applies the provisioner manifest (accounts, domains, DNS records) against the admin API
+        # on localhost, for as long as the server runs.
+        sidecars:
+          - name: stalwart-apply
+            image: stalwart-provisioner
+            memory: 64Mi
+            cpu: 10m
+
+        probes:
+          readiness: { path: /admin/, port: 8080 }
+          liveness: { tcp: 8080 }
+
+        startupBudget: 310s # the live readiness probe allows 30 checks 10s apart, after 10s
+
+        cutover: interrupted # one pod on a ReadWriteOnce claim
+
+        volumes:
+          - claim: stalwart-data
+            mountAt: /var/lib/stalwart
+            size: 20Gi
+            durability: irreplaceable
+
+        # The admin login, the provisioner's DNS token, and the password of each mailbox the
+        # provisioner creates for another Application, read from that Application's own path.
+        secrets:
+          - path: secret/data/platform/mail
+            keys: [stalwart.admin_user, stalwart.admin_password, account.password, joris.password, n8n.password]
+            access: read
+            delivery: env
+            rotation: { tolerates: restart }
+          - path: secret/data/platform/edge
+            keys: [cloudflare.dns_api_token]
+            access: read
+            delivery: env
+            rotation: { tolerates: restart }
+          - path: secret/data/auth-api
+            keys: [mail.username, mail.password]
+            access: read
+            delivery: env
+            rotation: { tolerates: restart }
+          - path: secret/data/platform/outline
+            keys: [smtp.password]
+            access: read
+            delivery: env
+            rotation: { tolerates: restart }
+          - path: secret/data/platform/overleaf
+            keys: [smtp.password]
+            access: read
+            delivery: env
+            rotation: { tolerates: restart }

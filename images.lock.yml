@@ -82,3 +82,46 @@ images:
     digest: "sha256:af8a5406def0c9e6b50e345f1c0dc33c0aae8188aa747cb033ae6f66aebca1e2"
     uid: 65532
     gid: 65532
+
+  # The data and mail projects' images, resolved on 2026-10-15 as the digest
+  # each live pod runs. fleet-infra still delivers both projects; these pin
+  # what their fragments compose against until each is handed over. Where the
+  # image starts as root and drops to its own user, the uid and gid are that
+  # user's, read with `id` in the live container.
+  postgres: # pgvector/pgvector:pg17
+    repository: docker.io/pgvector/pgvector
+    digest: "sha256:feb68f4f15446397d8cac7f4fe48fe4586de83160d1fc48b46283312d1a33966"
+    uid: 999
+    gid: 999
+  postgres-exporter: # v0.20.1, as `nobody`
+    repository: quay.io/prometheuscommunity/postgres-exporter
+    digest: "sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e"
+    uid: 65534
+    gid: 65534
+  rabbitmq: # 4.2-management-alpine
+    repository: docker.io/library/rabbitmq
+    digest: "sha256:c7afed4c4ebebaea7fb32ac9d2db4c5ae1da8c535f13cf1fa0f77e3fa8a9959b"
+    uid: 100
+    gid: 101
+  valkey: # 8-alpine
+    repository: docker.io/valkey/valkey
+    digest: "sha256:1cb6b20b70d927560cc4cc5397b5f045e74aa603ff7696274778880bb6fadc75"
+    uid: 999
+    gid: 1000
+  valkey-exporter: # oliver006/redis_exporter v1.90.0-alpine, which names its user by number
+    repository: docker.io/oliver006/redis_exporter
+    digest: "sha256:136a6aac1258bcb41449272fe0de1d71e65f8cd69514efb2a410b2fd2239a3ba"
+    uid: 59000
+    gid: 59000
+  stalwart: # v0.16.20
+    repository: docker.io/stalwartlabs/stalwart
+    digest: "sha256:74ca4f7f6885fe302f38a99381f36a208547afce1033d8734d9e6d8d3eba7446"
+    uid: 2000
+    gid: 2000
+  # 0.4.2. Its image names no user, so it runs as root today; the handover
+  # gives it one.
+  stalwart-provisioner:
+    repository: ghcr.io/jorisjonkers-dev/stalwart-provisioner
+    digest: "sha256:124a9d73c246c1af9e52620b3ad337f28fb08c0faee0834450f6b572383b1b77"
+    uid: 0
+    gid: 0

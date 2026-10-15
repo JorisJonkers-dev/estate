@@ -44,7 +44,9 @@ jobs:
   # One fragment per file. The Platform document is validated beside the
   # Projects it owns, the node contract and the images lock it pins, and the
   # delivery fragment, since it names the Release Gate and the Collector that
-  # JorisJonkers-dev/delivery declares.
+  # JorisJonkers-dev/delivery declares. `data` and `mail` are still delivered
+  # by fleet-infra; their fragments are composed so a Project on the estate
+  # path can depend on them.
   fragment:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
@@ -58,6 +60,8 @@ jobs:
           - project-file: platform/edge.project.yml
           - project-file: platform/observability.project.yml
           - project-file: platform/secrets.project.yml
+          - project-file: platform/data/data.project.yml
+          - project-file: platform/mail.project.yml
     permissions:
       contents: read
       packages: write
