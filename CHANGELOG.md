@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/JorisJonkers-dev/estate/compare/v0.7.0...v0.7.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* hand the data fragment's validation its config and env ([#73](https://github.com/JorisJonkers-dev/estate/issues/73)) ([04e8680](https://github.com/JorisJonkers-dev/estate/commit/04e868029fc368ff0d1ef105e6024b313b4fb626))
+
 ## [0.7.0](https://github.com/JorisJonkers-dev/estate/compare/v0.6.0...v0.7.0) (2026-10-15)
 
 
