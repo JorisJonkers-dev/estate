@@ -12,7 +12,7 @@ this repository's shape is deploy-kit's `spec/v1/60-setup.md#the-estate-reposito
 | [`node-contract.yml`](node-contract.yml) | what each node offers a placement, which the Platform document pins by digest | copied from JorisJonkers-dev/nix-config, which generates it from its node files |
 | [`images.lock.yml`](images.lock.yml) | every image the platform's own projects and policies name, by digest and user | a human, by pull request |
 | [`participants.yml`](participants.yml) | every Project composition expects a fragment from, and how stale each may be | a human, by pull request |
-| [`package.json`](package.json) and its lockfile | the exact deploy-kit release that validates, packs and composes | a human or Renovate, by pull request |
+| [`package.json`](package.json) and its lockfile | the exact deploy-kit release that composes; the Platform's fragments are validated and packed by the shared Publish Fragment workflow's own pin | a human or Renovate, by pull request |
 | [`cluster-state.yml`](cluster-state.yml) | the ClusterState snapshot | the Collector |
 | the composition lock | the inputs the last composition rendered from | the composition workflow, from its first run |
 | [`projects/<project>/source.yaml`](projects/) | one pin per Project on the estate path | the composition workflow |
