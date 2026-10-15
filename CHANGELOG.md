@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/JorisJonkers-dev/estate/compare/v0.9.0...v0.9.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* stop reading home-portal's old app fragment ([#89](https://github.com/JorisJonkers-dev/estate/issues/89)) ([f20674a](https://github.com/JorisJonkers-dev/estate/commit/f20674ae166f7f9d9ca763e1f3a8875281ee796a))
+
 ## [0.9.0](https://github.com/JorisJonkers-dev/estate/compare/v0.8.0...v0.9.0) (2026-10-15)
 
 
