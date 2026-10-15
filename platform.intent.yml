@@ -191,7 +191,8 @@ policyJob:
 # (the Release Gate, Flagger, the Collector) are born on the estate path, and so
 # is `estate-dashboard`. `home-portal` moved: it runs fresh in
 # home-portal-system while fleet-infra's app-ui in app-system serves until the
-# route moves.
+# route moves. Its old `app` fragment is no longer read, since it declares the
+# same Application and host.
 handover:
   retireBy: 2027-03-31
   legacy:
@@ -205,7 +206,6 @@ handover:
     - media
     - mail
     - outline
-    - app
     - n8n
     - utility
     - grimoire
