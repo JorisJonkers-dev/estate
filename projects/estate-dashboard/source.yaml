@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/estate-dashboard
   ref:
-    digest: sha256:1c77235109c9170821275f057a62cb5f09fa7a59c6a29b6e81b6e7c932504db5
+    digest: sha256:658d1b4dee60e996ba9ad9b2b1d2b96709739c0caa9eadcbf9ce3e1c13cc7358
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/estate-dashboard
-    event.toolkit.fluxcd.io/sha: 43be4197578ceec719085d09c4d9975cf6837902
+    event.toolkit.fluxcd.io/sha: 08e653a212f871f3afd4f042269cd39778c926d1
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.3.1
+    event.toolkit.fluxcd.io/version: 0.3.2
     event.toolkit.fluxcd.io/url: https://estate.jorisjonkers.dev
 spec:
   interval: 10m
@@ -54,7 +54,7 @@ spec:
           template:
             metadata:
               labels:
-                app.kubernetes.io/version: "0.3.1"
+                app.kubernetes.io/version: "0.3.2"
       target:
         kind: Deployment|StatefulSet|DaemonSet|Job
     - patch: |
@@ -68,6 +68,6 @@ spec:
               template:
                 metadata:
                   labels:
-                    app.kubernetes.io/version: "0.3.1"
+                    app.kubernetes.io/version: "0.3.2"
       target:
         kind: CronJob
