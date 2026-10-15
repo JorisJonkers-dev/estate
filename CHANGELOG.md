@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.0](https://github.com/JorisJonkers-dev/estate/compare/v0.6.0...v0.7.0) (2026-10-15)
+
+
+### Features
+
+* publish the data and mail fragments as legacy participants ([#69](https://github.com/JorisJonkers-dev/estate/issues/69)) ([ee05c1d](https://github.com/JorisJonkers-dev/estate/commit/ee05c1d99ec38433565ea4b233976aca45231125)), closes [#68](https://github.com/JorisJonkers-dev/estate/issues/68)
+
+
+### Bug Fixes
+
+* **bootstrap:** wait for an App's installation, and name where GitHub keeps its keys now ([#65](https://github.com/JorisJonkers-dev/estate/issues/65)) ([b1ed446](https://github.com/JorisJonkers-dev/estate/commit/b1ed4467f595aa234b38ee60539ac04cf0a1b94a))
+* **bootstrap:** write the estate-dashboard's sign-in document where its project file reads it ([#67](https://github.com/JorisJonkers-dev/estate/issues/67)) ([00d58e4](https://github.com/JorisJonkers-dev/estate/commit/00d58e46f8b3729a60da7d0cf251dd746f86a692))
+
 ## [0.6.0](https://github.com/JorisJonkers-dev/estate/compare/v0.5.0...v0.6.0) (2026-10-14)
 
 
