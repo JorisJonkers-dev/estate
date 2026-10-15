@@ -77,3 +77,9 @@ participants:
     owner: joris
     reason: releases when the dashboard changes, not on a weekly cadence
     reviewBy: 2027-03-31
+  # JorisJonkers-dev/home-portal: the landing page, moved from fleet-infra's app-system.
+  home-portal:
+    dormant: true
+    owner: joris
+    reason: releases when the site changes, not on a weekly cadence
+    reviewBy: 2027-03-31
