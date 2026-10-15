@@ -187,12 +187,11 @@ policyJob:
 # (deploy-kit spec/v1/60-setup.md#handing-over-one-project-at-a-time).
 # Every live Project is still delivered by fleet-infra, and each is named
 # here, so its project file is read rather than refused as
-# E_HANDOVER_UNLISTED. The first to move is
-# home-portal, whose Project is `app`, and it moves to `estate` only in the
-# third of its three handover changes, after fleet-infra has orphaned and
-# dropped it. `delivery` was never on the old path: its Applications (the
-# Release Gate, Flagger, the Collector) are born on the estate path, and so is
-# `estate-dashboard`.
+# E_HANDOVER_UNLISTED. `delivery` was never on the old path: its Applications
+# (the Release Gate, Flagger, the Collector) are born on the estate path, and so
+# is `estate-dashboard`. `home-portal` moved: it runs fresh in
+# home-portal-system while fleet-infra's app-ui in app-system serves until the
+# route moves.
 handover:
   retireBy: 2027-03-31
   legacy:
@@ -216,6 +215,7 @@ handover:
   estate:
     - delivery
     - estate-dashboard
+    - home-portal
   # Where the old path runs a legacy Application that the estate path
   # reaches, rather than where its declaration puts it
   # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). Live Vault is
