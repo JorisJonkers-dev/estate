@@ -13,6 +13,9 @@
 #              OIDC client secret, in both the copy auth-api reads and the
 #              dashboard's own sign-in document, beside its session key and its
 #              GitHub token; and the role the Vault policy job logs in as.
+#   Postgres   the estate-dashboard's database and its login, on the Postgres
+#              the old path runs, whose URL goes to Vault beside the sign-in
+#              document, until deploy-kit derives that credential.
 #              A restored Vault already holds both and this only checks them; a
 #              fresh one gets them back here.
 #
@@ -26,13 +29,17 @@ source "$here/lib/wizard.sh"
 # shellcheck source=lib/estate.sh
 source "$here/lib/estate.sh"
 
-TOTAL_STAGES=10
+TOTAL_STAGES=11
 
 AUTH_NS=auth-system
 AUTH_HOST=${AUTH_HOST:-https://auth.jorisjonkers.dev}
 DASHBOARD_CLIENT_ID=estate-dashboard
 DASHBOARD_REDIRECT_URI=https://estate.jorisjonkers.dev/auth/callback
 DEPLOY_KEY_TITLE="flux-system/estate (read-only)"
+# The Postgres the old path runs (platform.intent.yml handover.serving), where the
+# dashboard's database is created while `data` is legacy.
+PG_NS=data-system
+PG_HOST=postgres.$PG_NS.svc.cluster.local
 # The Vault policy job (platform.intent.yml policyJob): the role it logs in as,
 # and the ServiceAccount it runs as, in the Secret Store's namespace. While
 # `secrets` is legacy that is where the old path runs Vault, data-system, as
@@ -275,6 +282,68 @@ fi
 pause
 
 # ── 8 ─────────────────────────────────────────────────────────────────────
+stage "Postgres: the estate-dashboard's database"
+# The dashboard reads its database URL from secret/$DASHBOARD_DB_KV_PATH until
+# deploy-kit derives the credential from its edge to platform-postgres
+# (JorisJonkers-dev/deploy-kit#378). Nothing on the estate path creates the
+# database while `data` is legacy, so this does, on the Postgres the old path
+# runs: the project's database, $DASHBOARD_DB_NAME, owned by a login of its own,
+# since the dashboard applies its own migrations.
+# pg_exec SCRIPT runs SCRIPT in the postgres container, with the superuser's
+# login sourced the way the container's own command sources it. Stdin is passed.
+pg_exec() {
+  $KUBECTL -n "$PG_NS" exec -i deploy/postgres -c postgres -- sh -c \
+    ". /vault/secrets/postgres.env && $1"
+}
+# pg_login PASSWORD prints the user the dashboard's login connects to its
+# database as, the password read on stdin so it never sits in an argument. It
+# connects to the pod's own address, as the dashboard's connections arrive:
+# Postgres trusts loopback, so a check over it would pass any password.
+pg_login() {
+  printf '%s\n' "$1" | pg_exec "IFS= read -r PGPASSWORD && export PGPASSWORD && \
+    psql -h \"\$(hostname -i | cut -d' ' -f1)\" -U '$DASHBOARD_DB_ROLE' -d '$DASHBOARD_DB_NAME' \
+      -tAc 'select current_user'" 2>/dev/null || true
+}
+if ! $KUBECTL -n "$PG_NS" get deploy postgres >/dev/null 2>&1; then
+  warn "the old path runs no Postgres in $PG_NS; re-run cluster.sh once it does"
+  SKIPPED+=("the estate-dashboard's database: re-run cluster.sh once Postgres runs")
+else
+  DB_URL=$(vault_field "$DASHBOARD_DB_KV_PATH" "$DASHBOARD_DB_KV_KEY")
+  DB_PASSWORD=""
+  if [[ "$DB_URL" =~ ^postgres://[^:]+:([^@]+)@ ]]; then
+    DB_PASSWORD="${BASH_REMATCH[1]}"
+  fi
+  if [[ -n "$DB_PASSWORD" && "$(pg_login "$DB_PASSWORD")" == "$DASHBOARD_DB_ROLE" ]]; then
+    ok "secret/$DASHBOARD_DB_KV_PATH holds a URL that signs in to $DASHBOARD_DB_NAME"
+  else
+    say "Creating $DASHBOARD_DB_NAME and its login $DASHBOARD_DB_ROLE on $PG_NS/postgres,"
+    say "or setting a new password where the login exists, and writing the URL to Vault."
+    confirm "Create or reset them?" || die "stopped"
+    DB_PASSWORD=$(openssl rand -hex 24)
+    # The password reaches psql on stdin and through its environment, never as an argument.
+    printf '%s\n' "$DB_PASSWORD" | pg_exec "IFS= read -r DB_PASSWORD && export DB_PASSWORD && \
+      psql -v ON_ERROR_STOP=1 -U \"\$POSTGRES_USER\" -d postgres -q -f - <<'SQL'
+\\getenv pw DB_PASSWORD
+SELECT format('CREATE ROLE %I LOGIN', '$DASHBOARD_DB_ROLE')
+  WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$DASHBOARD_DB_ROLE') \\gexec
+ALTER ROLE \"$DASHBOARD_DB_ROLE\" WITH LOGIN PASSWORD :'pw';
+SELECT format('CREATE DATABASE %I OWNER %I', '$DASHBOARD_DB_NAME', '$DASHBOARD_DB_ROLE')
+  WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$DASHBOARD_DB_NAME') \\gexec
+ALTER DATABASE \"$DASHBOARD_DB_NAME\" OWNER TO \"$DASHBOARD_DB_ROLE\";
+SQL" >/dev/null || die "Postgres refused the database or its login"
+    [[ "$(pg_login "$DB_PASSWORD")" == "$DASHBOARD_DB_ROLE" ]] \
+      || die "$DASHBOARD_DB_ROLE cannot sign in to $DASHBOARD_DB_NAME"
+    DB_URL="postgres://$DASHBOARD_DB_ROLE:$DB_PASSWORD@$PG_HOST:5432/$DASHBOARD_DB_NAME?sslmode=disable"
+    printf '%s' "$DB_URL" | vault_set "$DASHBOARD_DB_KV_PATH" "$DASHBOARD_DB_KV_KEY"
+    [[ "$(vault_field "$DASHBOARD_DB_KV_PATH" "$DASHBOARD_DB_KV_KEY")" == "$DB_URL" ]] \
+      || die "the database URL does not read back"
+    ok "$DASHBOARD_DB_ROLE signs in to $DASHBOARD_DB_NAME, and secret/$DASHBOARD_DB_KV_PATH holds its URL"
+  fi
+  unset DB_URL DB_PASSWORD
+fi
+pause
+
+# ── 9 ─────────────────────────────────────────────────────────────────────
 stage "Vault: the role the policy job logs in as"
 # The job writes every rendered policy and Kubernetes auth role, so its own
 # role is the one thing it cannot create: it exists before the first render.
@@ -317,7 +386,7 @@ vault_exec write "auth/kubernetes/role/$POLICY_ROLE" \
 ok "role $POLICY_ROLE binds $POLICY_NS/$POLICY_SA to policy $POLICY_ROLE"
 pause
 
-# ── 9 ─────────────────────────────────────────────────────────────────────
+# ── 10 ────────────────────────────────────────────────────────────────────
 stage "The bootstrap set: Flagger's CRDs"
 # platform.intent.yml lists flagger.app/v1beta1 in the bootstrap set: the
 # render holds Flagger's Deployment, never its CRDs, and Flagger exits at start
@@ -335,7 +404,7 @@ $KUBECTL wait --for=condition=Established --timeout=60s \
 ok "Flagger $FLAGGER_VERSION's CRDs are established"
 pause
 
-# ── 10 ────────────────────────────────────────────────────────────────────
+# ── 11 ────────────────────────────────────────────────────────────────────
 stage "Prove Flux reads the estate repository"
 if ! $KUBECTL -n flux-system get gitrepository platform >/dev/null 2>&1; then
   warn "GitRepository flux-system/platform is not applied yet (fleet-infra's estate.yaml)"
