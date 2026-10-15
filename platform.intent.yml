@@ -161,9 +161,12 @@ delivery:
     latency: 500ms
 
 # The Applications whose Processes may hold Kubernetes API access, and where
-# the API server answers. Each is in the delivery Project.
+# the API server answers. Each is in the delivery Project, save the
+# estate-dashboard, which reads Flux's sources and units and Flagger's Canaries
+# and writes nothing (JorisJonkers-dev/estate-dashboard). This document
+# validates only beside its fragment: alone it refuses E_UNKNOWN_API_HOLDER.
 apiAccess:
-  holders: [flagger, release-gate, collector, reporter]
+  holders: [flagger, release-gate, collector, reporter, estate-dashboard]
   server:
     - { cidr: 10.43.0.1/32, port: 443 } # Service default/kubernetes, read 2026-10-07
 
@@ -188,7 +191,8 @@ policyJob:
 # home-portal, whose Project is `app`, and it moves to `estate` only in the
 # third of its three handover changes, after fleet-infra has orphaned and
 # dropped it. `delivery` was never on the old path: its Applications (the
-# Release Gate, Flagger, the Collector) are born on the estate path.
+# Release Gate, Flagger, the Collector) are born on the estate path, and so is
+# `estate-dashboard`.
 handover:
   retireBy: 2027-03-31
   legacy:
@@ -211,6 +215,7 @@ handover:
     - knowledge-platform
   estate:
     - delivery
+    - estate-dashboard
   # Where the old path runs a legacy Application that the estate path
   # reaches, rather than where its declaration puts it
   # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). Live Vault is
