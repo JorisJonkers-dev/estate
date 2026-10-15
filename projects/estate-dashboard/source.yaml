@@ -1,0 +1,56 @@
+# GENERATED. Never hand-edit.
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: project-estate-dashboard
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/managed-by: deploy-kit
+spec:
+  interval: 10m
+  url: oci://ghcr.io/jorisjonkers-dev/render/estate-dashboard
+  ref:
+    digest: sha256:3a178f470d791cf848b1f63d9c1a7a748a02248106ec7dcb105963213d9b2920
+  secretRef:
+    name: render-pull
+  verify:
+    provider: cosign
+    matchOIDCIdentity:
+      - issuer: ^https://token\.actions\.githubusercontent\.com$
+        subject: ^https://github\.com/JorisJonkers-dev/estate/\.github/workflows/compose\.yml@refs/heads/main$
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: apps-estate-dashboard
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/managed-by: deploy-kit
+  annotations:
+    event.toolkit.fluxcd.io/repository: JorisJonkers-dev/estate-dashboard
+    event.toolkit.fluxcd.io/sha: 2a4409fb4402b1c8df0c3faaa4eaaabe0217806e
+    event.toolkit.fluxcd.io/environment: production
+    event.toolkit.fluxcd.io/version: 0.2.0
+    event.toolkit.fluxcd.io/url: https://estate.jorisjonkers.dev
+spec:
+  interval: 10m
+  prune: true
+  wait: true
+  sourceRef:
+    kind: OCIRepository
+    name: project-estate-dashboard
+  path: ./apps/estate-dashboard
+  dependsOn:
+    - name: apps-delivery
+    - name: estate-vso-secrets
+  patches:
+    - patch: |
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: any
+          annotations:
+            kustomize.toolkit.fluxcd.io/force: Enabled
+      target:
+        kind: Deployment
