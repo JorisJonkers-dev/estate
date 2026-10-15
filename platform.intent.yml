@@ -205,13 +205,13 @@ handover:
     - agents
     - media
     - mail
-    - notes
+    - outline
     - app
-    - automation
+    - n8n
     - utility
     - grimoire
     - tribelt
-    - latex
+    - overleaf
     - knowledge-platform
   estate:
     - delivery
