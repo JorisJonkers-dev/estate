@@ -193,14 +193,17 @@ jobs:
         with:
           cosign-release: v2.6.1
 
-      # `npx --no-install` below can run only what this installs: the release
-      # package-lock.json pins, so a toolkit upgrade is a reviewed pull request
-      # here (deploy-kit spec/v1/60-setup.md#the-estate-repository).
+      # The one pin, toolkit.yml (deploy-kit spec/v1/60-setup.md#the-estate-repository).
       - name: Install the pinned toolkit
+        id: toolkit
         env:
           NODE_AUTH_TOKEN: ${{ github.token }}
         run: |
-          npm ci --ignore-scripts
+          version="$(yq -er '."deploy-kit"' toolkit.yml)"
+          npm install --no-save --ignore-scripts "@jorisjonkers-dev/deploy-kit@${version}"
+          test "$(node -p "require('@jorisjonkers-dev/deploy-kit/package.json').version")" = "$version"
+          integrity="$(node -p "require('./node_modules/.package-lock.json').packages['node_modules/@jorisjonkers-dev/deploy-kit'].integrity")"
+          echo "integrity=${integrity}" >> "$GITHUB_OUTPUT"
           npx --no-install deploy-kit --help > /dev/null
 
       - name: Log in to the registry
@@ -379,6 +382,7 @@ jobs:
         id: compose
         env:
           LOCK: ${{ steps.pull.outputs.lock }}
+          integrity: ${{ steps.toolkit.outputs.integrity }}
         run: |
           # What composition refused on, kept for the summary as well as the log.
           exec 2> >(tee refusal.txt >&2)
@@ -388,7 +392,6 @@ jobs:
           # `--sources` hands it the committed pin sources, so it also writes the
           # source of a pin that stays where the committed one no longer says
           # what it derives (deploy-kit spec/v1/55-delivery.md#what-a-pin-source-holds).
-          integrity="$(node -p "require('./package-lock.json').packages['node_modules/@jorisjonkers-dev/deploy-kit'].integrity")"
           # shellcheck disable=SC2086 # LOCK is two options or none
           npx --no-install deploy-kit compose \
             --platform platform-fragment \
