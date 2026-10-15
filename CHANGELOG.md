@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.0](https://github.com/JorisJonkers-dev/estate/compare/v0.8.0...v0.9.0) (2026-10-15)
+
+
+### Features
+
+* deliver home-portal on the estate path ([#88](https://github.com/JorisJonkers-dev/estate/issues/88)) ([0fffc1d](https://github.com/JorisJonkers-dev/estate/commit/0fffc1d67d94b7bb11597af8c80a9fbb1b180303))
+* pin the toolkit in toolkit.yml, at deploy-kit 0.15.0, without a package.json ([#83](https://github.com/JorisJonkers-dev/estate/issues/83)) ([9b0a7c6](https://github.com/JorisJonkers-dev/estate/commit/9b0a7c611a00e5d91b0af5ff6b33c02faed04956))
+
 ## [0.8.0](https://github.com/JorisJonkers-dev/estate/compare/v0.7.1...v0.8.0) (2026-10-15)
 
 
