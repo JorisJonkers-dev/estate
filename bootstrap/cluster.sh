@@ -15,7 +15,8 @@
 #              GitHub token; and the role the Vault policy job logs in as.
 #   Postgres   the estate-dashboard's database and its login, on the Postgres
 #              the old path runs, whose URL goes to Vault beside the sign-in
-#              document, until deploy-kit derives that credential.
+#              document, until deploy-kit derives that credential; and
+#              tribelt's login to its existing database, for the same reason.
 #              A restored Vault already holds both and this only checks them; a
 #              fresh one gets them back here.
 #
@@ -29,7 +30,7 @@ source "$here/lib/wizard.sh"
 # shellcheck source=lib/estate.sh
 source "$here/lib/estate.sh"
 
-TOTAL_STAGES=11
+TOTAL_STAGES=12
 
 AUTH_NS=auth-system
 AUTH_HOST=${AUTH_HOST:-https://auth.jorisjonkers.dev}
@@ -344,6 +345,56 @@ fi
 pause
 
 # ── 9 ─────────────────────────────────────────────────────────────────────
+stage "Postgres: tribelt's login"
+# tribelt's tables belong to tribelt_user, which Vault's database engine grants
+# to each login it issues. Until deploy-kit delivers that credential
+# (JorisJonkers-dev/deploy-kit#378), tribelt gets one login of its own, set up
+# the same way, at secret/$TRIBELT_DB_KV_PATH.
+TRIBELT_DB_KV_PATH=tribelt-system/database
+TRIBELT_DB_LOGIN=tribelt
+TRIBELT_DB_OWNER=tribelt_user
+TRIBELT_DB_NAME=tribelt_db
+# tribelt_whoami PASSWORD prints the role tribelt's login acts as in its
+# database, over the pod's own address, as pg_login does.
+tribelt_whoami() {
+  printf '%s\n' "$1" | pg_exec "IFS= read -r PGPASSWORD && export PGPASSWORD && \
+    psql -h \"\$(hostname -i | cut -d' ' -f1)\" -U '$TRIBELT_DB_LOGIN' -d '$TRIBELT_DB_NAME' \
+      -tAc 'select current_user'" 2>/dev/null || true
+}
+if ! $KUBECTL -n "$PG_NS" get deploy postgres >/dev/null 2>&1; then
+  warn "the old path runs no Postgres in $PG_NS; re-run cluster.sh once it does"
+  SKIPPED+=("tribelt's login: re-run cluster.sh once Postgres runs")
+else
+  DB_PASSWORD=$(vault_field "$TRIBELT_DB_KV_PATH" password)
+  if [[ -n "$DB_PASSWORD" && "$(tribelt_whoami "$DB_PASSWORD")" == "$TRIBELT_DB_OWNER" ]]; then
+    ok "secret/$TRIBELT_DB_KV_PATH signs in to $TRIBELT_DB_NAME as $TRIBELT_DB_OWNER"
+  else
+    say "Creating the login $TRIBELT_DB_LOGIN in $TRIBELT_DB_OWNER on $PG_NS/postgres,"
+    say "or setting a new password where it exists, and writing it to Vault."
+    confirm "Create or reset it?" || die "stopped"
+    DB_PASSWORD=$(openssl rand -hex 24)
+    printf '%s\n' "$DB_PASSWORD" | pg_exec "IFS= read -r DB_PASSWORD && export DB_PASSWORD && \
+      psql -v ON_ERROR_STOP=1 -U \"\$POSTGRES_USER\" -d postgres -q -f - <<'SQL'
+\\getenv pw DB_PASSWORD
+SELECT format('CREATE ROLE %I LOGIN', '$TRIBELT_DB_LOGIN')
+  WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$TRIBELT_DB_LOGIN') \\gexec
+ALTER ROLE \"$TRIBELT_DB_LOGIN\" WITH LOGIN PASSWORD :'pw';
+GRANT \"$TRIBELT_DB_OWNER\" TO \"$TRIBELT_DB_LOGIN\";
+ALTER ROLE \"$TRIBELT_DB_LOGIN\" SET role = '$TRIBELT_DB_OWNER';
+SQL" >/dev/null || die "Postgres refused tribelt's login"
+    [[ "$(tribelt_whoami "$DB_PASSWORD")" == "$TRIBELT_DB_OWNER" ]] \
+      || die "$TRIBELT_DB_LOGIN does not act as $TRIBELT_DB_OWNER in $TRIBELT_DB_NAME"
+    printf '%s' "$TRIBELT_DB_LOGIN" | vault_set "$TRIBELT_DB_KV_PATH" user
+    printf '%s' "$DB_PASSWORD" | vault_set "$TRIBELT_DB_KV_PATH" password
+    [[ "$(vault_field "$TRIBELT_DB_KV_PATH" password)" == "$DB_PASSWORD" ]] \
+      || die "tribelt's password does not read back"
+    ok "$TRIBELT_DB_LOGIN acts as $TRIBELT_DB_OWNER in $TRIBELT_DB_NAME, and secret/$TRIBELT_DB_KV_PATH holds it"
+  fi
+  unset DB_PASSWORD
+fi
+pause
+
+# ── 10 ────────────────────────────────────────────────────────────────────
 stage "Vault: the role the policy job logs in as"
 # The job writes every rendered policy and Kubernetes auth role, so its own
 # role is the one thing it cannot create: it exists before the first render.
@@ -386,7 +437,7 @@ vault_exec write "auth/kubernetes/role/$POLICY_ROLE" \
 ok "role $POLICY_ROLE binds $POLICY_NS/$POLICY_SA to policy $POLICY_ROLE"
 pause
 
-# ── 10 ────────────────────────────────────────────────────────────────────
+# ── 11 ────────────────────────────────────────────────────────────────────
 stage "The bootstrap set: Flagger's CRDs"
 # platform.intent.yml lists flagger.app/v1beta1 in the bootstrap set: the
 # render holds Flagger's Deployment, never its CRDs, and Flagger exits at start
@@ -404,7 +455,7 @@ $KUBECTL wait --for=condition=Established --timeout=60s \
 ok "Flagger $FLAGGER_VERSION's CRDs are established"
 pause
 
-# ── 11 ────────────────────────────────────────────────────────────────────
+# ── 12 ────────────────────────────────────────────────────────────────────
 stage "Prove Flux reads the estate repository"
 if ! $KUBECTL -n flux-system get gitrepository platform >/dev/null 2>&1; then
   warn "GitRepository flux-system/platform is not applied yet (fleet-infra's estate.yaml)"
