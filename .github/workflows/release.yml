@@ -46,7 +46,8 @@ jobs:
   # delivery fragment, since it names the Release Gate and the Collector that
   # JorisJonkers-dev/delivery declares. `data` and `mail` are still delivered
   # by fleet-infra; their fragments are composed so a Project on the estate
-  # path can depend on them.
+  # path can depend on them. Validation reads only what it is handed, so
+  # `data` is handed the config its Assets mount and its env scope.
   fragment:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
@@ -61,6 +62,7 @@ jobs:
           - project-file: platform/observability.project.yml
           - project-file: platform/secrets.project.yml
           - project-file: platform/data/data.project.yml
+            validate-with: platform/data/config platform/data/env
           - project-file: platform/mail.project.yml
     permissions:
       contents: read
