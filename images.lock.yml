@@ -62,9 +62,9 @@ images:
 
   # Built by JorisJonkers-dev/delivery 0.2.0. Each runs as 65532:65532 by
   # number; the backup CronJob runs a method as its plan's uid and gid.
-  vault-policy:
+  vault-policy: # delivery 0.7.0, which also writes generated keys
     repository: ghcr.io/jorisjonkers-dev/delivery/vault-policy
-    digest: "sha256:2f43973f8ee76aac8418623fb33196ac44920e7b17f6faa889873cfb80d2bcaf"
+    digest: "sha256:1edb8fb5c39f639c5c2b96ccbbb3ad9893fdd2b70949d5fd48f71c134f07cfc9"
     uid: 65532
     gid: 65532
   file-backup:
