@@ -403,6 +403,8 @@ stage "Vault: the role the policy job logs in as"
 # a compromised Vault; what is denied below is what a render never needs, so
 # it cannot quietly keep that access: changing its own policy or role, the
 # built-in policies, or minting a role that hands out policy-admin or root.
+# It also writes the generated keys the render names: it reads and creates KV
+# documents, and the job itself writes only under each key's own Project prefix.
 vault_exec policy write "$POLICY_ROLE" - >/dev/null <<'HCL'
 path "sys/policies/acl/*" {
   capabilities = ["create", "read", "update", "delete", "list"]
@@ -413,6 +415,9 @@ path "auth/kubernetes/role/*" {
     "token_policies" = ["policy-admin", "root"]
     "policies"       = ["policy-admin", "root"]
   }
+}
+path "secret/data/*" {
+  capabilities = ["create", "read", "update"]
 }
 path "sys/policies/acl/policy-admin" {
   capabilities = ["deny"]
