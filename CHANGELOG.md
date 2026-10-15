@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/JorisJonkers-dev/estate/compare/v0.9.1...v0.10.0) (2026-10-15)
+
+
+### Features
+
+* deliver tribelt on the estate path ([#92](https://github.com/JorisJonkers-dev/estate/issues/92)) ([92090df](https://github.com/JorisJonkers-dev/estate/commit/92090dfea14f9dc7ad9c417b3657ff69920f97f8))
+
 ## [0.9.1](https://github.com/JorisJonkers-dev/estate/compare/v0.9.0...v0.9.1) (2026-10-15)
 
 
