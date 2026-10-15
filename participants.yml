@@ -74,3 +74,9 @@ participants:
     owner: joris
     reason: releases when the site changes, not on a weekly cadence
     reviewBy: 2027-03-31
+  # JorisJonkers-dev/tribelt, moved from fleet-infra's tribelt namespace.
+  tribelt:
+    dormant: true
+    owner: joris
+    reason: releases when the site changes, not on a weekly cadence
+    reviewBy: 2027-03-31
