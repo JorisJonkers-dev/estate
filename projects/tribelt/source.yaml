@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/tribelt
   ref:
-    digest: sha256:872fadf3b837c472ac1bb8c345e7bf6fb51fd8c480ff2864baea741199374aeb
+    digest: sha256:31cc1a8c12d6e4f5bda56efc4e8756963eab29360f715bfba00cbe8700ba6674
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/tribelt
-    event.toolkit.fluxcd.io/sha: 37e21bb1010edc7959b512394ed06eda87a54dc0
+    event.toolkit.fluxcd.io/sha: f651c9086d12ae193ce7538b1f864a4ed39c7449
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.8.1
+    event.toolkit.fluxcd.io/version: 0.8.2
     event.toolkit.fluxcd.io/url: https://tribelt.jorisjonkers.dev
 spec:
   interval: 10m
@@ -49,20 +49,11 @@ spec:
         kind: Deployment
         metadata:
           name: any
-          annotations:
-            kustomize.toolkit.fluxcd.io/force: Enabled
-      target:
-        kind: Deployment
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
         spec:
           template:
             metadata:
               labels:
-                app.kubernetes.io/version: "0.8.1"
+                app.kubernetes.io/version: "0.8.2"
       target:
         kind: Deployment|StatefulSet|DaemonSet|Job
     - patch: |
@@ -76,6 +67,6 @@ spec:
               template:
                 metadata:
                   labels:
-                    app.kubernetes.io/version: "0.8.1"
+                    app.kubernetes.io/version: "0.8.2"
       target:
         kind: CronJob
