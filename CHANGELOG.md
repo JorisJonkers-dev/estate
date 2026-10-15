@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0](https://github.com/JorisJonkers-dev/estate/compare/v0.7.1...v0.8.0) (2026-10-15)
+
+
+### Features
+
+* **bootstrap:** create the estate-dashboard's database and write its URL to Vault ([#75](https://github.com/JorisJonkers-dev/estate/issues/75)) ([563928a](https://github.com/JorisJonkers-dev/estate/commit/563928a5fdbc74eeda2df834ec154a5153491b46))
+* deliver the estate-dashboard on the estate path ([#77](https://github.com/JorisJonkers-dev/estate/issues/77)) ([9f160b5](https://github.com/JorisJonkers-dev/estate/commit/9f160b5155ea7f1c51bd14d276b9171b037ff025))
+
 ## [0.7.1](https://github.com/JorisJonkers-dev/estate/compare/v0.7.0...v0.7.1) (2026-10-15)
 
 
