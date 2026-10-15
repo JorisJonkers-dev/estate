@@ -1,0 +1,179 @@
+# deploy-kit Project Intent for the estate's shared datastores: Postgres, RabbitMQ and Valkey.
+#
+# The Project is `data`, so the namespace derives as `data-system`, where all three already run.
+# It is still `legacy` (platform.intent.yml's `handover`): fleet-infra delivers it, and the
+# estate composes this file without delivering anything for it. Its fragment exists so a
+# Project on the estate path can name these Applications in `dependsOn`
+# (deploy-kit spec/v1/60-setup.md#handing-over-one-project-at-a-time). It publishes with the
+# Platform document, on this repository's releases, and its images are in images.lock.yml.
+# Moving it onto the estate path is JorisJonkers-dev/homelab-collections#15, which revisits
+# every field here against the rendered diff.
+#
+# Each value below is read from the live objects. Where the old path does something the model
+# derives instead, the comment says so.
+
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Project
+schemaVersion: 1.0.0
+
+project: data # the namespace derives: data-system
+owner: joris
+
+applications:
+  - id: platform-postgres
+    observability:
+      alertClass: page # every Application with a database depends on it
+      scrape:
+        process: postgres
+        surface: metrics
+        path: /metrics
+
+    processes:
+      - name: postgres
+        lifecycle: application
+        image: postgres # pgvector/pgvector:pg17; the lock resolves digest, uid and gid
+        runtime: none
+        engine: postgres # keys the backup method and the database catalog
+
+        provides:
+          postgres: 5432
+          metrics: 9187 # the exporter sidecar's listener
+
+        # The live pod requests 1536Mi and is limited at 4Gi; the model sets request to limit.
+        placement:
+          memory: 4Gi
+          cpu: 300m
+
+        writablePaths: [/var/run/postgresql, /tmp]
+
+        sidecars:
+          - name: postgres-exporter
+            image: postgres-exporter
+            memory: 128Mi
+            cpu: 25m
+
+        # The live probes run pg_isready on the socket; the model reads the port.
+        probes:
+          readiness: { tcp: 5432 }
+          liveness: { tcp: 5432 }
+
+        startupBudget: 600s # the live startup probe allows 60 checks 10s apart
+
+        cutover: interrupted # one pod on a ReadWriteOnce claim
+
+        volumes:
+          - claim: postgres-data
+            mountAt: /var/lib/postgresql/data
+            size: 20Gi
+            durability: irreplaceable
+
+        # The live init script that creates each database is not here: an executable is never
+        # an Asset, and the database catalog derives those databases from the inbound edges
+        # (deploy-kit spec/v1/16-dependencies.md#the-database-catalog).
+        assets:
+          - from: config/postgresql.conf
+            mountAt: /etc/postgresql/postgresql.conf
+
+        # The superuser, and the login of each Application the old path still creates by hand.
+        secrets:
+          - path: secret/data/platform/postgres
+            keys: [postgres.user, postgres.password, auth.user, auth.password, agents.user, agents.password, kb.user, kb.password]
+            access: read
+            delivery: env
+            rotation: { tolerates: restart }
+
+  - id: platform-rabbitmq
+    observability:
+      alertClass: urgent
+      scrape:
+        process: rabbitmq
+        surface: metrics
+        path: /metrics
+
+    # The management UI signs in through auth's OAuth issuer at its public host, which it
+    # reaches through the edge like a browser, so it is no `dependsOn` edge.
+    exposure:
+      - name: management
+        host: rabbitmq.jorisjonkers.dev
+        audience: authenticated
+        routes:
+          - { path: /, match: prefix, process: rabbitmq, surface: management }
+
+    processes:
+      - name: rabbitmq
+        lifecycle: application
+        image: rabbitmq # rabbitmq:4.2-management-alpine
+        runtime: none
+        engine: rabbitmq
+
+        provides:
+          amqp: 5672
+          management: 15672
+          metrics: 15692 # the prometheus plugin's own listener
+
+        placement:
+          memory: 1Gi
+          cpu: 200m
+
+        probes:
+          readiness: { tcp: 5672 }
+          liveness: { tcp: 5672 }
+
+        startupBudget: 200s # the live startup probe allows 40 checks 5s apart
+
+        cutover: interrupted
+
+        volumes:
+          - claim: rabbitmq-data
+            mountAt: /var/lib/rabbitmq
+            size: 10Gi
+            durability: recoverable
+
+        assets:
+          - from: config/rabbitmq.conf
+            mountAt: /etc/rabbitmq/rabbitmq.conf
+          - from: config/enabled_plugins
+            mountAt: /etc/rabbitmq/enabled_plugins
+
+        secrets:
+          - path: secret/data/platform/rabbitmq
+            keys: [rabbitmq.user, rabbitmq.password]
+            access: read
+            delivery: env
+            rotation: { tolerates: restart }
+
+  - id: platform-valkey
+    processes:
+      - name: valkey
+        lifecycle: application
+        image: valkey # valkey/valkey:8-alpine
+        runtime: none
+
+        provides:
+          redis: 6379
+          metrics: 9121 # the exporter sidecar's listener
+
+        placement:
+          memory: 768Mi
+          cpu: 150m
+
+        sidecars:
+          - name: valkey-exporter
+            image: valkey-exporter
+            memory: 96Mi
+            cpu: 25m
+
+        probes:
+          readiness: { tcp: 6379 }
+          liveness: { tcp: 6379 }
+
+        startupBudget: 30s
+
+        cutover: interrupted
+
+        # A cache: everything in it is rebuilt by its consumers.
+        volumes:
+          - claim: valkey-data
+            mountAt: /data
+            size: 5Gi
+            durability: reconstructible
