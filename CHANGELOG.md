@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.11.0](https://github.com/JorisJonkers-dev/estate/compare/v0.10.0...v0.11.0) (2026-10-15)
+
+
+### Features
+
+* let the Vault policy job write generated keys ([#94](https://github.com/JorisJonkers-dev/estate/issues/94)) ([d48bb4a](https://github.com/JorisJonkers-dev/estate/commit/d48bb4ab14e0b57bf885897e38d83fca5bc7da6a))
+* run deploy-kit 0.16.0, which generates declared secret keys ([#97](https://github.com/JorisJonkers-dev/estate/issues/97)) ([f7758a6](https://github.com/JorisJonkers-dev/estate/commit/f7758a66d8b428f4464d6953a1338fb993783783))
+* run the Vault policy job from delivery 0.7.0, which writes generated keys ([#98](https://github.com/JorisJonkers-dev/estate/issues/98)) ([7928163](https://github.com/JorisJonkers-dev/estate/commit/79281632cc794d4aa45e9943b352e7e5f25a2c5a))
+
 ## [0.10.0](https://github.com/JorisJonkers-dev/estate/compare/v0.9.1...v0.10.0) (2026-10-15)
 
 
