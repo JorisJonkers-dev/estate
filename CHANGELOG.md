@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.0](https://github.com/JorisJonkers-dev/estate/compare/v0.11.0...v0.12.0) (2026-10-16)
+
+
+### Features
+
+* apply the estate path's database catalog with deploy-kit 0.17.0 ([#101](https://github.com/JorisJonkers-dev/estate/issues/101)) ([c15284b](https://github.com/JorisJonkers-dev/estate/commit/c15284bbd1ebe5d23c6be2e823ac477ab32921c9))
+* run the Vault policy job from delivery 0.8.0, which adopts a generated key's old value ([#99](https://github.com/JorisJonkers-dev/estate/issues/99)) ([c74cd7e](https://github.com/JorisJonkers-dev/estate/commit/c74cd7e5867a97182f64eed2d3e6ba0395852410))
+
 ## [0.11.0](https://github.com/JorisJonkers-dev/estate/compare/v0.10.0...v0.11.0) (2026-10-15)
 
 
