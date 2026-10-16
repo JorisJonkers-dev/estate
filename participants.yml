@@ -80,3 +80,9 @@ participants:
     owner: joris
     reason: releases when the site changes, not on a weekly cadence
     reviewBy: 2027-03-31
+  # JorisJonkers-dev/grimoire, moved from fleet-infra's grimoire namespace.
+  grimoire:
+    dormant: true
+    owner: joris
+    reason: releases when the app changes, not on a weekly cadence
+    reviewBy: 2027-03-31
