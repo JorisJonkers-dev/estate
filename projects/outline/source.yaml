@@ -1,0 +1,81 @@
+# GENERATED. Never hand-edit.
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: project-outline
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/managed-by: deploy-kit
+spec:
+  interval: 10m
+  url: oci://ghcr.io/jorisjonkers-dev/render/outline
+  ref:
+    digest: sha256:9f0463e8c136d24e06a147aad97641d9895f075f2cc2054203b1e740c16901eb
+  secretRef:
+    name: render-pull
+  verify:
+    provider: cosign
+    matchOIDCIdentity:
+      - issuer: ^https://token\.actions\.githubusercontent\.com$
+        subject: ^https://github\.com/JorisJonkers-dev/estate/\.github/workflows/compose\.yml@refs/heads/main$
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: apps-outline
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/managed-by: deploy-kit
+  annotations:
+    event.toolkit.fluxcd.io/repository: JorisJonkers-dev/estate
+    event.toolkit.fluxcd.io/sha: 6bb4d23ccac605b351261b36d1b9dc5c1f5316f6
+    event.toolkit.fluxcd.io/environment: production
+    event.toolkit.fluxcd.io/version: 0.15.0
+    event.toolkit.fluxcd.io/url: https://notes.jorisjonkers.dev
+spec:
+  interval: 10m
+  prune: true
+  wait: true
+  sourceRef:
+    kind: OCIRepository
+    name: project-outline
+  path: ./apps/outline
+  dependsOn:
+    - name: estate-vso-secrets
+  patches:
+    - patch: |
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: any
+          annotations:
+            kustomize.toolkit.fluxcd.io/force: Enabled
+      target:
+        kind: Deployment
+    - patch: |
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: any
+        spec:
+          template:
+            metadata:
+              labels:
+                app.kubernetes.io/version: "0.15.0"
+      target:
+        kind: Deployment|StatefulSet|DaemonSet|Job
+    - patch: |
+        apiVersion: batch/v1
+        kind: CronJob
+        metadata:
+          name: any
+        spec:
+          jobTemplate:
+            spec:
+              template:
+                metadata:
+                  labels:
+                    app.kubernetes.io/version: "0.15.0"
+      target:
+        kind: CronJob
