@@ -93,3 +93,9 @@ participants:
     owner: joris
     reason: publishes with the Platform document, on this repository's releases
     reviewBy: 2027-03-31
+  # JorisJonkers-dev/overleaf, moving from fleet-infra's latex-system.
+  overleaf:
+    dormant: true
+    owner: joris
+    reason: releases when Overleaf or its image changes, not on a weekly cadence
+    reviewBy: 2027-03-31
