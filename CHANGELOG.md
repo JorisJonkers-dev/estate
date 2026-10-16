@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/JorisJonkers-dev/estate/compare/v0.13.1...v0.14.0) (2026-10-16)
+
+
+### Features
+
+* publish outline's Intent Fragment from this repository ([#114](https://github.com/JorisJonkers-dev/estate/issues/114)) ([e9fd2b7](https://github.com/JorisJonkers-dev/estate/commit/e9fd2b7703dda00178005c0051e82dfa5d49b295))
+
 ## [0.13.1](https://github.com/JorisJonkers-dev/estate/compare/v0.13.0...v0.13.1) (2026-10-16)
 
 
