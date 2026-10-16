@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.16.0](https://github.com/JorisJonkers-dev/estate/compare/v0.15.2...v0.16.0) (2026-10-16)
+
+
+### Features
+
+* compose overleaf's Intent Fragment ([#124](https://github.com/JorisJonkers-dev/estate/issues/124)) ([4b19e5b](https://github.com/JorisJonkers-dev/estate/commit/4b19e5be5a4fa5546396d9f6d6f21a31eb6e1688))
+* deliver overleaf on the estate path ([#126](https://github.com/JorisJonkers-dev/estate/issues/126)) ([2d3449b](https://github.com/JorisJonkers-dev/estate/commit/2d3449b5888a52fb975a714743f5004ecf105788))
+
 ## [0.15.2](https://github.com/JorisJonkers-dev/estate/compare/v0.15.1...v0.15.2) (2026-10-16)
 
 
