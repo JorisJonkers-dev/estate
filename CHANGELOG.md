@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.2](https://github.com/JorisJonkers-dev/estate/compare/v0.15.1...v0.15.2) (2026-10-16)
+
+
+### Bug Fixes
+
+* let outline run on any node ([#121](https://github.com/JorisJonkers-dev/estate/issues/121)) ([b1b5f16](https://github.com/JorisJonkers-dev/estate/commit/b1b5f167b611a2999855db3b66fa777a2e7260f2))
+
 ## [0.15.1](https://github.com/JorisJonkers-dev/estate/compare/v0.15.0...v0.15.1) (2026-10-16)
 
 
