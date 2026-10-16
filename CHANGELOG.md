@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.1](https://github.com/JorisJonkers-dev/estate/compare/v0.15.0...v0.15.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* run outline in Frankfurt, beside the datastores it reads ([#119](https://github.com/JorisJonkers-dev/estate/issues/119)) ([3b437c3](https://github.com/JorisJonkers-dev/estate/commit/3b437c3eb8cfd5f7d384202014ee4aaaa5c388aa))
+
 ## [0.15.0](https://github.com/JorisJonkers-dev/estate/compare/v0.14.0...v0.15.0) (2026-10-16)
 
 
