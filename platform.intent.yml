@@ -210,7 +210,6 @@ handover:
     - outline
     - n8n
     - utility
-    - grimoire
     - overleaf
     - knowledge-platform
   estate:
@@ -218,6 +217,7 @@ handover:
     - estate-dashboard
     - home-portal
     - tribelt
+    - grimoire
   # Where the old path runs a legacy Application that the estate path
   # reaches, rather than where its declaration puts it
   # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). Live Vault is
