@@ -8,7 +8,7 @@ this repository's shape is deploy-kit's `spec/v1/60-setup.md#the-estate-reposito
 | path | what it is | who writes it |
 |---|---|---|
 | [`platform.intent.yml`](platform.intent.yml) | the Platform document: what the estate offers, and the handover ledger | a human, by pull request |
-| [`platform/`](platform/) | the platform's own project files, `<project>.project.yml`: `edge`, `observability`, `secrets`; and `mail`, and `data` in its own directory beside its config, both still delivered by fleet-infra | a human, by pull request |
+| [`platform/`](platform/) | the platform's own project files, `<project>.project.yml`: `edge`, `observability`, `secrets`; `mail`, and `data` in its own directory beside its config, both still delivered by fleet-infra; and `outline`, a third-party application, in its own directory beside its env file | a human, by pull request |
 | [`node-contract.yml`](node-contract.yml) | what each node offers a placement, which the Platform document pins by digest | copied from JorisJonkers-dev/nix-config, which generates it from its node files |
 | [`images.lock.yml`](images.lock.yml) | every image the platform's own projects and policies name, by digest and user | a human, by pull request |
 | [`participants.yml`](participants.yml) | every Project composition expects a fragment from, and how stale each may be | a human, by pull request |

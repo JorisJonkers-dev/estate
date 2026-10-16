@@ -86,3 +86,10 @@ participants:
     owner: joris
     reason: releases when the app changes, not on a weekly cadence
     reviewBy: 2027-03-31
+  # outline, moved from fleet-infra's notes-system. It runs a third-party image, so
+  # it publishes from this repository, on this repository's releases.
+  outline:
+    dormant: true
+    owner: joris
+    reason: publishes with the Platform document, on this repository's releases
+    reviewBy: 2027-03-31

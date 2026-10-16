@@ -118,6 +118,13 @@ images:
     digest: "sha256:136a6aac1258bcb41449272fe0de1d71e65f8cd69514efb2a410b2fd2239a3ba"
     uid: 59000
     gid: 59000
+  # 1.10.0, which fleet-infra runs. The image names its user (`nodejs`); this is
+  # that user's number, read from the running pod.
+  outline:
+    repository: docker.io/outlinewiki/outline
+    digest: "sha256:cc9f1f05fd7cd316745b5fc9cfe01e681b1b4cf97705d1d812a5c778d7986cfd"
+    uid: 1001
+    gid: 1001
   stalwart: # v0.16.20
     repository: docker.io/stalwartlabs/stalwart
     digest: "sha256:74ca4f7f6885fe302f38a99381f36a208547afce1033d8734d9e6d8d3eba7446"

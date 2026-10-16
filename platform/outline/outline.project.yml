@@ -1,0 +1,81 @@
+# deploy-kit Project Intent for outline, the notes wiki at notes.jorisjonkers.dev.
+#
+# outline runs the third-party image outlinewiki/outline, so no repository of its own publishes
+# it: this file publishes with the Platform document, on this repository's releases, and its
+# image is in images.lock.yml. A new outline version is a change to that lock.
+#
+# Each value below is read from the live objects fleet-infra ran in notes-system.
+
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Project
+schemaVersion: 1.0.0
+
+project: outline # the namespace derives: outline-system
+owner: joris
+
+applications:
+  - id: outline
+    migration: self # outline runs its pending migrations on start, under a lock in valkey
+
+    exposure:
+      - name: public
+        host: notes.jorisjonkers.dev
+        # outline runs the OIDC flow itself, and auth-api grants the outline client per user.
+        # forward-auth would also break its API tokens and desktop app.
+        audience: anonymous
+        routes:
+          - { path: /, match: prefix, process: outline, surface: http }
+
+    processes:
+      - name: outline
+        lifecycle: application
+        image: outline # outlinewiki/outline; the lock resolves digest, uid and gid
+        runtime: none
+
+        provides:
+          http: 3000
+
+        dependsOn:
+          # The login the edge derives: the owner role's, since outline migrates itself.
+          - application: platform-postgres
+            surface: postgres
+            credentials: { delivery: env, rotation: { tolerates: restart } }
+          - { application: platform-valkey, surface: redis }
+          - { application: stalwart, surface: submission }
+          - { application: auth, surface: http }
+
+        secrets:
+          # The OIDC client secret auth-api holds the other copy of, the two application keys,
+          # and the password of the notes@ submission account.
+          - path: secret/data/platform/outline
+            keys: [oidc.client_secret, secret_key, utils_secret, smtp.password]
+            access: read
+            delivery: env
+            rotation: { tolerates: restart }
+          # The Garage pair, read where Garage itself imports it from.
+          - path: secret/data/platform/garage
+            keys: [s3.access_key_id, s3.secret_access_key]
+            access: read
+            delivery: env
+            rotation: { tolerates: restart }
+
+        # The live pods use about 550Mi each; the old path limited them at 1536Mi.
+        placement:
+          memory: 1Gi
+          cpu: 300m
+
+        replicas:
+          count: 2
+          reason: Two pods survive a crash mid-edit; collaboration state syncs through valkey.
+
+        writablePaths: [/tmp]
+
+        probes:
+          readiness: { path: /_health, port: 3000 }
+          liveness: { path: /_health, port: 3000 }
+
+        startupBudget: 240s # a start that runs migrations is slow
+
+        # outline's migrations run under a lock and keep the previous version working, so the
+        # next version starts beside it and takes traffic once it passes.
+        cutover: continuous
