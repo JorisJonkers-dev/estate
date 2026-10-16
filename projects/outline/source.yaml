@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/outline
   ref:
-    digest: sha256:63f7abcfe1fc6fb2a8ccff0a4ac80d0a07b6742e8a1f4f463bf6c5a553d27fbb
+    digest: sha256:6b6d61668cf70e00678fc49118c0477957b00199434fd17d8c105485c9585728
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/estate
-    event.toolkit.fluxcd.io/sha: 3aaa8c3bfce8025e0f452f551e303e4913fa2d08
+    event.toolkit.fluxcd.io/sha: a7c46b58f73354101432c2f643f2ab006db3244e
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.15.1
+    event.toolkit.fluxcd.io/version: 0.15.2
     event.toolkit.fluxcd.io/url: https://notes.jorisjonkers.dev
 spec:
   interval: 10m
@@ -53,7 +53,7 @@ spec:
           template:
             metadata:
               labels:
-                app.kubernetes.io/version: "0.15.1"
+                app.kubernetes.io/version: "0.15.2"
       target:
         kind: Deployment|StatefulSet|DaemonSet|Job
     - patch: |
@@ -67,6 +67,6 @@ spec:
               template:
                 metadata:
                   labels:
-                    app.kubernetes.io/version: "0.15.1"
+                    app.kubernetes.io/version: "0.15.2"
       target:
         kind: CronJob
