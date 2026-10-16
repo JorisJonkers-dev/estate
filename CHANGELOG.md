@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/JorisJonkers-dev/estate/compare/v0.14.0...v0.15.0) (2026-10-16)
+
+
+### Features
+
+* deliver outline on the estate path ([#117](https://github.com/JorisJonkers-dev/estate/issues/117)) ([69deb5f](https://github.com/JorisJonkers-dev/estate/commit/69deb5f833f4e230c1ca4fa542d63ce8595fab0f))
+
 ## [0.14.0](https://github.com/JorisJonkers-dev/estate/compare/v0.13.1...v0.14.0) (2026-10-16)
 
 
