@@ -59,13 +59,11 @@ applications:
             delivery: env
             rotation: { tolerates: restart }
 
-        # The live pods use about 550Mi each; the old path limited them at 1536Mi. Postgres, valkey,
-        # Garage and public ingress run only in Frankfurt, so a pod elsewhere crosses Tailscale on
-        # every request and gains no availability.
+        # The live pods use about 550Mi each; the old path limited them at 1536Mi. Stateless, so
+        # any node may run it.
         placement:
           memory: 1Gi
           cpu: 300m
-          site: frankfurt
 
         replicas:
           count: 2
