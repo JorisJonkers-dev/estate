@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/estate-dashboard
   ref:
-    digest: sha256:2df59e5cd383e145946c7982b60f9e10798d7345d74196f53de81a4db3081a5f
+    digest: sha256:01d94a045259578a13aca42d9ea335cb36ca319a4c56615d8dd64ee9405ffe92
   secretRef:
     name: render-pull
   verify:
