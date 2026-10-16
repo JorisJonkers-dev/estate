@@ -68,7 +68,7 @@ jobs:
           - project-file: platform/mail.project.yml
           - project-file: platform/outline/outline.project.yml
             validate-with: platform/outline/env
-            validate-with-fragments: auth data mail
+            validate-with-fragments: auth
     permissions:
       contents: read
       packages: write
