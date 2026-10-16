@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.1](https://github.com/JorisJonkers-dev/estate/compare/v0.12.0...v0.12.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **release:** publish the Platform fragment with deploy-kit 0.17.0 ([#102](https://github.com/JorisJonkers-dev/estate/issues/102)) ([a3f162c](https://github.com/JorisJonkers-dev/estate/commit/a3f162c5f2ab012140cedaac1dd8da2b5cc565d1))
+
 ## [0.12.0](https://github.com/JorisJonkers-dev/estate/compare/v0.11.0...v0.12.0) (2026-10-16)
 
 
