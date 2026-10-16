@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.13.0](https://github.com/JorisJonkers-dev/estate/compare/v0.12.2...v0.13.0) (2026-10-16)
+
+
+### Features
+
+* deliver grimoire on the estate path ([#108](https://github.com/JorisJonkers-dev/estate/issues/108)) ([a5e4485](https://github.com/JorisJonkers-dev/estate/commit/a5e4485ff52eaf8710045137163a577c794a5a59))
+
+
+### Bug Fixes
+
+* run deploy-kit 0.18.0, which delivers the database credential an edge derives ([#106](https://github.com/JorisJonkers-dev/estate/issues/106)) ([107cf43](https://github.com/JorisJonkers-dev/estate/commit/107cf439f8725def9e2635e11226afcae16dd75c))
+
 ## [0.12.2](https://github.com/JorisJonkers-dev/estate/compare/v0.12.1...v0.12.2) (2026-10-16)
 
 
