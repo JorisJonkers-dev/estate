@@ -1,0 +1,81 @@
+# GENERATED. Never hand-edit.
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: project-grimoire
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/managed-by: deploy-kit
+spec:
+  interval: 10m
+  url: oci://ghcr.io/jorisjonkers-dev/render/grimoire
+  ref:
+    digest: sha256:4d2e6273fb3d75ef545ad3bca044c6857a799e96f8d6cf8f9224255768f0f30e
+  secretRef:
+    name: render-pull
+  verify:
+    provider: cosign
+    matchOIDCIdentity:
+      - issuer: ^https://token\.actions\.githubusercontent\.com$
+        subject: ^https://github\.com/JorisJonkers-dev/estate/\.github/workflows/compose\.yml@refs/heads/main$
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: apps-grimoire
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/managed-by: deploy-kit
+  annotations:
+    event.toolkit.fluxcd.io/repository: JorisJonkers-dev/grimoire
+    event.toolkit.fluxcd.io/sha: cb52107493a1b0f644bc9ef55157f336bcffd8a2
+    event.toolkit.fluxcd.io/environment: production
+    event.toolkit.fluxcd.io/version: 1.4.0
+    event.toolkit.fluxcd.io/url: https://grimoire.jorisjonkers.dev
+spec:
+  interval: 10m
+  prune: true
+  wait: true
+  sourceRef:
+    kind: OCIRepository
+    name: project-grimoire
+  path: ./apps/grimoire
+  dependsOn:
+    - name: estate-vso-secrets
+  patches:
+    - patch: |
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: any
+          annotations:
+            kustomize.toolkit.fluxcd.io/force: Enabled
+      target:
+        kind: Deployment
+    - patch: |
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: any
+        spec:
+          template:
+            metadata:
+              labels:
+                app.kubernetes.io/version: "1.4.0"
+      target:
+        kind: Deployment|StatefulSet|DaemonSet|Job
+    - patch: |
+        apiVersion: batch/v1
+        kind: CronJob
+        metadata:
+          name: any
+        spec:
+          jobTemplate:
+            spec:
+              template:
+                metadata:
+                  labels:
+                    app.kubernetes.io/version: "1.4.0"
+      target:
+        kind: CronJob
