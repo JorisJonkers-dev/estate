@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.2](https://github.com/JorisJonkers-dev/estate/compare/v0.12.1...v0.12.2) (2026-10-16)
+
+
+### Bug Fixes
+
+* run the Vault policy job from delivery 0.9.1, which writes the catalog method's policy ([#104](https://github.com/JorisJonkers-dev/estate/issues/104)) ([06e0506](https://github.com/JorisJonkers-dev/estate/commit/06e0506963dc36f05bfd8b0b423beb5a9d846bde))
+
 ## [0.12.1](https://github.com/JorisJonkers-dev/estate/compare/v0.12.0...v0.12.1) (2026-10-16)
 
 
