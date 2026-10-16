@@ -67,6 +67,11 @@ images:
     digest: "sha256:045513ab13ec373783d25d9314d91d4d8e6822f3bbed023316d0ae53af8737e6"
     uid: 65532
     gid: 65532
+  postgres-catalog: # delivery 0.9.0, which applies the database catalog
+    repository: ghcr.io/jorisjonkers-dev/delivery/postgres-catalog
+    digest: "sha256:2d6322f91c2191ab0a64c31ecdc6d074d6bcb89d2a208ee8ef84aa2c8a0ad28a"
+    uid: 65532
+    gid: 65532
   file-backup:
     repository: ghcr.io/jorisjonkers-dev/delivery/file-backup
     digest: "sha256:765f128ca3fe06b9e6973fd042aca97af6c18fda01e338d3942c3149d0b12421"

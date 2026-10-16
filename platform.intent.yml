@@ -98,7 +98,9 @@ durability:
 # An engine whose method dumps over the network names the surface it connects
 # to; one whose method reads the volume alone names none.
 engines:
-  postgres: { backup: postgres-backup, surface: postgres }
+  # `catalog` applies the database catalog of the estate path's projects
+  # (deploy-kit spec/v1/14-platform-intent.md#catalog-methods).
+  postgres: { backup: postgres-backup, surface: postgres, catalog: postgres-catalog }
   rabbitmq: { backup: rabbitmq-backup, surface: management }
   files: { backup: file-backup }
 
@@ -225,6 +227,11 @@ handover:
   serving:
     - application: vault
       namespace: data-system
+    # The old path's Postgres, and where it keeps the administrative login the
+    # catalog method applies the estate path's databases with.
+    - application: platform-postgres
+      namespace: data-system
+      admin: { path: secret/data/platform/postgres, user: postgres.user, password: postgres.password }
 
 # No `providers`: everything an Application depends on today runs in the
 # cluster and is declared by some Project. The worked example's `stalwart`
