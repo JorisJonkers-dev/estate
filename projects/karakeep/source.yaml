@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/karakeep
   ref:
-    digest: sha256:c695500707f84f558bb6a56fcb05928bdff716b6717e924afd6bbb3ca6add275
+    digest: sha256:f31ac5854bcdfa4e1f9aeb25bf285aff09f83abc3bc820e47648cd9bf25bea4f
   secretRef:
     name: render-pull
   verify:
@@ -44,15 +44,6 @@ spec:
   dependsOn:
     - name: estate-vso-secrets
   patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-          annotations:
-            kustomize.toolkit.fluxcd.io/force: Enabled
-      target:
-        kind: Deployment
     - patch: |
         apiVersion: apps/v1
         kind: Deployment
