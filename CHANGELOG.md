@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/JorisJonkers-dev/estate/compare/v0.17.0...v0.18.0) (2026-10-17)
+
+
+### Features
+
+* deliver hindsight on the estate path ([#132](https://github.com/JorisJonkers-dev/estate/issues/132)) ([758fd4c](https://github.com/JorisJonkers-dev/estate/commit/758fd4c0293b303f7d0bdb9ea889a629b0b44c94))
+
 ## [0.17.0](https://github.com/JorisJonkers-dev/estate/compare/v0.16.0...v0.17.0) (2026-10-17)
 
 
