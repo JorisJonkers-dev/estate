@@ -93,6 +93,18 @@ durability:
         - { cidr: 185.219.143.84/32, port: 443 }
         - { cidr: 185.219.143.85/32, port: 443 }
 
+# Directories several projects share, on the node that holds them (deploy-kit
+# spec/v1/14-platform-intent.md#libraries). /srv/media is the btrfs media disk on
+# enschede-t1000-1, owned deploy:deploy (gid 1000, nix-config's deployUser), as
+# Samba writes it too.
+libraries:
+  media:
+    node: enschede-t1000-1
+    path: /srv/media
+    gid: 1000
+    grants:
+      immich: write
+
 # The method is the image: one purpose-built image per engine, resolved
 # through the images lock. Nothing executable is authored.
 # An engine whose method dumps over the network names the surface it connects
