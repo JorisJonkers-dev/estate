@@ -105,3 +105,9 @@ participants:
     owner: joris
     reason: releases when Hindsight or its images change, not on a weekly cadence
     reviewBy: 2027-03-31
+  # JorisJonkers-dev/karakeep, moving from fleet-infra's knowledge-platform-system.
+  karakeep:
+    dormant: true
+    owner: joris
+    reason: releases when Karakeep or its images change, not on a weekly cadence
+    reviewBy: 2027-03-31
