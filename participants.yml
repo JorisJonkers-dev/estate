@@ -99,3 +99,9 @@ participants:
     owner: joris
     reason: releases when Overleaf or its image changes, not on a weekly cadence
     reviewBy: 2027-03-31
+  # JorisJonkers-dev/hindsight, moving from fleet-infra's knowledge-platform-system.
+  hindsight:
+    dormant: true
+    owner: joris
+    reason: releases when Hindsight or its images change, not on a weekly cadence
+    reviewBy: 2027-03-31
