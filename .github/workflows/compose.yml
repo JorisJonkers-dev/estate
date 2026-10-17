@@ -410,14 +410,20 @@ jobs:
         if: ${{ success() && github.ref == 'refs/heads/main' }}
         run: |
           git rev-parse HEAD > composed/COMMIT
-          digest="$(cd composed && oras push "${COMPOSED}:latest" lock.json composition.json COMMIT \
+          # Pushed untagged and tagged `latest` only once signed and verified: a
+          # failed signing must not leave the next run an unsigned `latest`.
+          digest="$(cd composed && oras push "${COMPOSED}" lock.json composition.json COMMIT \
             --format go-template='{{.digest}}')"
           # Signed as the renders are, so the next run reads only a lock this
           # workflow on main wrote.
           cosign sign --yes "${COMPOSED}@${digest}"
+          cosign verify "${COMPOSED}@${digest}" \
+            --certificate-oidc-issuer "$SIGNER_ISSUER" --certificate-identity "$SIGNER_SUBJECT" > /dev/null
           # Read back by digest: an accepted push is not what a consumer reads.
           oras pull "${COMPOSED}@${digest}" --output check
           cmp check/lock.json composed/lock.json
+          oras tag "${COMPOSED}@${digest}" latest
+          [ "$(oras resolve "${COMPOSED}:latest")" = "$digest" ]
           echo "digest=${digest}" >> "$GITHUB_OUTPUT"
 
       - name: Publish one signed artifact per moved Project
