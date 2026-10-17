@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.0](https://github.com/JorisJonkers-dev/estate/compare/v0.16.0...v0.17.0) (2026-10-17)
+
+
+### Features
+
+* compose hindsight's Intent Fragment ([#130](https://github.com/JorisJonkers-dev/estate/issues/130)) ([ee0ba7a](https://github.com/JorisJonkers-dev/estate/commit/ee0ba7ab2c01666c8d70c83b91ec51eb3d82bad7))
+
+
+### Bug Fixes
+
+* tag the composed lock latest only after it is signed and verified ([#127](https://github.com/JorisJonkers-dev/estate/issues/127)) ([7a37775](https://github.com/JorisJonkers-dev/estate/commit/7a37775192f183283662288a5fcf077f15f9b7f8))
+
 ## [0.16.0](https://github.com/JorisJonkers-dev/estate/compare/v0.15.2...v0.16.0) (2026-10-16)
 
 
