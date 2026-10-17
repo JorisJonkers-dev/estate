@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.20.0](https://github.com/JorisJonkers-dev/estate/compare/v0.19.0...v0.20.0) (2026-10-17)
+
+
+### Features
+
+* declare the media library, and run deploy-kit 0.19.0 ([#139](https://github.com/JorisJonkers-dev/estate/issues/139)) ([a2f526a](https://github.com/JorisJonkers-dev/estate/commit/a2f526a08a14a78a1bbc24035cbbe000a6a0c820))
+
+
+### Bug Fixes
+
+* give the Vault policy job five minutes per run ([#137](https://github.com/JorisJonkers-dev/estate/issues/137)) ([7904e53](https://github.com/JorisJonkers-dev/estate/commit/7904e535adb5ada87c63f54cc02e9af0ddd7aa58))
+
 ## [0.19.0](https://github.com/JorisJonkers-dev/estate/compare/v0.18.0...v0.19.0) (2026-10-17)
 
 
