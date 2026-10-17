@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/JorisJonkers-dev/estate/compare/v0.18.0...v0.19.0) (2026-10-17)
+
+
+### Features
+
+* deliver karakeep on the estate path ([#135](https://github.com/JorisJonkers-dev/estate/issues/135)) ([514a528](https://github.com/JorisJonkers-dev/estate/commit/514a52842e5a7acef8c146473e23b4fbc926caa9))
+
 ## [0.18.0](https://github.com/JorisJonkers-dev/estate/compare/v0.17.0...v0.18.0) (2026-10-17)
 
 
