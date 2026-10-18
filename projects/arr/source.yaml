@@ -1,0 +1,78 @@
+# GENERATED. Never hand-edit.
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: project-arr
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/managed-by: deploy-kit
+spec:
+  interval: 10m
+  url: oci://ghcr.io/jorisjonkers-dev/render/arr
+  ref:
+    digest: sha256:3952fde18a832504d4ba971a33d8e5c66659aef36177e773e5e8e80d49685ed6
+  secretRef:
+    name: render-pull
+  verify:
+    provider: cosign
+    matchOIDCIdentity:
+      - issuer: ^https://token\.actions\.githubusercontent\.com$
+        subject: ^https://github\.com/JorisJonkers-dev/estate/\.github/workflows/compose\.yml@refs/heads/main$
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: apps-arr
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/managed-by: deploy-kit
+  annotations:
+    event.toolkit.fluxcd.io/repository: JorisJonkers-dev/arr
+    event.toolkit.fluxcd.io/sha: be7a540ff741e6149fff55bd5b7b6686f2e1f75c
+    event.toolkit.fluxcd.io/environment: production
+    event.toolkit.fluxcd.io/version: 1.0.0
+spec:
+  interval: 10m
+  prune: true
+  wait: true
+  sourceRef:
+    kind: OCIRepository
+    name: project-arr
+  path: ./apps/arr
+  patches:
+    - patch: |
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: any
+          annotations:
+            kustomize.toolkit.fluxcd.io/force: Enabled
+      target:
+        kind: Deployment
+    - patch: |
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: any
+        spec:
+          template:
+            metadata:
+              labels:
+                app.kubernetes.io/version: "1.0.0"
+      target:
+        kind: Deployment|StatefulSet|DaemonSet|Job
+    - patch: |
+        apiVersion: batch/v1
+        kind: CronJob
+        metadata:
+          name: any
+        spec:
+          jobTemplate:
+            spec:
+              template:
+                metadata:
+                  labels:
+                    app.kubernetes.io/version: "1.0.0"
+      target:
+        kind: CronJob
