@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.1](https://github.com/JorisJonkers-dev/estate/compare/v0.22.0...v0.22.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* run the backup methods from delivery 0.9.1, which take the peer the render hands them ([#153](https://github.com/JorisJonkers-dev/estate/issues/153)) ([217da12](https://github.com/JorisJonkers-dev/estate/commit/217da122f032e26036f83541677e8ce41796604a))
+
 ## [0.22.0](https://github.com/JorisJonkers-dev/estate/compare/v0.21.0...v0.22.0) (2026-10-18)
 
 
