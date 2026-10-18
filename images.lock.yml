@@ -12,7 +12,7 @@
 #
 # The backup methods and the Vault policy job are built by
 # JorisJonkers-dev/delivery, each release writing them into its images lock
-# artifact; they are pinned here from delivery 0.9.1. The Platform document
+# artifact; they are pinned here from delivery 0.9.2. The Platform document
 # names them, and a fragment is never resolved from another Project's share,
 # so this lock holds them rather than delivery's fragment.
 apiVersion: lock.jorisjonkers.dev/v1
@@ -74,17 +74,17 @@ images:
     gid: 65532
   file-backup:
     repository: ghcr.io/jorisjonkers-dev/delivery/file-backup
-    digest: "sha256:6186158d0cd58a22cb057b97805f976eb6d3218596294f154b0f648b76a30e81"
+    digest: "sha256:3780da3df24d102076648f048a1c4fe2452f7d7cea9cbafdd2dda064b897fa91"
     uid: 65532
     gid: 65532
   postgres-backup:
     repository: ghcr.io/jorisjonkers-dev/delivery/postgres-backup
-    digest: "sha256:1a2d9a686d993709f167c9f814da0381eaa50d2ce9a20cf1383027d35b8cf223"
+    digest: "sha256:cc087aa9184fbed7aa4cd0ee9a435429af32f96f04fca336a6b0ee43985bcae0"
     uid: 65532
     gid: 65532
   rabbitmq-backup:
     repository: ghcr.io/jorisjonkers-dev/delivery/rabbitmq-backup
-    digest: "sha256:33e4bc4d0f473f064f0f9c152a118a6a57905a4505938baa8f8eccb97e23fe69"
+    digest: "sha256:63755a6895b8a4f0e7ed8986419169c415267929f414728502fb716f27472a93"
     uid: 65532
     gid: 65532
 
