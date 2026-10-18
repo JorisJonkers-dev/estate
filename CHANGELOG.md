@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.0](https://github.com/JorisJonkers-dev/estate/compare/v0.21.0...v0.22.0) (2026-10-18)
+
+
+### Features
+
+* deliver the arr stack on the estate path, mounting the media library ([#151](https://github.com/JorisJonkers-dev/estate/issues/151)) ([1117972](https://github.com/JorisJonkers-dev/estate/commit/1117972501f2a2098f71a50ac889c680bbe6a719))
+
 ## [0.21.0](https://github.com/JorisJonkers-dev/estate/compare/v0.20.2...v0.21.0) (2026-10-18)
 
 
