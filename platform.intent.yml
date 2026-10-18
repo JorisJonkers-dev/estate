@@ -31,6 +31,11 @@ substrate:
   cni: flannel
   networkPolicyController: embedded # no non-enforcing stage: default-deny stays render-only
   clusterDns: kube-system
+  # The slowest image pull a pod may wait on, which every derived deadline
+  # allows on top of its own start: the Pis boot from USB sticks, and pulling
+  # the Release Gate's image on enschede-pi-1 took 94s on 2026-10-14
+  # (JorisJonkers-dev/deploy-kit#422). Larger images take longer there.
+  imagePull: 5m
 
 # What must exist before the first rendered object can apply.
 bootstrap:
