@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/karakeep
   ref:
-    digest: sha256:df81256cd57b904bb716c1f471930910a4571acdfd273aa4ac6649bea5044e37
+    digest: sha256:85b5db5b85e1126d002f9e85cfb5ff3d69ee07113482b4fd379f3bbf89e68250
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/karakeep
-    event.toolkit.fluxcd.io/sha: fb0f27f930374c487d9d66601405474625ed4354
+    event.toolkit.fluxcd.io/sha: eb611aa32934d5f6a2089cc7a7b994202b8cfdaa
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 1.0.0
+    event.toolkit.fluxcd.io/version: 1.0.1
     event.toolkit.fluxcd.io/url: https://karakeep.jorisjonkers.dev
 spec:
   interval: 10m
@@ -53,7 +53,7 @@ spec:
           template:
             metadata:
               labels:
-                app.kubernetes.io/version: "1.0.0"
+                app.kubernetes.io/version: "1.0.1"
       target:
         kind: Deployment|StatefulSet|DaemonSet|Job
     - patch: |
@@ -67,6 +67,6 @@ spec:
               template:
                 metadata:
                   labels:
-                    app.kubernetes.io/version: "1.0.0"
+                    app.kubernetes.io/version: "1.0.1"
       target:
         kind: CronJob
