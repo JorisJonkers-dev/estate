@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/grimoire
   ref:
-    digest: sha256:4d2e6273fb3d75ef545ad3bca044c6857a799e96f8d6cf8f9224255768f0f30e
+    digest: sha256:5286ca3e4012a0446212ed96a33509918a2f90592270476e7c6621df7d01b2b3
   secretRef:
     name: render-pull
   verify:
@@ -44,15 +44,6 @@ spec:
   dependsOn:
     - name: estate-vso-secrets
   patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-          annotations:
-            kustomize.toolkit.fluxcd.io/force: Enabled
-      target:
-        kind: Deployment
     - patch: |
         apiVersion: apps/v1
         kind: Deployment

@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/overleaf
   ref:
-    digest: sha256:3150fef49e587d000bd8175550ef81e02a9687ac11d0942ad613180408584ed9
+    digest: sha256:a8ee349c9db75c4b4efe9ccb7b45f29e701731e917accb2434e9897bc445da59
   secretRef:
     name: render-pull
   verify:
@@ -44,15 +44,6 @@ spec:
   dependsOn:
     - name: estate-vso-secrets
   patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-          annotations:
-            kustomize.toolkit.fluxcd.io/force: Enabled
-      target:
-        kind: Deployment
     - patch: |
         apiVersion: apps/v1
         kind: Deployment

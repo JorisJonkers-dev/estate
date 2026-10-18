@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/home-portal
   ref:
-    digest: sha256:85a566fa3453c0308273600cd0b5a2f6ccd02b998a5aca2742934b2fdde4d4bc
+    digest: sha256:a2b2098b281cc4979202b41982653873b8c1d6f1d27f27f24536ea1a538bfdb8
   secretRef:
     name: render-pull
   verify:
@@ -42,15 +42,6 @@ spec:
     name: project-home-portal
   path: ./apps/home-portal
   patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-          annotations:
-            kustomize.toolkit.fluxcd.io/force: Enabled
-      target:
-        kind: Deployment
     - patch: |
         apiVersion: apps/v1
         kind: Deployment
