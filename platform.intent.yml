@@ -109,6 +109,7 @@ libraries:
     gid: 1000
     grants:
       immich: write
+      arr: write
 
 # The method is the image: one purpose-built image per engine, resolved
 # through the images lock. Nothing executable is authored.
@@ -241,6 +242,7 @@ handover:
     - hindsight
     - karakeep
     - immich
+    - arr
   # Where the old path runs a legacy Application that the estate path
   # reaches, rather than where its declaration puts it
   # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). Live Vault is
