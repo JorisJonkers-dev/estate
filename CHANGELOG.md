@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.2](https://github.com/JorisJonkers-dev/estate/compare/v0.20.1...v0.20.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* publish fragments with deploy-kit 0.19.2, which knows the substrate's image pull ([#145](https://github.com/JorisJonkers-dev/estate/issues/145)) ([5df430f](https://github.com/JorisJonkers-dev/estate/commit/5df430f2aaa161cfcf5bef23ed56ff30737aee33))
+
 ## [0.20.1](https://github.com/JorisJonkers-dev/estate/compare/v0.20.0...v0.20.1) (2026-10-18)
 
 
