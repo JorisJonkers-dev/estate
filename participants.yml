@@ -117,3 +117,9 @@ participants:
     owner: joris
     reason: releases when Immich or its images change, not on a weekly cadence
     reviewBy: 2027-03-31
+  # JorisJonkers-dev/arr, moving from fleet-infra's media-system.
+  arr:
+    dormant: true
+    owner: joris
+    reason: releases when the arr images change, not on a weekly cadence
+    reviewBy: 2027-03-31
