@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/JorisJonkers-dev/estate/compare/v0.20.2...v0.21.0) (2026-10-18)
+
+
+### Features
+
+* deliver immich on the estate path ([#143](https://github.com/JorisJonkers-dev/estate/issues/143)) ([4b0878b](https://github.com/JorisJonkers-dev/estate/commit/4b0878bf6e37bba2d62df277d57635fbab7797e6))
+
 ## [0.20.2](https://github.com/JorisJonkers-dev/estate/compare/v0.20.1...v0.20.2) (2026-10-18)
 
 
