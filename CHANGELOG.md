@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.20.1](https://github.com/JorisJonkers-dev/estate/compare/v0.20.0...v0.20.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* run deploy-kit 0.19.0, which retries the Vault policy job and keeps it off the SD cards ([#141](https://github.com/JorisJonkers-dev/estate/issues/141)) ([ab48690](https://github.com/JorisJonkers-dev/estate/commit/ab48690916172dfa7533b4f493b980bd27832108))
+* run deploy-kit 0.19.2, and allow five minutes for an image pull ([#144](https://github.com/JorisJonkers-dev/estate/issues/144)) ([8a25f21](https://github.com/JorisJonkers-dev/estate/commit/8a25f21c63b12a1bf1b777f429f5b8746e4b7171))
+
 ## [0.20.0](https://github.com/JorisJonkers-dev/estate/compare/v0.19.0...v0.20.0) (2026-10-17)
 
 
