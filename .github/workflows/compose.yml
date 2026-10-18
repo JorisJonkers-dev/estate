@@ -177,8 +177,13 @@ jobs:
       PLATFORM_PROJECT: jorisjonkers.dev
       FRAGMENT_SIGNER: ^https://github\.com/JorisJonkers-dev/github-workflows/\.github/workflows/publish-fragment\.yml@
     steps:
+      # The branch as it is when this run starts, not as it was when the run was
+      # queued: runs wait on one another in the `compose` group, and one that
+      # composed from the commit it was dispatched at would read the pins an
+      # earlier run has since moved.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.ref_name }}
           persist-credentials: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -489,9 +494,11 @@ jobs:
         if: ${{ success() && github.ref == 'refs/heads/main' && steps.pins.outputs.committed == 'true' }}
         env:
           TOKEN: ${{ steps.pin-token.outputs.token }}
+        # A ClusterState capture that lands while this run composes is rebased
+        # under the pin commit; any other change to main refuses the push.
         run: |
-          git push "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          sha="$(bash .github/scripts/push-pins.sh "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git")"
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
 
       # The review copy of what this run did, whatever happened before it: a
       # composition that refused outright says what it refused on.
