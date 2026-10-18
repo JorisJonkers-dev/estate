@@ -111,3 +111,9 @@ participants:
     owner: joris
     reason: releases when Karakeep or its images change, not on a weekly cadence
     reviewBy: 2027-03-31
+  # JorisJonkers-dev/immich, moving from fleet-infra's media-system.
+  immich:
+    dormant: true
+    owner: joris
+    reason: releases when Immich or its images change, not on a weekly cadence
+    reviewBy: 2027-03-31
