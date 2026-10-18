@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.2](https://github.com/JorisJonkers-dev/estate/compare/v0.22.1...v0.22.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* run the backup methods from delivery 0.9.2, whose pg_dumpall finds pg_dump ([#155](https://github.com/JorisJonkers-dev/estate/issues/155)) ([1f5a803](https://github.com/JorisJonkers-dev/estate/commit/1f5a803a4e967d1a2da1cfabe4771013f4dc019e))
+
 ## [0.22.1](https://github.com/JorisJonkers-dev/estate/compare/v0.22.0...v0.22.1) (2026-10-18)
 
 
