@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/hindsight
   ref:
-    digest: sha256:5c870fcc9c89ff1ae940ed9d3e79364207370df12feb9235dc3be6090eed17c6
+    digest: sha256:7fe60f60f38560e4c69f551a0cc2bcc51a6b9ccf1f084221d3a989b3dfef939f
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/hindsight
-    event.toolkit.fluxcd.io/sha: 7ebb2bc7127004a46a0797b0ad48a531101b5c77
+    event.toolkit.fluxcd.io/sha: 6666abeabb2bb13259c1925cbc8480925e39c414
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 1.0.2
+    event.toolkit.fluxcd.io/version: 1.0.3
     event.toolkit.fluxcd.io/url: https://hindsight-api.jorisjonkers.dev
 spec:
   interval: 10m
@@ -53,7 +53,7 @@ spec:
           template:
             metadata:
               labels:
-                app.kubernetes.io/version: "1.0.2"
+                app.kubernetes.io/version: "1.0.3"
       target:
         kind: Deployment|StatefulSet|DaemonSet|Job
     - patch: |
@@ -67,6 +67,6 @@ spec:
               template:
                 metadata:
                   labels:
-                    app.kubernetes.io/version: "1.0.2"
+                    app.kubernetes.io/version: "1.0.3"
       target:
         kind: CronJob
