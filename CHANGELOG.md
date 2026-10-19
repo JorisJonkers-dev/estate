@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.0](https://github.com/JorisJonkers-dev/estate/compare/v0.23.0...v0.24.0) (2026-10-19)
+
+
+### Features
+
+* run the platform's VPN, and hand qbittorrent and prowlarr over to the estate path, with deploy-kit 0.23.0 ([#167](https://github.com/JorisJonkers-dev/estate/issues/167)) ([5515d7b](https://github.com/JorisJonkers-dev/estate/commit/5515d7b0e8f5c4f00cd420f13d436039351d2fc0))
+
 ## [0.23.0](https://github.com/JorisJonkers-dev/estate/compare/v0.22.4...v0.23.0) (2026-10-19)
 
 
