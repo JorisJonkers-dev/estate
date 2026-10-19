@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0](https://github.com/JorisJonkers-dev/estate/compare/v0.22.4...v0.23.0) (2026-10-19)
+
+
+### Features
+
+* hand jellyfin and jellyseerr over to the estate path, with nvidia's GPU request and deploy-kit 0.21.0 ([#164](https://github.com/JorisJonkers-dev/estate/issues/164)) ([b2cf108](https://github.com/JorisJonkers-dev/estate/commit/b2cf108a8f1a5ca7a576113c09e666d9f22cfcfa))
+
 ## [0.22.4](https://github.com/JorisJonkers-dev/estate/compare/v0.22.3...v0.22.4) (2026-10-19)
 
 
