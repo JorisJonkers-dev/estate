@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.22.3](https://github.com/JorisJonkers-dev/estate/compare/v0.22.2...v0.22.3) (2026-10-19)
+
+
+### Bug Fixes
+
+* compose from main as it is, and push the pin commit over a ClusterState capture ([#149](https://github.com/JorisJonkers-dev/estate/issues/149)) ([acd28a6](https://github.com/JorisJonkers-dev/estate/commit/acd28a6b1f837831fb2cdf6e7b3f8e7a7af1700f))
+* run deploy-kit 0.19.3, which backs up a files volume as the Process that owns it ([#159](https://github.com/JorisJonkers-dev/estate/issues/159)) ([6b7b6bc](https://github.com/JorisJonkers-dev/estate/commit/6b7b6bcfa7dab1956b2443ec46ebea9201345220))
+
 ## [0.22.2](https://github.com/JorisJonkers-dev/estate/compare/v0.22.1...v0.22.2) (2026-10-18)
 
 
