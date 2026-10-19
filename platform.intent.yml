@@ -111,6 +111,15 @@ libraries:
       immich: write
       arr: write
       jellyfin: read
+      qbittorrent: write
+  # Torrents still downloading, and seeding once done: a directory of its own on
+  # the same node, which only the download client writes.
+  seeding:
+    node: enschede-t1000-1
+    path: /srv/media-incomplete
+    gid: 1000
+    grants:
+      qbittorrent: write
 
 # What a Process that requires a GPU is handed, by the vendor of its card
 # (deploy-kit spec/v1/14-platform-intent.md#gpus): one time-sliced share of the
@@ -121,6 +130,34 @@ gpus:
   nvidia:
     resource: nvidia.com/gpu
     runtimeClass: nvidia-cdi
+
+# The VPN every attached Process's traffic leaves through (deploy-kit
+# spec/v1/14-platform-intent.md#vpn): gluetun on ProtonVPN WireGuard, on
+# Netherlands servers that forward a port. The credential's one key,
+# WIREGUARD_PRIVATE_KEY, works for every Proton server. The MTU fits the pod's
+# flannel path over tailscale (1230) less WireGuard's 60 bytes. The outbound
+# subnets are what the tunnel's kill switch still lets out directly: the
+# tailnet, the home LAN, the spare private range, and the cluster's pod and
+# Service ranges, so an attached Process reaches the estate's own Services.
+# Cluster DNS stays the pod's resolver, so public lookups leave outside the
+# tunnel; their answers' traffic does not.
+vpn:
+  image: gluetun
+  credential: secret/data/platform/vpn
+  memory: 256Mi
+  cpu: 100m
+  settings:
+    VPN_SERVICE_PROVIDER: protonvpn
+    VPN_TYPE: wireguard
+    WIREGUARD_MTU: "1170"
+    SERVER_COUNTRIES: Netherlands
+    PORT_FORWARD_ONLY: "on"
+    FIREWALL_OUTBOUND_SUBNETS: "100.64.0.0/10,192.168.0.0/16,172.16.0.0/12,10.42.0.0/16,10.43.0.0/16"
+    DOT: "off"
+    DNS_KEEP_NAMESERVER: "on"
+    UPDATER_PERIOD: 24h
+    HEALTH_VPN_DURATION_INITIAL: 30s
+    TZ: Europe/Amsterdam
 
 # The method is the image: one purpose-built image per engine, resolved
 # through the images lock. Nothing executable is authored.
@@ -256,6 +293,8 @@ handover:
     - arr
     - jellyfin
     - jellyseerr
+    - qbittorrent
+    - prowlarr
   # Where the old path runs a legacy Application that the estate path
   # reaches, rather than where its declaration puts it
   # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). Live Vault is

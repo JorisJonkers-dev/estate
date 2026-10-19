@@ -135,3 +135,15 @@ participants:
     owner: joris
     reason: releases when seerr releases, not on a weekly cadence
     reviewBy: 2027-03-31
+  # JorisJonkers-dev/qbittorrent, moving from fleet-infra's media-system downloads.
+  qbittorrent:
+    dormant: true
+    owner: joris
+    reason: releases when qBittorrent releases, not on a weekly cadence
+    reviewBy: 2027-03-31
+  # JorisJonkers-dev/prowlarr, with flaresolverr beside it, moving from media-system downloads.
+  prowlarr:
+    dormant: true
+    owner: joris
+    reason: releases when Prowlarr releases, not on a weekly cadence
+    reviewBy: 2027-03-31
