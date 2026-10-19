@@ -276,7 +276,6 @@ handover:
     - agents
     - media
     - mail
-    - n8n
     - utility
     - knowledge-platform
   estate:
@@ -295,6 +294,7 @@ handover:
     - jellyseerr
     - qbittorrent
     - prowlarr
+    - n8n
   # Where the old path runs a legacy Application that the estate path
   # reaches, rather than where its declaration puts it
   # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). Live Vault is
