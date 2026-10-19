@@ -93,61 +93,61 @@ participants:
     owner: joris
     reason: publishes with the Platform document, on this repository's releases
     reviewBy: 2027-03-31
-  # JorisJonkers-dev/overleaf, moving from fleet-infra's latex-system.
+  # JorisJonkers-dev/overleaf, moved from fleet-infra's latex-system.
   overleaf:
     dormant: true
     owner: joris
     reason: releases when Overleaf or its image changes, not on a weekly cadence
     reviewBy: 2027-03-31
-  # JorisJonkers-dev/hindsight, moving from fleet-infra's knowledge-platform-system.
+  # JorisJonkers-dev/hindsight, moved from fleet-infra's knowledge-platform-system.
   hindsight:
     dormant: true
     owner: joris
     reason: releases when Hindsight or its images change, not on a weekly cadence
     reviewBy: 2027-03-31
-  # JorisJonkers-dev/karakeep, moving from fleet-infra's knowledge-platform-system.
+  # JorisJonkers-dev/karakeep, moved from fleet-infra's knowledge-platform-system.
   karakeep:
     dormant: true
     owner: joris
     reason: releases when Karakeep or its images change, not on a weekly cadence
     reviewBy: 2027-03-31
-  # JorisJonkers-dev/immich, moving from fleet-infra's media-system.
+  # JorisJonkers-dev/immich, moved from fleet-infra's media-system.
   immich:
     dormant: true
     owner: joris
     reason: releases when Immich or its images change, not on a weekly cadence
     reviewBy: 2027-03-31
-  # JorisJonkers-dev/arr, moving from fleet-infra's media-system.
+  # JorisJonkers-dev/arr, moved from fleet-infra's media-system.
   arr:
     dormant: true
     owner: joris
     reason: releases when the arr images change, not on a weekly cadence
     reviewBy: 2027-03-31
-  # JorisJonkers-dev/jellyfin, moving from fleet-infra's media-system.
+  # JorisJonkers-dev/jellyfin, moved from fleet-infra's media-system.
   jellyfin:
     dormant: true
     owner: joris
     reason: releases when jellyfin releases, not on a weekly cadence
     reviewBy: 2027-03-31
-  # JorisJonkers-dev/jellyseerr, moving from fleet-infra's media-system.
+  # JorisJonkers-dev/jellyseerr, moved from fleet-infra's media-system.
   jellyseerr:
     dormant: true
     owner: joris
     reason: releases when seerr releases, not on a weekly cadence
     reviewBy: 2027-03-31
-  # JorisJonkers-dev/qbittorrent, moving from fleet-infra's media-system downloads.
+  # JorisJonkers-dev/qbittorrent, moved from fleet-infra's media-system downloads.
   qbittorrent:
     dormant: true
     owner: joris
     reason: releases when qBittorrent releases, not on a weekly cadence
     reviewBy: 2027-03-31
-  # JorisJonkers-dev/prowlarr, with flaresolverr beside it, moving from media-system downloads.
+  # JorisJonkers-dev/prowlarr, with flaresolverr beside it, moved from media-system downloads.
   prowlarr:
     dormant: true
     owner: joris
     reason: releases when Prowlarr releases, not on a weekly cadence
     reviewBy: 2027-03-31
-  # JorisJonkers-dev/n8n, moving from fleet-infra's automation-system.
+  # JorisJonkers-dev/n8n, moved from fleet-infra's automation-system.
   n8n:
     dormant: true
     owner: joris

@@ -113,7 +113,7 @@ rollback is two.
 
 ## Naming a Project
 
-Our own apps take their repository's name: `home-portal`, `tribelt`, `grimoire`. A third-party app takes the software's name: `outline`, `overleaf`, `n8n`. A Project that bundles several apps keeps the name of what it is for: `media`, `data`, `observability`. The namespace is always `<project>-system`, and public hosts stay as they are.
+Our own apps take their repository's name: `home-portal`, `tribelt`, `grimoire`. A third-party app takes the software's name: `outline`, `overleaf`, `n8n`. A Project that bundles several apps keeps the name of what it is for: `data`, `edge`, `observability`. The namespace is always `<project>-system`, and public hosts stay as they are.
 
 ## Handover
 
