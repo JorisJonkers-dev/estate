@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/qbittorrent
   ref:
-    digest: sha256:1f3134fcbf19fab3b5c25563e33fbe0040c0a67da0d7c340dd43d26ae63d88a3
+    digest: sha256:7fd3c3c6318c7a60210c83314d1361139057edab92e15fbaa1cdca765c477653
   secretRef:
     name: render-pull
   verify:
@@ -42,13 +42,3 @@ spec:
   path: ./apps/qbittorrent
   dependsOn:
     - name: estate-vso-secrets
-  patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-          annotations:
-            kustomize.toolkit.fluxcd.io/force: Enabled
-      target:
-        kind: Deployment
