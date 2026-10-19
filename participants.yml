@@ -147,3 +147,9 @@ participants:
     owner: joris
     reason: releases when Prowlarr releases, not on a weekly cadence
     reviewBy: 2027-03-31
+  # JorisJonkers-dev/n8n, moving from fleet-infra's automation-system.
+  n8n:
+    dormant: true
+    owner: joris
+    reason: releases when n8n or its sign-in hooks change, not on a weekly cadence
+    reviewBy: 2027-03-31
