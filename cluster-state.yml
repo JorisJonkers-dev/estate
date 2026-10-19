@@ -10,7 +10,7 @@ apiVersion: state.jorisjonkers.dev/v1
 kind: ClusterState
 schemaVersion: 1.0.0
 cluster: "production"
-capturedAt: "2026-10-19T06:08:49Z"
+capturedAt: "2026-10-19T06:18:49Z"
 bindings:
   - { claim: "alertmanager-metrics-stack-alertmanager-db-alertmanager-metrics-stack-alertmanager-0", node: "frankfurt-contabo-1" }
   - { claim: "audit-vault-0", node: "frankfurt-contabo-1" }
@@ -20,21 +20,15 @@ bindings:
   - { claim: "codex-credentials", node: "enschede-gtx-960m-1" }
   - { claim: "data-pyroscope-0", node: "frankfurt-contabo-1" }
   - { claim: "data-vault-0", node: "frankfurt-contabo-1" }
-  - { claim: "docling-serve-archive", node: "frankfurt-contabo-1" }
   - { claim: "garage-data", node: "frankfurt-contabo-1" }
   - { claim: "gatus-data", node: "frankfurt-contabo-1" }
   - { claim: "grafana", node: "frankfurt-contabo-1" }
   - { claim: "hermes-data", node: "enschede-gtx-960m-1" }
-  - { claim: "hindsight-tei-model-cache-t1000", node: "enschede-t1000-1" }
-  - { claim: "hindsight-tei-reranker-model-cache", node: "enschede-t1000-1" }
-  - { claim: "karakeep-data", node: "frankfurt-contabo-1" }
   - { claim: "library-media", node: "enschede-t1000-1" }
-  - { claim: "meilisearch-data", node: "frankfurt-contabo-1" }
   - { claim: "ml-cache", node: "enschede-t1000-1" }
   - { claim: "mongo-data-mongo-0", node: "frankfurt-contabo-1" }
   - { claim: "n8n-data", node: "frankfurt-contabo-1" }
   - { claim: "observability-backups", node: "frankfurt-contabo-1" }
-  - { claim: "overleaf-data", node: "frankfurt-contabo-1" }
   - { claim: "overleaf-redis-data", node: "frankfurt-contabo-1" }
   - { claim: "postgres-data", node: "frankfurt-contabo-1" }
   - { claim: "postgres-data-backup", node: "frankfurt-contabo-1" }
