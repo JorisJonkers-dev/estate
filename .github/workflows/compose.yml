@@ -346,8 +346,19 @@ jobs:
             content="$(oras manifest fetch "${url#oci://}@${digest}" \
               | jq -er '.annotations["dev.jorisjonkers.content-hash"]')"
             annotations="$(yq -o=json 'select(.kind == "OCIRepository") | .metadata.annotations // {} | with_entries(select(.key | test("^estate\\.jorisjonkers\\.dev/")))' "$source")"
-            jq --arg p "$project" --arg c "$content" --argjson a "$annotations" \
-              '.[$p] = {contentHash: $c, annotations: $a}' pins.json > pins.next
+            # The release the pinned artifact labels its pods with, from its
+            # unit's index; none moves the pin to an artifact that labels one
+            # (deploy-kit spec/v1/55-delivery.md#rendered-artifacts-and-pins).
+            pinned="pinned/${project}"
+            oras pull "${url#oci://}@${digest}" --output "$pinned" > /dev/null \
+              || { echo "::error::could not pull the pinned artifact of ${project}"; exit 1; }
+            labelled=""
+            if [ -f "${pinned}/apps/${project}/kustomization.yaml" ]; then
+              labelled="$(yq '.patches[]? | select(.target.kind | test("Deployment")) | .patch' "${pinned}/apps/${project}/kustomization.yaml" \
+                | yq '.spec.template.metadata.labels["app.kubernetes.io/version"] // ""')"
+            fi
+            jq --arg p "$project" --arg c "$content" --argjson a "$annotations" --arg l "$labelled" \
+              '.[$p] = {contentHash: $c, annotations: $a, labelled: (if $l == "" then null else $l end)}' pins.json > pins.next
             mv pins.next pins.json
           done
 
