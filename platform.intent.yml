@@ -110,6 +110,17 @@ libraries:
     grants:
       immich: write
       arr: write
+      jellyfin: read
+
+# What a Process that requires a GPU is handed, by the vendor of its card
+# (deploy-kit spec/v1/14-platform-intent.md#gpus): one time-sliced share of the
+# resource nvidia's device plugin advertises, under the `nvidia-cdi` runtime
+# class fleet-infra's apps-core installs, whose handler reads the CDI spec
+# NixOS writes on each nvidia node.
+gpus:
+  nvidia:
+    resource: nvidia.com/gpu
+    runtimeClass: nvidia-cdi
 
 # The method is the image: one purpose-built image per engine, resolved
 # through the images lock. Nothing executable is authored.
@@ -243,6 +254,8 @@ handover:
     - karakeep
     - immich
     - arr
+    - jellyfin
+    - jellyseerr
   # Where the old path runs a legacy Application that the estate path
   # reaches, rather than where its declaration puts it
   # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). Live Vault is

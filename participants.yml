@@ -123,3 +123,15 @@ participants:
     owner: joris
     reason: releases when the arr images change, not on a weekly cadence
     reviewBy: 2027-03-31
+  # JorisJonkers-dev/jellyfin, moving from fleet-infra's media-system.
+  jellyfin:
+    dormant: true
+    owner: joris
+    reason: releases when jellyfin releases, not on a weekly cadence
+    reviewBy: 2027-03-31
+  # JorisJonkers-dev/jellyseerr, moving from fleet-infra's media-system.
+  jellyseerr:
+    dormant: true
+    owner: joris
+    reason: releases when seerr releases, not on a weekly cadence
+    reviewBy: 2027-03-31
