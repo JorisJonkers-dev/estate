@@ -10,7 +10,7 @@ apiVersion: state.jorisjonkers.dev/v1
 kind: ClusterState
 schemaVersion: 1.0.0
 cluster: "production"
-capturedAt: "2026-10-19T01:26:35Z"
+capturedAt: "2026-10-19T05:18:49Z"
 bindings:
   - { claim: "alertmanager-metrics-stack-alertmanager-db-alertmanager-metrics-stack-alertmanager-0", node: "frankfurt-contabo-1" }
   - { claim: "audit-vault-0", node: "frankfurt-contabo-1" }
@@ -62,7 +62,9 @@ bindings:
   - { claim: "workspace-d4b41a9a", node: "enschede-gtx-960m-1" }
 placements:
   - { process: "bazarr", node: "enschede-t1000-1" }
+  - { process: "collector", node: "enschede-gtx-960m-1" }
   - { process: "collector", node: "enschede-pi-2" }
+  - { process: "estate-dashboard-primary", node: "enschede-gtx-960m-1" }
   - { process: "estate-dashboard-primary", node: "enschede-pi-2" }
   - { process: "flagger", node: "enschede-pi-3" }
   - { process: "grimoire", node: "enschede-pi-1" }
@@ -82,6 +84,7 @@ placements:
   - { process: "radarr", node: "enschede-t1000-1" }
   - { process: "redis", node: "frankfurt-contabo-1" }
   - { process: "release-gate", node: "enschede-pi-1" }
+  - { process: "reporter", node: "enschede-gtx-960m-1" }
   - { process: "reporter", node: "enschede-pi-2" }
   - { process: "sonarr", node: "enschede-t1000-1" }
   - { process: "tei-embedding", node: "enschede-gtx-960m-1" }
