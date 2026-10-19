@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.1](https://github.com/JorisJonkers-dev/estate/compare/v0.25.0...v0.25.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* run deploy-kit 0.23.1, which gives each attached Process its own VPN key ([#170](https://github.com/JorisJonkers-dev/estate/issues/170)) ([fa871aa](https://github.com/JorisJonkers-dev/estate/commit/fa871aae89ecdd574229ac1a42dc31d77cf68a7d))
+
 ## [0.25.0](https://github.com/JorisJonkers-dev/estate/compare/v0.24.0...v0.25.0) (2026-10-19)
 
 
