@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/outline
   ref:
-    digest: sha256:5d9f69c06594fba6dd043d7958c4ebdcdfc522cb5ea3e8912197f1b6addb0488
+    digest: sha256:4dd6987af6096f156cec8a8655013a58cbef796629a3d02674bb1b10a8b9a0f0
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/estate
-    event.toolkit.fluxcd.io/sha: 04956713e76d38139476e1c08ee1506fd2f253cb
+    event.toolkit.fluxcd.io/sha: a2a4340cf274d4ccf1804fbcc1c9e8ee8b0ca37e
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.20.2
+    event.toolkit.fluxcd.io/version: 0.22.4
     event.toolkit.fluxcd.io/url: https://notes.jorisjonkers.dev
 spec:
   interval: 10m
@@ -43,30 +43,3 @@ spec:
   path: ./apps/outline
   dependsOn:
     - name: estate-vso-secrets
-  patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-        spec:
-          template:
-            metadata:
-              labels:
-                app.kubernetes.io/version: "0.20.2"
-      target:
-        kind: Deployment|StatefulSet|DaemonSet|Job
-    - patch: |
-        apiVersion: batch/v1
-        kind: CronJob
-        metadata:
-          name: any
-        spec:
-          jobTemplate:
-            spec:
-              template:
-                metadata:
-                  labels:
-                    app.kubernetes.io/version: "0.20.2"
-      target:
-        kind: CronJob

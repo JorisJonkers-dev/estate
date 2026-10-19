@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/tribelt
   ref:
-    digest: sha256:199ff01fe218ee9064b13820fb90a6db332779175a385fea91ad43baef1569c3
+    digest: sha256:dfa3b2c5774ead06fac0890158b185fdeefced8508c865397232224101694ec8
   secretRef:
     name: render-pull
   verify:
@@ -43,30 +43,3 @@ spec:
   path: ./apps/tribelt
   dependsOn:
     - name: estate-vso-secrets
-  patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-        spec:
-          template:
-            metadata:
-              labels:
-                app.kubernetes.io/version: "0.10.0"
-      target:
-        kind: Deployment|StatefulSet|DaemonSet|Job
-    - patch: |
-        apiVersion: batch/v1
-        kind: CronJob
-        metadata:
-          name: any
-        spec:
-          jobTemplate:
-            spec:
-              template:
-                metadata:
-                  labels:
-                    app.kubernetes.io/version: "0.10.0"
-      target:
-        kind: CronJob

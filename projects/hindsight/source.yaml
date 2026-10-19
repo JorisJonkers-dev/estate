@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/hindsight
   ref:
-    digest: sha256:7fe60f60f38560e4c69f551a0cc2bcc51a6b9ccf1f084221d3a989b3dfef939f
+    digest: sha256:56b69c231eecb11a17a2da53a7023838715f065ae5944b76c5e3d0d79253275e
   secretRef:
     name: render-pull
   verify:
@@ -43,30 +43,3 @@ spec:
   path: ./apps/hindsight
   dependsOn:
     - name: estate-vso-secrets
-  patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-        spec:
-          template:
-            metadata:
-              labels:
-                app.kubernetes.io/version: "1.0.3"
-      target:
-        kind: Deployment|StatefulSet|DaemonSet|Job
-    - patch: |
-        apiVersion: batch/v1
-        kind: CronJob
-        metadata:
-          name: any
-        spec:
-          jobTemplate:
-            spec:
-              template:
-                metadata:
-                  labels:
-                    app.kubernetes.io/version: "1.0.3"
-      target:
-        kind: CronJob

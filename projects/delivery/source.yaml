@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/delivery
   ref:
-    digest: sha256:c3d48dcd93dc0b0fee97117d1e7e106e376054f7e7dd108738e57faf5ca7f47a
+    digest: sha256:780dcee3a9caf595230a4f96d6c1e26d34a9de2ba377b36f1a5750135718d3a0
   secretRef:
     name: render-pull
   verify:
@@ -42,30 +42,3 @@ spec:
   path: ./apps/delivery
   dependsOn:
     - name: estate-vso-secrets
-  patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-        spec:
-          template:
-            metadata:
-              labels:
-                app.kubernetes.io/version: "0.9.2"
-      target:
-        kind: Deployment|StatefulSet|DaemonSet|Job
-    - patch: |
-        apiVersion: batch/v1
-        kind: CronJob
-        metadata:
-          name: any
-        spec:
-          jobTemplate:
-            spec:
-              template:
-                metadata:
-                  labels:
-                    app.kubernetes.io/version: "0.9.2"
-      target:
-        kind: CronJob
