@@ -10,7 +10,7 @@ apiVersion: state.jorisjonkers.dev/v1
 kind: ClusterState
 schemaVersion: 1.0.0
 cluster: "production"
-capturedAt: "2026-10-19T16:26:07Z"
+capturedAt: "2026-10-19T16:56:08Z"
 bindings:
   - { claim: "alertmanager-metrics-stack-alertmanager-db-alertmanager-metrics-stack-alertmanager-0", node: "frankfurt-contabo-1" }
   - { claim: "audit-vault-0", node: "frankfurt-contabo-1" }
@@ -41,7 +41,9 @@ bindings:
   - { claim: "postgres-data-backup", node: "frankfurt-contabo-1" }
   - { claim: "prometheus-metrics-stack-prometheus-db-prometheus-metrics-stack-prometheus-0", node: "frankfurt-contabo-1" }
   - { claim: "prowlarr-config", node: "enschede-gtx-960m-1" }
+  - { claim: "prowlarr-config-backup", node: "enschede-gtx-960m-1" }
   - { claim: "qbittorrent-config", node: "enschede-t1000-1" }
+  - { claim: "qbittorrent-config-backup", node: "enschede-t1000-1" }
   - { claim: "rabbitmq-data", node: "frankfurt-contabo-1" }
   - { claim: "radarr-config", node: "enschede-t1000-1" }
   - { claim: "radarr-config-backup", node: "enschede-t1000-1" }
@@ -79,6 +81,7 @@ placements:
   - { process: "outline-primary", node: "enschede-pi-2" }
   - { process: "outline-primary", node: "enschede-pi-3" }
   - { process: "overleaf", node: "enschede-t1000-1" }
+  - { process: "prowlarr", node: "enschede-gtx-960m-1" }
   - { process: "qbittorrent", node: "enschede-t1000-1" }
   - { process: "radarr", node: "enschede-t1000-1" }
   - { process: "redis", node: "frankfurt-contabo-1" }
