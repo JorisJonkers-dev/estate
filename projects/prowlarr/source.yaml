@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/prowlarr
   ref:
-    digest: sha256:43462df0beba26f2942d0b560903c223c19930ffb16379c80935dd934f938667
+    digest: sha256:5a5e83e0fba7130a535da5d2eb38cf6722d6840bedef4c2a470e473fe3f91532
   secretRef:
     name: render-pull
   verify:
@@ -42,13 +42,3 @@ spec:
   path: ./apps/prowlarr
   dependsOn:
     - name: estate-vso-secrets
-  patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-          annotations:
-            kustomize.toolkit.fluxcd.io/force: Enabled
-      target:
-        kind: Deployment
