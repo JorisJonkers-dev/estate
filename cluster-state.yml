@@ -10,7 +10,7 @@ apiVersion: state.jorisjonkers.dev/v1
 kind: ClusterState
 schemaVersion: 1.0.0
 cluster: "production"
-capturedAt: "2026-10-19T14:56:07Z"
+capturedAt: "2026-10-19T16:26:07Z"
 bindings:
   - { claim: "alertmanager-metrics-stack-alertmanager-db-alertmanager-metrics-stack-alertmanager-0", node: "frankfurt-contabo-1" }
   - { claim: "audit-vault-0", node: "frankfurt-contabo-1" }
@@ -75,6 +75,7 @@ placements:
   - { process: "karakeep", node: "frankfurt-contabo-1" }
   - { process: "karakeep-chrome-primary", node: "frankfurt-contabo-1" }
   - { process: "karakeep-search", node: "enschede-pi-1" }
+  - { process: "n8n", node: "frankfurt-contabo-1" }
   - { process: "outline-primary", node: "enschede-pi-2" }
   - { process: "outline-primary", node: "enschede-pi-3" }
   - { process: "overleaf", node: "enschede-t1000-1" }
