@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.4](https://github.com/JorisJonkers-dev/estate/compare/v0.22.3...v0.22.4) (2026-10-19)
+
+
+### Bug Fixes
+
+* run deploy-kit 0.20.0, which carries the release label in the rendered artifact ([#160](https://github.com/JorisJonkers-dev/estate/issues/160)) ([c694aee](https://github.com/JorisJonkers-dev/estate/commit/c694aee2b1e60aa1a5983b525c82da53be1fa40f))
+
 ## [0.22.3](https://github.com/JorisJonkers-dev/estate/compare/v0.22.2...v0.22.3) (2026-10-19)
 
 
