@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.0](https://github.com/JorisJonkers-dev/estate/compare/v0.24.0...v0.25.0) (2026-10-19)
+
+
+### Features
+
+* hand n8n over to the estate path ([#166](https://github.com/JorisJonkers-dev/estate/issues/166)) ([9b751ac](https://github.com/JorisJonkers-dev/estate/commit/9b751ac1d2a4cc2ca851672cb3169c5270408071))
+
 ## [0.24.0](https://github.com/JorisJonkers-dev/estate/compare/v0.23.0...v0.24.0) (2026-10-19)
 
 
