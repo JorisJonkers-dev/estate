@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/jellyseerr
   ref:
-    digest: sha256:53d004b7fe9737800d8a77d3b231c3e4b2a3fd027215b5da7ab003888c30575f
+    digest: sha256:257f2fab01cb1241934f19821c3cb6e6dc88ef1c535eeecb878e9b15c2b85c89
   secretRef:
     name: render-pull
   verify:
@@ -40,13 +40,3 @@ spec:
     kind: OCIRepository
     name: project-jellyseerr
   path: ./apps/jellyseerr
-  patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-          annotations:
-            kustomize.toolkit.fluxcd.io/force: Enabled
-      target:
-        kind: Deployment
