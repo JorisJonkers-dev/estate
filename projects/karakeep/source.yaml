@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/karakeep
   ref:
-    digest: sha256:bbb5908222873d92313b6bde140ab69f32151d08044a9f60a6f717c5f6918188
+    digest: sha256:9655a0624faba082f5fb4314fc163ede86f40883710b79f106e59739e6cf346a
   secretRef:
     name: render-pull
   verify:

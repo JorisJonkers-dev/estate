@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/n8n
   ref:
-    digest: sha256:56c6e2d98dce88b362ec17abf586c4e92ce4fa31a1519412b86c394edb2a4bcb
+    digest: sha256:9f82c9def0146e46387fa7cb73f9ae0eb54008376cd385bafa9655f1af685c42
   secretRef:
     name: render-pull
   verify:
