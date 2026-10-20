@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/arr
   ref:
-    digest: sha256:234dca054d57e22d58d535082fd299b9610b632803720a54f9cfceda7d380610
+    digest: sha256:3f9b956b75eaac598cc1f78e28029c3b5046076f7e7a1e2ffbbf632543953e41
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/arr
-    event.toolkit.fluxcd.io/sha: aed632cbc11d2044cc40bfd4bd5064cddf88f9aa
+    event.toolkit.fluxcd.io/sha: e57e055edfd27cd8e598ee56ddf370bf6e1b48c7
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 1.0.4
+    event.toolkit.fluxcd.io/version: 1.1.0
 spec:
   interval: 10m
   prune: true
@@ -40,3 +40,6 @@ spec:
     kind: OCIRepository
     name: project-arr
   path: ./apps/arr
+  dependsOn:
+    - name: apps-prowlarr
+    - name: apps-qbittorrent
