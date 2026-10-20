@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.2](https://github.com/JorisJonkers-dev/estate/compare/v0.25.1...v0.25.2) (2026-10-20)
+
+
+### Bug Fixes
+
+* drop the retired and fully handed-over Projects from the handover ledger ([#172](https://github.com/JorisJonkers-dev/estate/issues/172)) ([f1da917](https://github.com/JorisJonkers-dev/estate/commit/f1da917b0ad5ed11877b795d15b69a0c344a7296))
+
 ## [0.25.1](https://github.com/JorisJonkers-dev/estate/compare/v0.25.0...v0.25.1) (2026-10-19)
 
 
