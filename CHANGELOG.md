@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.4](https://github.com/JorisJonkers-dev/estate/compare/v0.25.3...v0.25.4) (2026-10-20)
+
+
+### Bug Fixes
+
+* run deploy-kit 0.25.0, whose Release Gate inputs order a release within a Project ([#177](https://github.com/JorisJonkers-dev/estate/issues/177)) ([94c0c39](https://github.com/JorisJonkers-dev/estate/commit/94c0c39445252a995d24087ad3229a737cfb80b2))
+
 ## [0.25.3](https://github.com/JorisJonkers-dev/estate/compare/v0.25.2...v0.25.3) (2026-10-20)
 
 
