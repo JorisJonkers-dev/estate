@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.25.3](https://github.com/JorisJonkers-dev/estate/compare/v0.25.2...v0.25.3) (2026-10-20)
+
+
+### Bug Fixes
+
+* run deploy-kit 0.24.1, with short provider names and a release label on every pod ([#174](https://github.com/JorisJonkers-dev/estate/issues/174)) ([6ad4b3d](https://github.com/JorisJonkers-dev/estate/commit/6ad4b3d2b9f1846b66111e0befe2daf3c349962c))
+* tell composition which release each pinned artifact labels ([#175](https://github.com/JorisJonkers-dev/estate/issues/175)) ([5bad259](https://github.com/JorisJonkers-dev/estate/commit/5bad259b5c34dd06ee4b45d49841434854e13d10))
+
 ## [0.25.2](https://github.com/JorisJonkers-dev/estate/compare/v0.25.1...v0.25.2) (2026-10-20)
 
 
