@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/n8n
   ref:
-    digest: sha256:4bf6fb4515c23cf0ff651042acf0483b1ac71bc8dd3ae8a5ad0f76f2792d2651
+    digest: sha256:56c6e2d98dce88b362ec17abf586c4e92ce4fa31a1519412b86c394edb2a4bcb
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/n8n
-    event.toolkit.fluxcd.io/sha: fac92623bf8f5348e4d0e63426dad9f6a66e029c
+    event.toolkit.fluxcd.io/sha: 96c7ae327fb9442c548b869de1025c30d47167ac
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 2.43.4
+    event.toolkit.fluxcd.io/version: 2.43.8
     event.toolkit.fluxcd.io/url: https://n8n.jorisjonkers.dev
 spec:
   interval: 10m
@@ -43,13 +43,3 @@ spec:
   path: ./apps/n8n
   dependsOn:
     - name: estate-vso-secrets
-  patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-          annotations:
-            kustomize.toolkit.fluxcd.io/force: Enabled
-      target:
-        kind: Deployment
