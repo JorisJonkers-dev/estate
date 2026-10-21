@@ -525,6 +525,33 @@ jobs:
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: bash .github/scripts/delivery-report.sh summary >> "$GITHUB_STEP_SUMMARY"
 
+      # The same, as data, for the estate-dashboard's Composition page, which
+      # reads each run's `composition` artifact (estate-dashboard#30). Like the
+      # summary, a record that cannot be written is a warning, never a failed
+      # delivery.
+      - name: Record the delivery
+        if: ${{ !cancelled() && (steps.compose.outcome == 'success' || steps.compose.outcome == 'failure') }}
+        continue-on-error: true
+        env:
+          DELIVERED: ${{ steps.push.outputs.sha }}
+          LOCK_DIGEST: ${{ steps.lock.outputs.digest }}
+        run: |
+          mkdir -p record
+          bash .github/scripts/delivery-report.sh record > record/run.json
+          jq -e . record/run.json > /dev/null
+          for file in composed/lock.json composed/composition.json; do
+            if [ -f "$file" ]; then cp "$file" record/; fi
+          done
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() && hashFiles('record/run.json') != '' }}
+        continue-on-error: true
+        with:
+          name: composition
+          path: record/
+          retention-days: 30
+          if-no-files-found: error
+
       # The dispatch App reports a status on each publishing commit: it holds
       # statuses: write on every repository (deploy-kit spec/v1/60-setup.md#the-estate-repository).
       - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
