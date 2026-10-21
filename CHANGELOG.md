@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.26.0](https://github.com/JorisJonkers-dev/estate/compare/v0.25.4...v0.26.0) (2026-10-21)
+
+
+### Features
+
+* each delivery uploads what it composed as a run artifact, for the dashboard's Composition page ([#183](https://github.com/JorisJonkers-dev/estate/issues/183)) ([80d8316](https://github.com/JorisJonkers-dev/estate/commit/80d8316bf5cd754b67361b5d50b9d2b6e3706258))
+* the estate's images lock records each image's software version ([#185](https://github.com/JorisJonkers-dev/estate/issues/185)) ([7235bf4](https://github.com/JorisJonkers-dev/estate/commit/7235bf490c3cf49382752ace1799db2851a480ea))
+
+
+### Bug Fixes
+
+* run deploy-kit 0.26.1, whose units read a backup claim waiting for its first consumer as healthy ([#180](https://github.com/JorisJonkers-dev/estate/issues/180)) ([8104b2a](https://github.com/JorisJonkers-dev/estate/commit/8104b2ae6fa59930c4211110fadf350324d7cee1))
+* run deploy-kit 0.27.0, which takes an engine image's version in any shape where the engine names no move method ([#186](https://github.com/JorisJonkers-dev/estate/issues/186)) ([d9cea13](https://github.com/JorisJonkers-dev/estate/commit/d9cea13329ce984e77da5532c2baa74f249c88b1))
+* run deploy-kit 0.27.1, whose Reconcile Units follow required edges only ([#188](https://github.com/JorisJonkers-dev/estate/issues/188)) ([07fcf32](https://github.com/JorisJonkers-dev/estate/commit/07fcf32c5d556d704f568652cd24b21a9ed94a2d))
+
 ## [0.25.4](https://github.com/JorisJonkers-dev/estate/compare/v0.25.3...v0.25.4) (2026-10-20)
 
 
