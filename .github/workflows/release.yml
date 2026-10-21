@@ -28,7 +28,7 @@ jobs:
       # Author the release PR with the release App token (not the default
       # GITHUB_TOKEN) so the PR's own workflows run. Best-effort: falls back to
       # GITHUB_TOKEN when the App secrets or installation are absent.
-      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app-token
         continue-on-error: true
         with:
@@ -73,7 +73,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/publish-fragment.yml@870429202376dac2e9434746941c54f9a2be605f # v0.33.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/publish-fragment.yml@79e57122f7ed1fb442c90a7487f861c5d1465ec6 # v0.34.0
     with:
       project-file: ${{ matrix.project-file }}
       version: ${{ needs.release-please.outputs.tag_name }}
