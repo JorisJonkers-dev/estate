@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/prowlarr
   ref:
-    digest: sha256:44a4098213c11b59c6fce6cef2fd6884a5e61a721e85212ecf6bffac2b1652c8
+    digest: sha256:07b996df9a53088f8af3979bb1ac6e9bf8bb91235f828032f9335f9828d606a4
   secretRef:
     name: render-pull
   verify:
@@ -45,5 +45,4 @@ spec:
     name: project-prowlarr
   path: ./apps/prowlarr
   dependsOn:
-    - name: apps-arr
     - name: estate-vso-secrets

@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/tribelt
   ref:
-    digest: sha256:28a37e67fe37f9ec897c9c36700fcb116ddcdd46743d90c0c3b36c47de9cd501
+    digest: sha256:850b2fe3dccefad8a55d92f3e865bc83264da6bc2b8144bed8c883366653d215
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/tribelt
-    event.toolkit.fluxcd.io/sha: a1adab01fc9b6b154d618d10bf62d0fc24d8cec3
+    event.toolkit.fluxcd.io/sha: 7f9a0d4570ab5e9d32f1212d26d36dd9f04cf927
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.10.0
+    event.toolkit.fluxcd.io/version: 0.11.0
     event.toolkit.fluxcd.io/url: https://tribelt.jorisjonkers.dev
 spec:
   interval: 10m

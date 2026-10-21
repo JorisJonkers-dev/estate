@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/arr
   ref:
-    digest: sha256:815af97184061f7fd633b8348857ed678d8a355760ec30445cf26491e0d0759f
+    digest: sha256:b6a2211a01dff126e2a2eccd1db711bc77cc910b1ee15013305ee7696587dc58
   secretRef:
     name: render-pull
   verify:
@@ -44,6 +44,3 @@ spec:
     kind: OCIRepository
     name: project-arr
   path: ./apps/arr
-  dependsOn:
-    - name: apps-prowlarr
-    - name: apps-qbittorrent

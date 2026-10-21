@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render-estate
   ref:
-    digest: sha256:a6dac996dd0e5c17940b607acbea8e4f97a133c3058325f329676b82d1f52981
+    digest: sha256:ed0b09fff4ba8bedbbd6bc29e9911a088e7075e3319c978ef1460746d95709ba
   secretRef:
     name: render-pull
   verify:
