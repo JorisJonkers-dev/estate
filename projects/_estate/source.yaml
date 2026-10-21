@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render-estate
   ref:
-    digest: sha256:4f74458841ca834d9d906aa9eba690a98d8825507955f1a7639c79e971f952ef
+    digest: sha256:a6dac996dd0e5c17940b607acbea8e4f97a133c3058325f329676b82d1f52981
   secretRef:
     name: render-pull
   verify:
@@ -31,6 +31,10 @@ spec:
   interval: 10m
   prune: true
   wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
   sourceRef:
     kind: OCIRepository
     name: estate
@@ -47,6 +51,10 @@ spec:
   interval: 10m
   prune: true
   wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
   sourceRef:
     kind: OCIRepository
     name: estate

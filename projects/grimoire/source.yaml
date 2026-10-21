@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/grimoire
   ref:
-    digest: sha256:5ce97465d05cb53810f039e2809cdf8d1643c9f89730b8510a6fbc7614791346
+    digest: sha256:ff4f08b9bb4f16ea90baa75885ebe127d137d7cb04d7142b33950002bde8bf46
   secretRef:
     name: render-pull
   verify:
@@ -37,6 +37,10 @@ spec:
   interval: 10m
   prune: true
   wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
   sourceRef:
     kind: OCIRepository
     name: project-grimoire

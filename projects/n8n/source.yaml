@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/n8n
   ref:
-    digest: sha256:8f839114f6215c24e94bec87e1556ebe7c32228c5088f1d8a89dd66e58c2da25
+    digest: sha256:306161213f77767c1cb143374a50544f210bea92b8d5dc7ab1da4cf1348ac5ef
   secretRef:
     name: render-pull
   verify:
@@ -37,6 +37,10 @@ spec:
   interval: 10m
   prune: true
   wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
   sourceRef:
     kind: OCIRepository
     name: project-n8n

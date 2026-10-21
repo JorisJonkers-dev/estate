@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/arr
   ref:
-    digest: sha256:3f9b956b75eaac598cc1f78e28029c3b5046076f7e7a1e2ffbbf632543953e41
+    digest: sha256:48a763dea42596d3fd23d2c5e2e587e834a0af7bd9a61af62eea02adb2275885
   secretRef:
     name: render-pull
   verify:
@@ -36,6 +36,10 @@ spec:
   interval: 10m
   prune: true
   wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
   sourceRef:
     kind: OCIRepository
     name: project-arr

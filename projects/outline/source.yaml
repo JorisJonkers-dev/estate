@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/outline
   ref:
-    digest: sha256:d8ef4c35a09fd07aef9eefcc2acfc1340cdacee8046e7e9858c971cf8c6372b9
+    digest: sha256:2f012f7261f25cd2823855c630c8566d4ca57c7d12cf322d82b65328d01ddc01
   secretRef:
     name: render-pull
   verify:
@@ -29,14 +29,18 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/estate
-    event.toolkit.fluxcd.io/sha: 7a787b0cde2463c1b6812806b502d57064c2e298
+    event.toolkit.fluxcd.io/sha: 6aee146020e542e18996f605cd81467c6959be31
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.25.3
+    event.toolkit.fluxcd.io/version: 0.25.4
     event.toolkit.fluxcd.io/url: https://notes.jorisjonkers.dev
 spec:
   interval: 10m
   prune: true
   wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
   sourceRef:
     kind: OCIRepository
     name: project-outline

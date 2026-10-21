@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/home-portal
   ref:
-    digest: sha256:0be19ef754f3f60f83b482f99f17d5fc112ced7a77203d36e5eb1b5fbcb12804
+    digest: sha256:7017749dc75a25c81e8b2725b2d212488e6c6f3baca7d3549d7c2128105166ed
   secretRef:
     name: render-pull
   verify:
@@ -37,6 +37,10 @@ spec:
   interval: 10m
   prune: true
   wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
   sourceRef:
     kind: OCIRepository
     name: project-home-portal

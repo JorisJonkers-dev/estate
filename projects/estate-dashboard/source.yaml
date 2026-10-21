@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/estate-dashboard
   ref:
-    digest: sha256:b7613a384b5168fa94b7de6f2212a2fdf662c75260072d2ad7de08d2d626640e
+    digest: sha256:5577ba904ec5ed078a7a2a107940c5c2d017866db86429db8ba84d26ec6d6c27
   secretRef:
     name: render-pull
   verify:
@@ -29,14 +29,18 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/estate-dashboard
-    event.toolkit.fluxcd.io/sha: dc435feb35ad421278e92ede3d6d6404e7613b67
+    event.toolkit.fluxcd.io/sha: 473adb7758a66a69977076b9b33398e75edb4207
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.6.0
+    event.toolkit.fluxcd.io/version: 0.7.0
     event.toolkit.fluxcd.io/url: https://estate.jorisjonkers.dev
 spec:
   interval: 10m
   prune: true
   wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
   sourceRef:
     kind: OCIRepository
     name: project-estate-dashboard

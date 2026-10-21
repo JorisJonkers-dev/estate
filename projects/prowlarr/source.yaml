@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/prowlarr
   ref:
-    digest: sha256:91a11f1818a0c15ee14ac48040c8b4e5d6fceefe9437e649fd3c5c7b51e3febe
+    digest: sha256:d19d90615411a308c8d740a9eb6979c2e54ee6403d7ca72f004ed858a7133a53
   secretRef:
     name: render-pull
   verify:
@@ -36,6 +36,10 @@ spec:
   interval: 10m
   prune: true
   wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
   sourceRef:
     kind: OCIRepository
     name: project-prowlarr

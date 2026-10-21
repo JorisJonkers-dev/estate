@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/immich
   ref:
-    digest: sha256:c50b6472bd7761de646efe2472480cb403cf99eb0cf2e6ada345b4e1cc448e5e
+    digest: sha256:9458a44d2f4a72a1c6508111646ae4ba0de3f72c5406e88e7c68e1afbc6c4abb
   secretRef:
     name: render-pull
   verify:
@@ -37,6 +37,10 @@ spec:
   interval: 10m
   prune: true
   wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
   sourceRef:
     kind: OCIRepository
     name: project-immich

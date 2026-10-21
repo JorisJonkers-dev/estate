@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/tribelt
   ref:
-    digest: sha256:0f7993daa704c09ccdde623e3ff8e46a82537b41166019994f9a7df7c57b4b7e
+    digest: sha256:28a37e67fe37f9ec897c9c36700fcb116ddcdd46743d90c0c3b36c47de9cd501
   secretRef:
     name: render-pull
   verify:
@@ -37,6 +37,10 @@ spec:
   interval: 10m
   prune: true
   wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
   sourceRef:
     kind: OCIRepository
     name: project-tribelt

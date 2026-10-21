@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/jellyfin
   ref:
-    digest: sha256:8c582a542be5c3e7f6bdc70553f445ed8db18bc0b2cbada44f4db22f60d40732
+    digest: sha256:0e5f5eedda84ac25112beb49199ed3b332fe2939c3d7ea12a80e2cbf5123e766
   secretRef:
     name: render-pull
   verify:
@@ -36,17 +36,11 @@ spec:
   interval: 10m
   prune: true
   wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
   sourceRef:
     kind: OCIRepository
     name: project-jellyfin
   path: ./apps/jellyfin
-  patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-          annotations:
-            kustomize.toolkit.fluxcd.io/force: Enabled
-      target:
-        kind: Deployment

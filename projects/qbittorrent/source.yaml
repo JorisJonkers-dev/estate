@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/qbittorrent
   ref:
-    digest: sha256:2099df93711cce6eb01a58b9399b073f08e64b23ce6983015607433b49b31bee
+    digest: sha256:d6900266647eb747af6dc6544c3b5eff52e6ded0210989213b599e3cda86fe39
   secretRef:
     name: render-pull
   verify:
@@ -36,6 +36,10 @@ spec:
   interval: 10m
   prune: true
   wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
   sourceRef:
     kind: OCIRepository
     name: project-qbittorrent
