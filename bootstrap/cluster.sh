@@ -217,7 +217,7 @@ else
   unset SESSION_KEY
   ok "secret/$DASHBOARD_KV_PATH holds a new 48-character session key"
 fi
-# The dashboard reads pins, the deploy log and open issues from the Estate repository, which is
+# The dashboard reads pins, the deploy log, open issues and composition runs from the Estate repository, which is
 # private. GitHub shows a token only once, so a fresh Vault needs a new one.
 if [[ -n "$(vault_field "$DASHBOARD_KV_PATH" "$DASHBOARD_GITHUB_KV_KEY")" ]]; then
   ok "secret/$DASHBOARD_KV_PATH holds a GitHub token"
@@ -225,7 +225,7 @@ else
   say "The dashboard reads the Estate repository with a token that may read it and nothing else."
   open_url "https://github.com/settings/personal-access-tokens/new"
   step "Resource owner: $ORG. Repository access: Only select repositories, estate."
-  step "Repository permissions: Contents, Issues and Metadata, read-only. Nothing else."
+  step "Repository permissions: Actions, Contents, Issues and Metadata, read-only. Nothing else."
   step "Generate token, and copy it."
   ask_secret DASHBOARD_GITHUB_TOKEN "Paste the token (Enter skips; the dashboard then reads no estate):"
   if [[ -n "${DASHBOARD_GITHUB_TOKEN:-}" ]]; then

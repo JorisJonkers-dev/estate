@@ -194,11 +194,86 @@ summary() {
     ' "$composition"
 }
 
+record() {
+  local toolkit snapshot
+  toolkit="$(yq '."deploy-kit" // ""' toolkit.yml 2>/dev/null || true)"
+  snapshot="$(yq '.capturedAt // ""' cluster-state.yml 2>/dev/null || true)"
+
+  if [ ! -f "$composition" ] || [ ! -f "$lock" ]; then
+    jq -n --arg toolkit "$toolkit" --arg snapshot "$snapshot" '
+      def safe($re): if type == "string" and test($re) then . else null end;
+      {refused: true, toolkit: ($toolkit | safe("^[0-9]+\\.[0-9]+\\.[0-9]+$")),
+       snapshotAt: ($snapshot | safe("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z$")), moved: [], fragments: []}'
+    return 0
+  fi
+
+  # The newest release each Project published, and when, whether or not it composed.
+  local published='{}' fragment dir
+  for fragment in platform-fragment/fragment.yml fragments/*/fragment.yml; do
+    dir="$(dirname "$fragment")"
+    published="$(jq --arg p "$(yq '.spec.project' "$fragment")" --arg v "$(yq '.spec.version' "$fragment")" \
+      --arg at "$(head -n 1 "${dir}/published" 2>/dev/null || true)" '. + {($p): {version: $v, at: $at}}' <<<"$published")"
+  done
+
+  jq \
+    --slurpfile lock "$lock" \
+    --argjson published "$published" \
+    --arg delivered "${DELIVERED:-}" \
+    --arg lockDigest "${LOCK_DIGEST:-}" \
+    --arg toolkit "$toolkit" \
+    --arg snapshot "$snapshot" \
+    --arg projectRe "$project_re" \
+    --arg codeRe "$code_re" '
+    def safe($re): if type == "string" and test($re) then . else "?" end;
+    def maybe($re): if type == "string" and test($re) then . else null end;
+    def ver: safe("^[0-9]+\\.[0-9]+\\.[0-9]+$");
+    def time: maybe("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z$");
+    # Codes that say the fragment is too old, or absent, rather than refused.
+    def stale: ["E_PARTICIPANT_STALE", "E_PARTICIPANT_MISSING"];
+
+    $lock[0] as $lock
+    | ($lock.spec.isolated // {}) as $isolated
+    | (.artifacts | map({key: .name, value: .}) | from_entries) as $artifacts
+    | (.conditions | map(select(.condition != "isolated")) | map({key: .project, value: .}) | from_entries) as $held
+    | ($delivered | test("^[0-9a-f]{40}$")) as $pushed
+    | ([$lock.spec.fragments | keys[]] + [$isolated | keys[]] + [$artifacts | keys[]] | unique
+       | map(select(. != "_estate"))) as $projects
+    | {
+        refused: false,
+        toolkit: ($lock.spec.toolkitVersion // $toolkit | maybe("^[0-9]+\\.[0-9]+\\.[0-9]+$")),
+        snapshotAt: ($snapshot | time),
+        lock: ($lockDigest | maybe("^sha256:[0-9a-f]{64}$")),
+        moved: [$projects[] | select($pushed and ($artifacts[.].moves // false)) | safe($projectRe)],
+        fragments: [ $projects[] as $p
+          | ($isolated[$p].codes // []) as $codes
+          | ($published[$p] // null) as $newest
+          | ($artifacts[$p].moves // false) as $moves
+          | {
+              project: ($p | safe($projectRe)),
+              version: (if $codes != [] and $newest != null then $newest.version
+                        elif $lock.spec.fragments[$p] != null then $lock.spec.fragments[$p].version
+                        elif $newest != null then $newest.version
+                        else null end | if . == null then null else ver end),
+              outcome: (if $codes != [] then (if any($codes[]; IN(stale[])) then "stale" else "isolated" end)
+                        elif $held[$p] != null then "held"
+                        elif $moves and $pushed then "moved"
+                        else "unchanged" end),
+              reason: (if $codes != [] then ([$codes[] | safe($codeRe)] | join(", "))
+                       elif $held[$p].condition == "paused" then "paused"
+                       elif $held[$p].condition == "rolled-back" then "rolled back, held"
+                       elif $moves and ($pushed | not) then "not delivered: the run failed before the pin commit"
+                       else null end),
+              published: ($newest.at // null | time)
+            } ]
+      }' "$composition"
+}
+
 case "$mode" in
 summary) summary ;;
 verdict) verdict ;;
+record) record ;;
 *)
-  echo "::error::usage: delivery-report.sh summary|verdict"
+  echo "::error::usage: delivery-report.sh summary|verdict|record"
   exit 2
   ;;
 esac
