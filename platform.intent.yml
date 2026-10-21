@@ -69,12 +69,12 @@ tiers:
     listener: tls
     certificates: acme
     forwardAuth: "http://auth-api.auth-system.svc.cluster.local:8081/api/auth/forward"
-    traefik: traefik-public # declared in platform/edge.project.yml, placed on the public-ingress node
+    traefik: edge/traefik-public # declared in platform/edge.project.yml, placed on the public-ingress node
   - name: lan
     audiences: [lan]
     listener: plain
     certificates: none
-    traefik: traefik-lan # placed on a LAN node
+    traefik: edge/traefik-lan # placed on a LAN node
 
 # One policy per Durability Class.
 durability:
@@ -179,11 +179,11 @@ monitors:
 # stack every declared scrape surface admits: both declared in
 # platform/observability.project.yml.
 telemetry:
-  collector: otel-collector
-  metrics: prometheus
+  collector: observability/otel-collector
+  metrics: observability/prometheus
 
 # The Secret Store every grant is read from: declared in platform/secrets.project.yml.
-secretStore: vault
+secretStore: secrets/vault
 
 # One posture for every container the estate renders.
 hardening: restricted
@@ -212,13 +212,13 @@ migration:
 # validated alone it refuses E_UNKNOWN_MACHINERY, E_UNKNOWN_RELEASE_GATE and
 # E_UNKNOWN_REPORTER.
 delivery:
-  machinery: [traefik-public, traefik-lan, flagger, release-gate]
-  gate: release-gate
+  machinery: [edge/traefik-public, edge/traefik-lan, delivery/flagger, delivery/release-gate]
+  gate: delivery/release-gate
   # Writes each Rollout's stages to its GitHub Deployment, from Flux's events
   # and its own reads (deploy-kit spec/v1/55-delivery.md#rollouts). Naming it
   # renders the Provider and Alert that send it Flux's events, and admits
   # Flux's notification controller to its `http` surface.
-  reporter: reporter
+  reporter: delivery/reporter
   analysis:
     interval: 30s
     iterations: 4
@@ -234,7 +234,7 @@ delivery:
 # and writes nothing (JorisJonkers-dev/estate-dashboard). This document
 # validates only beside its fragment: alone it refuses E_UNKNOWN_API_HOLDER.
 apiAccess:
-  holders: [flagger, release-gate, collector, reporter, estate-dashboard]
+  holders: [delivery/flagger, delivery/release-gate, delivery/collector, delivery/reporter, estate-dashboard/estate-dashboard]
   server:
     - { cidr: 10.43.0.1/32, port: 443 } # Service default/kubernetes, read 2026-10-07
 

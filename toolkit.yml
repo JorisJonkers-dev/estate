@@ -1,3 +1,3 @@
 # The deploy-kit release every workflow on the estate path runs
 # (deploy-kit spec/v1/60-setup.md#the-estate-repository).
-deploy-kit: 0.27.1
+deploy-kit: 0.28.0
