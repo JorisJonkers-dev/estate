@@ -29,13 +29,6 @@ DASHBOARD_KV_PATH="estate-dashboard-system/sign-in"
 DASHBOARD_KV_KEY="oidc-client-secret"
 DASHBOARD_SESSION_KV_KEY="session-key"
 DASHBOARD_GITHUB_KV_KEY="github-token"
-# The dashboard's database URL, its own document because Postgres, not a person, is its source
-# (deploy/estate-dashboard.project.yml grants it beside the sign-in document). Its database and
-# login are the project's: <project>_db, as deploy-kit names a project's database.
-DASHBOARD_DB_KV_PATH="estate-dashboard-system/database"
-DASHBOARD_DB_KV_KEY="url"
-DASHBOARD_DB_NAME="estate-dashboard_db"
-DASHBOARD_DB_ROLE="estate-dashboard"
 
 ok()  { printf '  %s✓%s %s\n' "$GREEN" "$RESET" "$1"; }
 die() { printf '\n  %s✗ %s%s\n\n' "$RED" "$1" "$RESET" >&2; exit 1; }
