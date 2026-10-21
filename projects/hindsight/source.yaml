@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/hindsight
   ref:
-    digest: sha256:517a60e625f9f55cbec493aed46124a7d37d6f4dcba1db604ffc61e6b2a7facd
+    digest: sha256:a14beb534fc12c45cf653ce9314a72f94fc645c5d0f0c5017080391197e4e98f
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/hindsight
-    event.toolkit.fluxcd.io/sha: 6666abeabb2bb13259c1925cbc8480925e39c414
+    event.toolkit.fluxcd.io/sha: 26a0eda68b9ca66c62a2c004a7761b97e826b76a
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 1.0.3
+    event.toolkit.fluxcd.io/version: 1.0.4
     event.toolkit.fluxcd.io/url: https://hindsight-api.jorisjonkers.dev
 spec:
   interval: 10m
