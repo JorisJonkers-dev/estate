@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.0](https://github.com/JorisJonkers-dev/estate/compare/v0.26.0...v0.27.0) (2026-10-21)
+
+
+### Features
+
+* run deploy-kit 0.28.0, whose Platform document names each privileged role's Project ([#189](https://github.com/JorisJonkers-dev/estate/issues/189)) ([a17bf19](https://github.com/JorisJonkers-dev/estate/commit/a17bf192c36bd199f59ec8a1b06ad01f6d37c438))
+
 ## [0.26.0](https://github.com/JorisJonkers-dev/estate/compare/v0.25.4...v0.26.0) (2026-10-21)
 
 
