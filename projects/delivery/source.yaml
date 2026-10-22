@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/delivery
   ref:
-    digest: sha256:26e92c061755e67424279f7bc1bfef9b2add34a16387e70b35eafbd8f189e70c
+    digest: sha256:ccb684657a680a89eb8802cb170d46e6b56b1f56a86787bd776396a1f08d3e7e
   secretRef:
     name: render-pull
   verify:
@@ -44,5 +44,3 @@ spec:
     kind: OCIRepository
     name: project-delivery
   path: ./apps/delivery
-  dependsOn:
-    - name: estate-vso-secrets

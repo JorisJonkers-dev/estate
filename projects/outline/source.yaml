@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/outline
   ref:
-    digest: sha256:b27798e7376676a4eb2fe4b34b996bbf1da2c177425631fcc70511687d359bf0
+    digest: sha256:1414576f41075c7e688b07b11d5491872c954f81bd5b64b6d45cf5fac17806a0
   secretRef:
     name: render-pull
   verify:
@@ -45,5 +45,3 @@ spec:
     kind: OCIRepository
     name: project-outline
   path: ./apps/outline
-  dependsOn:
-    - name: estate-vso-secrets

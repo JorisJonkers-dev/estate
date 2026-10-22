@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/grimoire
   ref:
-    digest: sha256:8990b2b1ed4fd9408298b1f51c43d7b2b5c0f232b4546684ce5d1f4bad91e560
+    digest: sha256:7baf9cad13fd904e85521748fd1e7ddf8b8d1924061482b38e81ea967800bd83
   secretRef:
     name: render-pull
   verify:
@@ -45,5 +45,3 @@ spec:
     kind: OCIRepository
     name: project-grimoire
   path: ./apps/grimoire
-  dependsOn:
-    - name: estate-vso-secrets

@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/estate-dashboard
   ref:
-    digest: sha256:f3aacd2562928215bca5ac0204c24adda2130459a404c895d76d21ff49f8a753
+    digest: sha256:8df32b4a1f4402434f4c505a8d6a0a3b066aec690968eb3e0f0453c0fd4356aa
   secretRef:
     name: render-pull
   verify:
@@ -47,4 +47,3 @@ spec:
   path: ./apps/estate-dashboard
   dependsOn:
     - name: apps-delivery
-    - name: estate-vso-secrets

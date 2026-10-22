@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/hindsight
   ref:
-    digest: sha256:8a5b6a0e88ab92c3dd0c8916ca6baf142e4527f5ceaeb952984f0f37b989f3bc
+    digest: sha256:b6210580b6365e6f705ce7b773e8972fe0c58403d60b64d47cfac92d909bcc9d
   secretRef:
     name: render-pull
   verify:
@@ -45,5 +45,3 @@ spec:
     kind: OCIRepository
     name: project-hindsight
   path: ./apps/hindsight
-  dependsOn:
-    - name: estate-vso-secrets

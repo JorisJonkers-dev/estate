@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/qbittorrent
   ref:
-    digest: sha256:4c3a9dbae6420182a6e7879d23ecfb300d7fe95125c6b7bcd83c998868efbd7e
+    digest: sha256:7d93c21d3f32d5910629967ab5976eb73018f73b23aa766da53ba0406648226c
   secretRef:
     name: render-pull
   verify:
@@ -44,5 +44,3 @@ spec:
     kind: OCIRepository
     name: project-qbittorrent
   path: ./apps/qbittorrent
-  dependsOn:
-    - name: estate-vso-secrets

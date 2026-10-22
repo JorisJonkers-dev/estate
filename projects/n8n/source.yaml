@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/n8n
   ref:
-    digest: sha256:f10d6df2990a3df3067634426a96cdb3269c981543e82509b186dc24a1da257b
+    digest: sha256:23592590bb09fa4f3fc20c462a53a75135fbc0a1bde78f2f86a972d848c7e170
   secretRef:
     name: render-pull
   verify:
@@ -45,5 +45,3 @@ spec:
     kind: OCIRepository
     name: project-n8n
   path: ./apps/n8n
-  dependsOn:
-    - name: estate-vso-secrets

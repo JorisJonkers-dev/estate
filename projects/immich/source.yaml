@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/immich
   ref:
-    digest: sha256:a4da301cc8fcf30d2c72cfe22cc7c436fd62feb4248cc01562774e56f328abcf
+    digest: sha256:9b3c3c85f5a67b7744249097a7eba0ca13fb96776ea0e9b01d71ef529cc575b6
   secretRef:
     name: render-pull
   verify:
@@ -45,5 +45,3 @@ spec:
     kind: OCIRepository
     name: project-immich
   path: ./apps/immich
-  dependsOn:
-    - name: estate-vso-secrets

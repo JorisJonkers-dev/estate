@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/tribelt
   ref:
-    digest: sha256:4b6b3f791be90bfa3250c5bffea450e2209c87bf822ff0ce07587bb85ffb8a14
+    digest: sha256:7977bdf4654f5f00b6904b8d3f0c716871930a72f5edf27bb5e7c52749947d16
   secretRef:
     name: render-pull
   verify:
@@ -45,5 +45,3 @@ spec:
     kind: OCIRepository
     name: project-tribelt
   path: ./apps/tribelt
-  dependsOn:
-    - name: estate-vso-secrets

@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/karakeep
   ref:
-    digest: sha256:f6fa8bfd825525dd4eb33a135e887e6fd19162e59a686e68c9ecb48666300497
+    digest: sha256:fe15ef74fb3574080696acadc3d6b41bda80e8303f7bd4e995c016b1ed8a2ab0
   secretRef:
     name: render-pull
   verify:
@@ -45,5 +45,3 @@ spec:
     kind: OCIRepository
     name: project-karakeep
   path: ./apps/karakeep
-  dependsOn:
-    - name: estate-vso-secrets

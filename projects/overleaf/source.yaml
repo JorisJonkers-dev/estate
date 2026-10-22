@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/overleaf
   ref:
-    digest: sha256:802a64d79257cb73c8c1f9281d598b694a5277021ea235403554394131820e90
+    digest: sha256:a536f1e243df6156da7344802201c84a26424cc0653b14ad7e481cceca83448e
   secretRef:
     name: render-pull
   verify:
@@ -45,5 +45,3 @@ spec:
     kind: OCIRepository
     name: project-overleaf
   path: ./apps/overleaf
-  dependsOn:
-    - name: estate-vso-secrets

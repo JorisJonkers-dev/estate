@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render-estate
   ref:
-    digest: sha256:ed0b09fff4ba8bedbbd6bc29e9911a088e7075e3319c978ef1460746d95709ba
+    digest: sha256:538334457d757ae2fde616f89e275f9e8f022551eaf2d1367560c882fbd58119
   secretRef:
     name: render-pull
   verify:
@@ -39,23 +39,3 @@ spec:
     kind: OCIRepository
     name: estate
   path: ./estate/vso-secrets
----
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
-  name: estate-rollout-events
-  namespace: flux-system
-  labels:
-    app.kubernetes.io/managed-by: deploy-kit
-spec:
-  interval: 10m
-  prune: true
-  wait: true
-  healthCheckExprs:
-    - apiVersion: v1
-      kind: PersistentVolumeClaim
-      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
-  sourceRef:
-    kind: OCIRepository
-    name: estate
-  path: ./estate/rollout-events
