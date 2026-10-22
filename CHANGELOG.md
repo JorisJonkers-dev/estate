@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.28.0](https://github.com/JorisJonkers-dev/estate/compare/v0.27.0...v0.28.0) (2026-10-22)
+
+
+### Features
+
+* run deploy-kit 0.29.0, which refuses an images-lock entry without a version ([#191](https://github.com/JorisJonkers-dev/estate/issues/191)) ([48fca63](https://github.com/JorisJonkers-dev/estate/commit/48fca63d7c5a80b0ffb4624130d6cf4d8a18991c))
+* run deploy-kit 0.31.0, with a Vault policy job per Project and a Rollback without a backup ([#194](https://github.com/JorisJonkers-dev/estate/issues/194)) ([2683b67](https://github.com/JorisJonkers-dev/estate/commit/2683b67c29c132a9f29e6aeb00355bd8089b31fa))
+
+
+### Bug Fixes
+
+* run deploy-kit 0.30.0, whose Rollback backup also dumps the Project's own database ([#193](https://github.com/JorisJonkers-dev/estate/issues/193)) ([cf49793](https://github.com/JorisJonkers-dev/estate/commit/cf49793efdac6c6c30d2c40977397d65c8cd7c00))
+
 ## [0.27.0](https://github.com/JorisJonkers-dev/estate/compare/v0.26.0...v0.27.0) (2026-10-21)
 
 
