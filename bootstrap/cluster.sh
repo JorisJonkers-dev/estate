@@ -31,14 +31,13 @@ AUTH_HOST=${AUTH_HOST:-https://auth.jorisjonkers.dev}
 DASHBOARD_CLIENT_ID=estate-dashboard
 DASHBOARD_REDIRECT_URI=https://estate.jorisjonkers.dev/auth/callback
 DEPLOY_KEY_TITLE="flux-system/estate (read-only)"
-# The Vault policy job (platform.intent.yml policyJob): the role it logs in as,
-# and the ServiceAccount it runs as, in the Secret Store's namespace. While
-# `secrets` is legacy that is where the old path runs Vault, data-system, as
-# platform.intent.yml's handover.serving states; it becomes secrets-system in
-# the change that hands `secrets` over and removes that statement.
+# The Vault policy job (platform.intent.yml policyJob): the role every
+# Project's job logs in as, and the ServiceAccount each runs as in its own
+# Project's namespace (deploy-kit 0.31.0, deploy-kit#548). The estate-scoped
+# job of a catalog the old path runs is the same ServiceAccount in that
+# catalog's namespace.
 POLICY_ROLE=policy-admin
 POLICY_SA=vault-policy
-POLICY_NS=data-system
 # The CRDs of the bootstrap set that no render holds (platform.intent.yml
 # bootstrap.crds): Flagger's, at the release its image in the delivery Project is.
 FLAGGER_VERSION=v1.45.0
@@ -277,25 +276,43 @@ stage "Vault: the role the policy job logs in as"
 # The job writes every rendered policy and Kubernetes auth role, so its own
 # role is the one thing it cannot create: it exists before the first render.
 #
-# What it may write is everything a render can hold, so a compromised job is
-# a compromised Vault; what is denied below is what a render never needs, so
-# it cannot quietly keep that access: changing its own policy or role, the
-# built-in policies, or minting a role that hands out policy-admin or root.
-# It also writes the generated keys the render names: it reads and creates KV
-# documents, and the job itself writes only under each key's own Project prefix.
-vault_exec policy write "$POLICY_ROLE" - >/dev/null <<'HCL'
-path "sys/policies/acl/*" {
-  capabilities = ["create", "read", "update", "delete", "list"]
+# One role serves every Project's job, so what it may write is confined by name
+# to the namespace the job's ServiceAccount is in: the `<namespace>-*` policies
+# and roles, and KV documents under `secret/data/<namespace>/`, the generated
+# keys. Vault fills the namespace in from the login's alias, so a job in one
+# namespace cannot write another's names. It cannot confine what a written
+# policy grants or a written role binds, so the job is trusted as far as the
+# signed render is (deploy-kit docs/adr/model/0087). It reads every KV
+# document, because a generated key may adopt a value from an old location
+# outside its Project, and it lists the policies and roles, which it reads
+# back to report what the render no longer names. What is denied below is what
+# a render never needs: changing its own policy or role, the built-in
+# policies, or minting a role that hands out policy-admin or root.
+ACCESSOR=$(vault_exec auth list -format=json </dev/null | jq -r '."kubernetes/".accessor')
+[[ "$ACCESSOR" == auth_kubernetes_* ]] || die "the kubernetes auth mount has no accessor Vault reports"
+NS="{{identity.entity.aliases.$ACCESSOR.metadata.service_account_namespace}}"
+vault_exec policy write "$POLICY_ROLE" - >/dev/null <<HCL
+path "sys/policies/acl" {
+  capabilities = ["list"]
 }
-path "auth/kubernetes/role/*" {
-  capabilities = ["create", "read", "update", "delete", "list"]
+path "sys/policies/acl/$NS-*" {
+  capabilities = ["create", "read", "update", "delete"]
+}
+path "auth/kubernetes/role" {
+  capabilities = ["list"]
+}
+path "auth/kubernetes/role/$NS-*" {
+  capabilities = ["create", "read", "update", "delete"]
   denied_parameters = {
     "token_policies" = ["policy-admin", "root"]
     "policies"       = ["policy-admin", "root"]
   }
 }
-path "secret/data/*" {
+path "secret/data/$NS/*" {
   capabilities = ["create", "read", "update"]
+}
+path "secret/data/*" {
+  capabilities = ["read"]
 }
 path "sys/policies/acl/policy-admin" {
   capabilities = ["deny"]
@@ -312,12 +329,12 @@ path "auth/kubernetes/role/policy-admin" {
 HCL
 vault_exec write "auth/kubernetes/role/$POLICY_ROLE" \
   bound_service_account_names="$POLICY_SA" \
-  bound_service_account_namespaces="$POLICY_NS" \
+  bound_service_account_namespaces="*" \
   token_policies="$POLICY_ROLE" \
   token_ttl=10m </dev/null >/dev/null
 [[ "$(vault_exec read -field=token_policies "auth/kubernetes/role/$POLICY_ROLE" </dev/null)" == *"$POLICY_ROLE"* ]] \
   || die "auth/kubernetes/role/$POLICY_ROLE does not read back with its policy"
-ok "role $POLICY_ROLE binds $POLICY_NS/$POLICY_SA to policy $POLICY_ROLE"
+ok "role $POLICY_ROLE binds every namespace's $POLICY_SA to policy $POLICY_ROLE, confined to its namespace's names"
 pause
 
 # ── 9 ─────────────────────────────────────────────────────────────────────

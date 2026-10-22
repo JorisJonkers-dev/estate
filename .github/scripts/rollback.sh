@@ -6,22 +6,18 @@
 #   target  <project> <version>   refuse a release that is not the proven one;
 #                                 write fragment=<image@digest> and
 #                                 pinned=<image@digest> to $GITHUB_OUTPUT
-#   ask     <project> <request>   pause the Project and ask for its backup
-#   expect  <project> <request>   the backup Jobs composition rendered for the
-#                                 request, one name a line, into expected.txt
-#   await   <project> <request>   wait until each expected Job ended; fail on a
-#                                 failed, unknown or missing one by DEADLINE
 #   record  <project> <version> <fragment> <pinned>
-#                                 drop the request and record the target, once
-#                                 the pin is still the one the target was
-#                                 proven against
-#   stop    <project> <why>       drop the request, leave the Project paused
+#                                 pause the Project and record the target, in
+#                                 one commit, once the pin is still the one the
+#                                 target was proven against
 #
-# Reads ACTOR and REASON (ask), PUSH_URL (every step that commits), OWNER,
-# COMPOSED, SIGNER_ISSUER, SIGNER_SUBJECT and FRAGMENT_SIGNER (target, record)
-# and DEADLINE, an epoch second (await). The steps share the job's working
-# directory: expect reads the pinned release target pulled. Every commit replays its edit on a newer main when a
-# composition's pin commit landed first, as hold.sh does.
+# A Rollback takes no backup of its own: every backed-up volume has its
+# Durability Class's scheduled backups (deploy-kit 0.31.0, deploy-kit#557).
+#
+# Reads PUSH_URL (record), OWNER, COMPOSED, SIGNER_ISSUER, SIGNER_SUBJECT and
+# FRAGMENT_SIGNER (target, record), and ACTOR and REASON (record). The commit
+# replays its edit on a newer main when a composition's pin commit landed
+# first, as hold.sh does.
 set -euo pipefail
 
 step="${1:-}"
@@ -133,95 +129,22 @@ target)
   echo "${project} ${version} is proven: ${image}@${digest}"
   ;;
 
-ask)
-  request="${3:-}"
-  [ -n "${REASON//[[:space:]]/}" ] || { echo "::error::a rollback needs a reason"; exit 1; }
-  ask_edit() {
-    AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)" REQUEST="$request" yq -i "
-      (${repository} | .metadata.annotations[\"${key}paused-by\"]) = strenv(ACTOR) |
-      (${repository} | .metadata.annotations[\"${key}paused-at\"]) = strenv(AT) |
-      (${repository} | .metadata.annotations[\"${key}paused-reason\"]) = strenv(REASON) |
-      (${repository} | .metadata.annotations[\"${key}rollback-backup\"]) = strenv(REQUEST)
-    " "$source"
-  }
-  commit "back up ${project} before a rollback" ask_edit
-  echo "paused ${project} and asked for backup ${request}"
-  ;;
-
-expect)
-  request="${3:-}"
-  git fetch --quiet "$PUSH_URL" main
-  git reset --quiet --hard FETCH_HEAD
-  : > expected.txt
-  # Whether the pinned release has anything to back up: a volume of a class
-  # that derives a backup. Only then may the render hold no Job, so a render
-  # that dropped the request fails here rather than rolling back unprotected.
-  backed_up="$(cat pinned/*.project.yml | yq -N '[.. | select(tag == "!!map" and has("durability")) | .durability | select(. == "recoverable" or . == "irreplaceable")] | length')"
-  none() {
-    if [ "$backed_up" = 0 ]; then
-      echo "::notice::${project}'s pinned release has no backed-up volume: there is nothing to back up"
-      exit 0
-    fi
-    echo "::error::${project}'s pinned release has ${backed_up} backed-up volume(s), but $1"
-    exit 1
-  }
-  estate="projects/_estate/source.yaml"
-  if [ "$(yq 'select(.kind == "Kustomization" and .metadata.name == "estate-rollback-backups") | .metadata.name' "$estate")" = "" ]; then
-    none "the render applies no backup unit"
-  fi
-  url="$(yq "${repository} | .spec.url" "$estate")"
-  digest="$(yq "${repository} | .spec.ref.digest" "$estate")"
-  oras pull "${url#oci://}@${digest}" --output estate-render > /dev/null
-  jobs="estate-render/estate/rollback-backups/${project}.yaml"
-  [ -f "$jobs" ] || none "the render holds no backup Job for it"
-  REQUEST="$request" yq -N 'select(.kind == "Job" and .metadata.labels["estate.jorisjonkers.dev/rollback-backup"] == strenv(REQUEST)) | .metadata.name' "$jobs" \
-    | sort > expected.txt
-  [ -s expected.txt ] || { echo "::error::the render holds backup Jobs for ${project}, but none for request ${request}"; exit 1; }
-  echo "expecting: $(paste -sd' ' expected.txt)"
-  ;;
-
-await)
-  request="${3:-}"
-  [ -s expected.txt ] || { echo "nothing to wait for"; exit 0; }
-  while :; do
-    git fetch --quiet "$PUSH_URL" main
-    git show FETCH_HEAD:cluster-state.yml \
-      | REQUEST="$request" PROJECT="$project" yq -o=json '[.backups // [] | .[] | select(.request == strenv(REQUEST) and .project == strenv(PROJECT))]' > reported.json
-    if jq -e --rawfile expected expected.txt '
-        ($expected | split("\n") | map(select(. != ""))) as $e
-        | [.[] | .job] - $e | length > 0' reported.json > /dev/null; then
-      echo "::error::the Collector reports a backup Job for request ${request} the render does not hold: $(jq -c '[.[].job]' reported.json)"
-      exit 1
-    fi
-    if jq -e '[.[] | select(.outcome != "succeeded")] | length > 0' reported.json > /dev/null; then
-      echo "::error::a backup Job failed: $(jq -c '[.[] | select(.outcome != "succeeded") | .job]' reported.json)"
-      exit 1
-    fi
-    if [ "$(jq -r '[.[].job] | sort | .[]' reported.json)" = "$(cat expected.txt)" ]; then
-      echo "every backup Job of ${request} succeeded"
-      exit 0
-    fi
-    if [ "$(date +%s)" -ge "$DEADLINE" ]; then
-      echo "::error::the backup did not end in time; reported: $(jq -c '[.[] | {job, outcome}]' reported.json)"
-      exit 1
-    fi
-    sleep 30
-  done
-  ;;
-
 record)
   version="${3:-}"
   fragment="${4:-}"
   pinned="${5:-}"
-  # The proof was read from the release pinned when the run began. The Pause
-  # froze that pin, but a composition may have moved it before the Pause
-  # landed: a different pin is a different proof, and the run stops.
+  # The proof was read from the release pinned when the run began, and a
+  # composition may have moved that pin since: a different pin is a different
+  # proof, and the run stops before it pauses anything.
   latest_lock now
   [ "$(jq -r --arg p "$project" '.spec.fragments[$p].ref // ""' now/lock.json)" = "$pinned" ] \
     || { echo "::error::${project}'s pin moved since its release was proven; run the rollback again"; exit 1; }
+  [ -n "${REASON//[[:space:]]/}" ] || { echo "::error::a rollback needs a reason"; exit 1; }
   record_edit() {
-    VERSION="$version" FRAGMENT="$fragment" yq -i "
-      del(${repository} | .metadata.annotations[\"${key}rollback-backup\"]) |
+    AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)" VERSION="$version" FRAGMENT="$fragment" yq -i "
+      (${repository} | .metadata.annotations[\"${key}paused-by\"]) = strenv(ACTOR) |
+      (${repository} | .metadata.annotations[\"${key}paused-at\"]) = strenv(AT) |
+      (${repository} | .metadata.annotations[\"${key}paused-reason\"]) = strenv(REASON) |
       (${repository} | .metadata.annotations[\"${key}rollback-version\"]) = strenv(VERSION) |
       (${repository} | .metadata.annotations[\"${key}rollback-fragment\"]) = strenv(FRAGMENT)
     " "$source"
@@ -230,20 +153,8 @@ record)
   echo "${project} rolls back to ${version}, and stays paused"
   ;;
 
-stop)
-  why="${3:-}"
-  stop_edit() {
-    WHY="$why" yq -i "
-      del(${repository} | .metadata.annotations[\"${key}rollback-backup\"]) |
-      (${repository} | .metadata.annotations[\"${key}paused-reason\"]) = strenv(WHY)
-    " "$source"
-  }
-  commit "stop the rollback of ${project}" stop_edit
-  echo "${project} stays where it was, paused"
-  ;;
-
 *)
-  echo "::error::usage: rollback.sh target|ask|expect|await|record|stop <project> ..."
+  echo "::error::usage: rollback.sh target|record <project> ..."
   exit 2
   ;;
 esac

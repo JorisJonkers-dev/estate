@@ -4,14 +4,11 @@
 # 1. Only the proven release is taken: the one the pinned release's Migration
 #    Proof names, or any earlier one where it proves nothing. Anything else is
 #    refused before anything runs.
-# 2. A backup first, through Flux: one commit pauses the Project and asks for
-#    its backup, composition renders one-shot backup Jobs beside it, and the
-#    Collector reports in cluster-state.yml how each ended. The run waits 45
-#    minutes for every Job the render holds to succeed.
-# 3. Only then a second commit records the release, and composition moves the
-#    pin there. A backup that failed, or did not end in time, drops the request
-#    and leaves the Project paused where it was.
-# 4. The Project stays paused either way: resuming is a human's call.
+# 2. One commit pauses the Project and records the release, and composition
+#    moves the pin there. A Rollback takes no backup of its own: every
+#    backed-up volume has its Durability Class's scheduled backups
+#    (deploy-kit 0.31.0, deploy-kit#557).
+# 3. The Project stays paused: resuming is a human's call.
 name: Rollback
 
 on:
@@ -55,7 +52,7 @@ jobs:
     environment:
       name: production
       deployment: false
-    timeout-minutes: 70
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: read
@@ -97,74 +94,22 @@ jobs:
           app-id: ${{ vars.ESTATE_COLLECTOR_APP_ID }}
           private-key: ${{ secrets.ESTATE_COLLECTOR_APP_PRIVATE_KEY }}
 
-      - name: Pause the Project and ask for its backup
-        id: ask
+      - name: Pause the Project and record the release
+        id: record
         env:
           PROJECT: ${{ inputs.project }}
+          VERSION: ${{ inputs.version }}
           ACTOR: ${{ github.actor }}
           REASON: ${{ inputs.reason }}
-          PUSH_URL: https://x-access-token:${{ steps.token.outputs.token }}@github.com/${{ github.repository }}.git
-        run: |
-          .github/scripts/rollback.sh ask "$PROJECT" "$GITHUB_RUN_ID"
-          {
-            echo "commit=$(git rev-parse HEAD)"
-            echo "deadline=$(( $(date +%s) + 45 * 60 ))"
-            echo "since=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Compose the backup
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SINCE: ${{ steps.ask.outputs.since }}
-          COMMIT: ${{ steps.ask.outputs.commit }}
-          PROJECT: ${{ inputs.project }}
-          VERSION: ${{ inputs.version }}
-          PUSH_URL: https://x-access-token:${{ steps.token.outputs.token }}@github.com/${{ github.repository }}.git
-        run: .github/scripts/compose-once.sh "$SINCE" "$COMMIT" "back up ${PROJECT} before its rollback to ${VERSION}"
-
-      - name: Read the backup Jobs the render holds
-        env:
-          PROJECT: ${{ inputs.project }}
-          PUSH_URL: https://x-access-token:${{ steps.token.outputs.token }}@github.com/${{ github.repository }}.git
-        run: .github/scripts/rollback.sh expect "$PROJECT" "$GITHUB_RUN_ID"
-
-      - name: Wait for every one of them to succeed
-        env:
-          PROJECT: ${{ inputs.project }}
-          DEADLINE: ${{ steps.ask.outputs.deadline }}
-          PUSH_URL: https://x-access-token:${{ steps.token.outputs.token }}@github.com/${{ github.repository }}.git
-        run: .github/scripts/rollback.sh await "$PROJECT" "$GITHUB_RUN_ID"
-
-      - name: Record the release
-        env:
-          PROJECT: ${{ inputs.project }}
-          VERSION: ${{ inputs.version }}
           FRAGMENT: ${{ steps.target.outputs.fragment }}
           PINNED: ${{ steps.target.outputs.pinned }}
           PUSH_URL: https://x-access-token:${{ steps.token.outputs.token }}@github.com/${{ github.repository }}.git
         run: .github/scripts/rollback.sh record "$PROJECT" "$VERSION" "$FRAGMENT" "$PINNED"
 
-      - name: Stop, leaving the Project paused where it was
-        if: failure() && steps.ask.outcome == 'success'
-        env:
-          PROJECT: ${{ inputs.project }}
-          WHY: "rollback to ${{ inputs.version }} stopped: its backup did not succeed (run ${{ github.run_id }}); ${{ inputs.reason }}"
-          PUSH_URL: https://x-access-token:${{ steps.token.outputs.token }}@github.com/${{ github.repository }}.git
-        run: .github/scripts/rollback.sh stop "$PROJECT" "$WHY"
-
-      # Either way the pin source changed: composition moves the pin to the
-      # release, or takes the backup Jobs out of the render.
+      # Composition moves the pin to the recorded release.
       - name: Compose what was recorded
-        if: always() && steps.ask.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           PROJECT: ${{ inputs.project }}
           VERSION: ${{ inputs.version }}
-          OUTCOME: ${{ job.status }}
-        run: |
-          if [ "$OUTCOME" = success ]; then
-            reason="${PROJECT} rolled back to ${VERSION}"
-          else
-            reason="${PROJECT} rollback to ${VERSION} stopped, paused where it was"
-          fi
-          gh workflow run compose.yml --repo "$GITHUB_REPOSITORY" --ref main -f reason="$reason"
+        run: gh workflow run compose.yml --repo "$GITHUB_REPOSITORY" --ref main -f reason="${PROJECT} rolled back to ${VERSION}"
