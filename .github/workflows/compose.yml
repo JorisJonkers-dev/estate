@@ -85,7 +85,7 @@ jobs:
       # verifies; cosign 3 defaults to the newer bundle format.
       - uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
         with:
-          cosign-release: v2.6.1
+          cosign-release: v2.6.5
 
       - name: Render the canary
         run: |
@@ -186,7 +186,7 @@ jobs:
           ref: ${{ github.ref_name }}
           persist-credentials: false
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
           registry-url: https://npm.pkg.github.com
@@ -196,7 +196,7 @@ jobs:
           version: 1.3.4
       - uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
         with:
-          cosign-release: v2.6.1
+          cosign-release: v2.6.5
 
       # The one pin, toolkit.yml (deploy-kit spec/v1/60-setup.md#the-estate-repository).
       - name: Install the pinned toolkit
@@ -493,7 +493,7 @@ jobs:
 
       # The Collector App pushes the commit: it alone holds contents: write on
       # this repository and bypasses main's ruleset (.github/rulesets/README.md).
-      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: pin-token
         if: ${{ success() && github.ref == 'refs/heads/main' && steps.pins.outputs.committed == 'true' }}
         with:
@@ -554,7 +554,7 @@ jobs:
 
       # The dispatch App reports a status on each publishing commit: it holds
       # statuses: write on every repository (deploy-kit spec/v1/60-setup.md#the-estate-repository).
-      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: status-token
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' && hashFiles('composed/composition.json') != '' }}
         with:
