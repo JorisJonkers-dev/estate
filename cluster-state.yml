@@ -10,7 +10,7 @@ apiVersion: state.jorisjonkers.dev/v1
 kind: ClusterState
 schemaVersion: 1.0.0
 cluster: "production"
-capturedAt: "2026-10-22T09:11:45Z"
+capturedAt: "2026-10-22T12:01:46Z"
 bindings:
   - { claim: "alertmanager-metrics-stack-alertmanager-db-alertmanager-metrics-stack-alertmanager-0", node: "frankfurt-contabo-1" }
   - { claim: "audit-vault-0", node: "frankfurt-contabo-1" }
@@ -62,11 +62,15 @@ bindings:
 placements:
   - { process: "bazarr", node: "enschede-t1000-1" }
   - { process: "collector", node: "enschede-pi-2" }
-  - { process: "estate-dashboard-primary", node: "enschede-pi-2" }
-  - { process: "flagger", node: "enschede-pi-2" }
-  - { process: "grimoire", node: "enschede-pi-1" }
+  - { process: "estate-dashboard", node: "enschede-pi-3" }
+  - { process: "estate-dashboard-primary", node: "enschede-pi-3" }
+  - { process: "flagger", node: "enschede-pi-3" }
+  - { process: "grimoire", node: "enschede-pi-3" }
+  - { process: "hindsight-api", node: "enschede-gtx-960m-1" }
   - { process: "hindsight-api-primary", node: "enschede-gtx-960m-1" }
+  - { process: "hindsight-control-plane", node: "enschede-pi-3" }
   - { process: "hindsight-control-plane-primary", node: "enschede-pi-1" }
+  - { process: "hindsight-worker", node: "enschede-t1000-1" }
   - { process: "hindsight-worker-primary", node: "enschede-t1000-1" }
   - { process: "home-portal-primary", node: "enschede-pi-2" }
   - { process: "immich-ml", node: "enschede-t1000-1" }
@@ -79,6 +83,7 @@ placements:
   - { process: "karakeep-search", node: "enschede-pi-3" }
   - { process: "n8n", node: "frankfurt-contabo-1" }
   - { process: "outline-primary", node: "enschede-pi-2" }
+  - { process: "outline-primary", node: "enschede-pi-3" }
   - { process: "outline-primary", node: "enschede-t1000-1" }
   - { process: "overleaf", node: "enschede-t1000-1" }
   - { process: "prowlarr", node: "enschede-gtx-960m-1" }
@@ -90,4 +95,5 @@ placements:
   - { process: "sonarr", node: "enschede-t1000-1" }
   - { process: "tei-embedding", node: "enschede-gtx-960m-1" }
   - { process: "tei-reranker", node: "enschede-t1000-1" }
-  - { process: "tribelt-primary", node: "enschede-pi-2" }
+  - { process: "tribelt", node: "enschede-pi-2" }
+  - { process: "tribelt-primary", node: "enschede-pi-3" }
