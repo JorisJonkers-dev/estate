@@ -47,9 +47,8 @@ client secrets.
 rotation breaks stored state (a session key, a VAPID or S3 pair), which is
 only ever minted where missing. `--restart-auth-api` restarts auth-api even
 when no secret changed, for a client registered by an auth-api release after
-its secret was written. The `garage-keys`, `agents-github-app` and
-`agents-deploy-key` sections are optional: a full run reports them, and only
-`--only` acts on them.
+its secret was written. The `garage-keys` section is optional: a full run
+reports it, and only `--only` acts on it.
 
 Keys deploy-kit generates (a `generate:` key in a project file, written once by
 the Vault policy job) are never written here; `secrets.sh` only reports
