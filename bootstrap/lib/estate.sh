@@ -202,6 +202,11 @@ kv_load() {
 # kv_field JSON KEY prints one key of a document kv_load printed, or nothing.
 kv_field() { jq -r --arg k "$2" '.[$k] // empty' <<<"$1"; }
 
+# Every patch reads the document and writes it back (-method=rw): an estate admin's policy grants
+# read and update but not Vault's separate "patch" capability, and without it a plain
+# `vault kv patch` falls back on its own, prints "Data was written" for a document that does not
+# exist, writes nothing and exits 2.
+#
 # _kv_write PATH ARG... patches the document; where Vault holds no current
 # version, it creates one, checked against the version it saw, so a write that
 # races another is refused rather than lost. Values arrive on stdin, never in
@@ -210,10 +215,12 @@ _kv_write() {
   local path="$1" input out cas
   shift
   input=$(cat)
-  if out=$(printf '%s' "$input" | vault kv patch -mount=secret "$path" "$@" 2>&1); then
+  if out=$(printf '%s' "$input" | vault kv patch -method=rw -mount=secret "$path" "$@" 2>&1); then
     return 0
   fi
-  grep -q 'Code: 404' <<<"$out" || die "writing secret/$path failed: $(head -n 1 <<<"$out")"
+  # A document that does not exist yet: the read half of the read-and-write finds nothing.
+  grep -q -e 'Code: 404' -e 'No value found' <<<"$out" \
+    || die "writing secret/$path failed: $(head -n 1 <<<"$out")"
   cas=$(vault kv metadata get -mount=secret -format=json "$path" 2>/dev/null </dev/null \
     | jq -r '.data.current_version // 0' || true)
   printf '%s' "$input" | vault kv put -mount=secret -cas="${cas:-0}" "$path" "$@" >/dev/null \
@@ -235,7 +242,7 @@ kv_patch() {
   local value out
   value=$(cat)
   [[ -n "$value" ]] || die "refusing to write an empty $2 to secret/$1"
-  out=$(printf '%s' "$value" | vault kv patch -mount=secret "$1" "$2=-" 2>&1) \
+  out=$(printf '%s' "$value" | vault kv patch -method=rw -mount=secret "$1" "$2=-" 2>&1) \
     || die "patching secret/$1 failed: $(head -n 1 <<<"$out")"
 }
 
