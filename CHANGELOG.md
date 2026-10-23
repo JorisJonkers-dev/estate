@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.29.0](https://github.com/JorisJonkers-dev/estate/compare/v0.28.0...v0.29.0) (2026-10-23)
+
+
+### Features
+
+* **bootstrap:** one secrets.sh for everything a person writes to Vault ([#195](https://github.com/JorisJonkers-dev/estate/issues/195)) ([134baf6](https://github.com/JorisJonkers-dev/estate/commit/134baf66dc2732e10296e7d8d484dd35045d66f6))
+* hand the Findability Explorer over to the estate path ([#197](https://github.com/JorisJonkers-dev/estate/issues/197)) ([a7879a1](https://github.com/JorisJonkers-dev/estate/commit/a7879a100117f5df7e1a9a269ebe5bafe259dd2a))
+
+
+### Bug Fixes
+
+* **bootstrap:** patch Vault documents without the patch capability ([#198](https://github.com/JorisJonkers-dev/estate/issues/198)) ([1651fa0](https://github.com/JorisJonkers-dev/estate/commit/1651fa0eb1a2c976bbd197cd921afdd4c37b281a))
+
 ## [0.28.0](https://github.com/JorisJonkers-dev/estate/compare/v0.27.0...v0.28.0) (2026-10-22)
 
 
