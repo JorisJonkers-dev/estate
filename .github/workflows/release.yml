@@ -46,9 +46,9 @@ jobs:
   # delivery fragment, since it names the Release Gate and the Collector that
   # JorisJonkers-dev/delivery declares, and the estate-dashboard fragment,
   # since it admits that Application to the Kubernetes API, with auth's, which
-  # the dashboard signs in through. `data` and `mail` are still delivered by
-  # fleet-infra; their fragments are composed so a Project on the estate path
-  # can depend on them. Validation reads only what it is handed, so
+  # the dashboard signs in through. `data` is delivered by its pin; `mail` is
+  # still delivered by fleet-infra, its fragment composed so a Project on the
+  # estate path can depend on it. Validation reads only what it is handed, so
   # `data` is handed the config its Assets mount and its env scope.
   fragment:
     needs: release-please

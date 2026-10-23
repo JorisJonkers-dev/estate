@@ -33,10 +33,10 @@ participants:
     owner: joris
     reason: publishes with the Platform document, on this repository's releases
     reviewBy: 2027-03-31
-  # The datastores and the mail server, still delivered by fleet-infra. Their
-  # fragments publish from this repository too, so a Project on the estate
-  # path can depend on them; composition delivers nothing for either while
-  # the handover ledger keeps them `legacy`.
+  # The datastores, delivered by their pin, and the mail server, still
+  # delivered by fleet-infra. Both fragments publish from this repository,
+  # with the Platform document; composition delivers nothing for mail while
+  # the handover ledger keeps it `legacy`.
   data:
     dormant: true
     owner: joris

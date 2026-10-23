@@ -1,11 +1,9 @@
 # deploy-kit Project Intent for the estate's shared datastores: Postgres, RabbitMQ and Valkey.
 #
 # The Project is `data`, so the namespace derives as `data-system`, where all three already run.
-# Moving it onto the estate path is JorisJonkers-dev/homelab-collections#15
-# (deploy-kit spec/v1/60-setup.md#handing-over-one-project-at-a-time). Until the handover
-# ledger in platform.intent.yml moves it to `estate`, fleet-infra delivers it and the estate
-# composes this file without delivering anything for it, so a Project on the estate path can
-# name these Applications in `dependsOn`. It publishes with the Platform document, on this
+# It is on the estate path since JorisJonkers-dev/homelab-collections#15
+# (deploy-kit spec/v1/60-setup.md#handing-over-one-project-at-a-time): its pin delivers it, and
+# its unit applies the Postgres catalog. It publishes with the Platform document, on this
 # repository's releases, and its images are in images.lock.yml.
 #
 # Each value below is read from the live objects. Where the old path does something the model

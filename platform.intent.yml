@@ -259,7 +259,11 @@ policyJob:
 # Every Project fleet-infra still delivers is named under `legacy`, so its
 # project file is read rather than refused as E_HANDOVER_UNLISTED. `delivery`
 # was never on the old path: its Applications (the Release Gate, Flagger, the
-# Collector) are born on the estate path, and so is `estate-dashboard`. A
+# Collector) are born on the estate path, and so is `estate-dashboard`.
+# `data` moved last (JorisJonkers-dev/homelab-collections#15): its Postgres
+# applies its own catalog now, with the admin login under
+# secret/data/data/postgres/catalog, so its `serving` location went with it,
+# and with that location the estate-scoped artifact's last unit. A
 # Project that retires leaves the ledger: `knowledge` was retired with the old
 # knowledge stack (fleet-infra#495), and `knowledge-platform` and `media` were
 # split into the Projects that now run their apps under `estate`.
@@ -269,7 +273,6 @@ handover:
     - edge
     - secrets
     - observability
-    - data
     - auth
     - agents
     - mail
@@ -292,6 +295,7 @@ handover:
     - qbittorrent
     - prowlarr
     - n8n
+    - data
   # Where the old path runs a legacy Application that the estate path
   # reaches, rather than where its declaration puts it
   # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). Live Vault is
@@ -301,11 +305,6 @@ handover:
   serving:
     - application: vault
       namespace: data-system
-    # The old path's Postgres, and where it keeps the administrative login the
-    # catalog method applies the estate path's databases with.
-    - application: platform-postgres
-      namespace: data-system
-      admin: { path: secret/data/platform/postgres, user: postgres.user, password: postgres.password }
 
 # No `providers`: everything an Application depends on today runs in the
 # cluster and is declared by some Project. The worked example's `stalwart`
