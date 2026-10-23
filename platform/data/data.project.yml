@@ -1,16 +1,16 @@
 # deploy-kit Project Intent for the estate's shared datastores: Postgres, RabbitMQ and Valkey.
 #
 # The Project is `data`, so the namespace derives as `data-system`, where all three already run.
-# It is still `legacy` (platform.intent.yml's `handover`): fleet-infra delivers it, and the
-# estate composes this file without delivering anything for it. Its fragment exists so a
-# Project on the estate path can name these Applications in `dependsOn`
-# (deploy-kit spec/v1/60-setup.md#handing-over-one-project-at-a-time). It publishes with the
-# Platform document, on this repository's releases, and its images are in images.lock.yml.
-# Moving it onto the estate path is JorisJonkers-dev/homelab-collections#15, which revisits
-# every field here against the rendered diff.
+# Moving it onto the estate path is JorisJonkers-dev/homelab-collections#15
+# (deploy-kit spec/v1/60-setup.md#handing-over-one-project-at-a-time). Until the handover
+# ledger in platform.intent.yml moves it to `estate`, fleet-infra delivers it and the estate
+# composes this file without delivering anything for it, so a Project on the estate path can
+# name these Applications in `dependsOn`. It publishes with the Platform document, on this
+# repository's releases, and its images are in images.lock.yml.
 #
 # Each value below is read from the live objects. Where the old path does something the model
-# derives instead, the comment says so.
+# derives instead, or cannot say yet, the comment says so. The render-against-live diff, and
+# what the old path keeps, is in docs/runbooks/data-handover.md.
 
 apiVersion: intent.jorisjonkers.dev/v1
 kind: Project
@@ -24,7 +24,7 @@ applications:
     observability:
       alertClass: page # every Application with a database depends on it
       scrape:
-        process: postgres
+        process: postgres-exporter
         surface: metrics
         path: /metrics
 
@@ -37,7 +37,6 @@ applications:
 
         provides:
           postgres: 5432
-          metrics: 9187 # the exporter sidecar's listener
 
         # The live pod requests 1536Mi and is limited at 4Gi; the model sets request to limit.
         placement:
@@ -46,13 +45,9 @@ applications:
 
         writablePaths: [/var/run/postgresql, /tmp]
 
-        sidecars:
-          - name: postgres-exporter
-            image: postgres-exporter
-            memory: 128Mi
-            cpu: 25m
-
-        # The live probes run pg_isready on the socket; the model reads the port.
+        # The live probes run pg_isready on the socket; the model has only tcp and http probes,
+        # so a wedged postmaster that keeps its listener open reads as healthy. PostgresDown
+        # (pg_up == 0, from the exporter below) still reports it.
         probes:
           readiness: { tcp: 5432 }
           liveness: { tcp: 5432 }
@@ -67,17 +62,58 @@ applications:
             size: 20Gi
             durability: irreplaceable
 
-        # The live init script that creates each database is not here: an executable is never
-        # an Asset, and the database catalog derives those databases from the inbound edges
+        # The old path starts Postgres with `-c config_file=/etc/postgresql/postgresql.conf`. A
+        # Process authors no command, and Postgres reads `postgresql.conf` from its data
+        # directory, so the file is mounted there, over the one initdb wrote. The live
+        # init script that creates each database is not here: an executable is never an Asset,
+        # and the database catalog derives those databases from the inbound edges
         # (deploy-kit spec/v1/16-dependencies.md#the-database-catalog).
         assets:
           - from: config/postgresql.conf
-            mountAt: /etc/postgresql/postgresql.conf
+            mountAt: /var/lib/postgresql/data/postgresql.conf
 
-        # The superuser, and the login of each Application the old path still creates by hand.
+        # The superuser. The old path's init script also read the static auth and agents
+        # logins from this document; it runs only on an empty data directory and is not
+        # rendered, so those keys are not delivered here.
         secrets:
           - path: secret/data/platform/postgres
-            keys: [postgres.user, postgres.password, auth.user, auth.password, agents.user, agents.password, kb.user, kb.password]
+            keys: [postgres.user, postgres.password]
+            access: read
+            delivery: env
+            rotation: { tolerates: restart }
+
+      # The old path runs the exporter as a sidecar. It reads custom queries from a file (the
+      # collation drift behind the PostgresCollationDrift alert), and an Asset mounts only into
+      # a Process's own container, so here it is a Process of its own beside Postgres. It
+      # reaches Postgres by its Service name, with no `dependsOn` edge: an edge would derive a
+      # `data_db` in the catalog.
+      - name: postgres-exporter
+        lifecycle: application
+        image: postgres-exporter
+        runtime: none
+
+        provides:
+          metrics: 9187
+
+        placement:
+          memory: 128Mi
+          cpu: 25m
+          site: frankfurt # beside Postgres, as the sidecar was
+
+        # A scrape missed while it restarts is a gap in a graph, not an outage.
+        cutover: interrupted
+
+        probes:
+          readiness: { path: /, port: 9187 }
+          liveness: { path: /, port: 9187 }
+
+        assets:
+          - from: config/postgres-exporter-queries.yaml
+            mountAt: /etc/postgres-exporter/queries.yaml
+
+        secrets:
+          - path: secret/data/platform/postgres
+            keys: [postgres.user, postgres.password]
             access: read
             delivery: env
             rotation: { tolerates: restart }
@@ -91,7 +127,8 @@ applications:
         path: /metrics
 
     # The management UI signs in through auth's OAuth issuer at its public host, which it
-    # reaches through the edge like a browser, so it is no `dependsOn` edge.
+    # reaches through the edge like a browser, so it is no `dependsOn` edge. While any Project
+    # is `legacy`, the route itself stays fleet-infra's IngressRoute.
     exposure:
       - name: management
         host: rabbitmq.jorisjonkers.dev
@@ -143,6 +180,13 @@ applications:
             rotation: { tolerates: restart }
 
   - id: platform-valkey
+    observability:
+      alertClass: urgent # auth-api's HTTP sessions live here
+      scrape:
+        process: valkey
+        surface: metrics
+        path: /metrics
+
     processes:
       - name: valkey
         lifecycle: application
