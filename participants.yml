@@ -80,6 +80,13 @@ participants:
     owner: joris
     reason: releases when the site changes, not on a weekly cadence
     reviewBy: 2027-03-31
+  # JorisJonkers-dev/findability-explorer, the Tribelt digital strategy deliverable at
+  # digital-strategy.jorisjonkers.dev, born on the estate path.
+  findability-explorer:
+    dormant: true
+    owner: joris
+    reason: releases when the app changes, not on a weekly cadence
+    reviewBy: 2027-03-31
   # JorisJonkers-dev/grimoire, moved from fleet-infra's grimoire namespace.
   grimoire:
     dormant: true
