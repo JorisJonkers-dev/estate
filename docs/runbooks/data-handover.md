@@ -26,12 +26,12 @@ Each change is a pull request. Merge only in the order of
 
 | # | repository | pull request | merges |
 |---|---|---|---|
-| F0 | fleet-infra | `feat(observability): scrape the ServiceMonitors deploy-kit renders` | before the window |
-| A | estate | `feat(data): declare the data Project as the estate path will run it` (this file comes with it) | before the window, then an estate release |
-| F1 | fleet-infra | `feat(data): orphan postgres, rabbitmq and valkey …` (handover change 1) | before the window, once A is released |
-| F2 | fleet-infra | `feat(data): drop postgres, rabbitmq and valkey …` (handover change 2) | in the window |
-| B | estate | `feat: hand the data Project over to the estate path` (handover change 3) | in the window, then an estate release |
-| F3 | fleet-infra | `chore(data): retire rabbitmq-definitions-backup …` | after verification |
+| F0 | fleet-infra | fleet-infra#536, scrape the ServiceMonitors deploy-kit renders | before the window |
+| A | estate | estate#215, the project file (this file comes with it) | before the window, then an estate release |
+| F1 | fleet-infra | fleet-infra#537, orphan (handover change 1) | before the window, once A is released |
+| F2 | fleet-infra | fleet-infra#538, drop and rename (handover change 2) | in the window |
+| B | estate | estate#216, the ledger (handover change 3) | in the window, then an estate release |
+| F3 | fleet-infra | fleet-infra#539, retire `rabbitmq-definitions-backup` | after verification |
 
 ### Why the fleet-infra Kustomization is renamed
 
