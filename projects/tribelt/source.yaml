@@ -45,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-tribelt
   path: ./apps/tribelt
+  dependsOn:
+    - name: apps-auth

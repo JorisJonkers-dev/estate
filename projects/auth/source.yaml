@@ -1,0 +1,57 @@
+# GENERATED. Never hand-edit.
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: project-auth
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/managed-by: deploy-kit
+spec:
+  interval: 10m
+  url: oci://ghcr.io/jorisjonkers-dev/render/auth
+  ref:
+    digest: sha256:8dd0a1783b156c816c8e9658d06ba7d63d415f4f4ed979391a5b2a2fa7b886b3
+  secretRef:
+    name: render-pull
+  verify:
+    provider: cosign
+    matchOIDCIdentity:
+      - issuer: ^https://token\.actions\.githubusercontent\.com$
+        subject: ^https://github\.com/JorisJonkers-dev/estate/\.github/workflows/compose\.yml@refs/heads/main$
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: apps-auth
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/managed-by: deploy-kit
+  annotations:
+    event.toolkit.fluxcd.io/repository: JorisJonkers-dev/auth-api
+    event.toolkit.fluxcd.io/sha: 9c91a22ee155e17fe136c60f4ef126227891af99
+    event.toolkit.fluxcd.io/environment: production
+    event.toolkit.fluxcd.io/version: 0.20.0
+    event.toolkit.fluxcd.io/url: https://auth.jorisjonkers.dev
+spec:
+  interval: 10m
+  prune: true
+  wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
+  sourceRef:
+    kind: OCIRepository
+    name: project-auth
+  path: ./apps/auth
+  patches:
+    - patch: |
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: any
+          annotations:
+            kustomize.toolkit.fluxcd.io/force: Enabled
+      target:
+        kind: Deployment

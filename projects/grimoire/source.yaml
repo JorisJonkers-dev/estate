@@ -45,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-grimoire
   path: ./apps/grimoire
+  dependsOn:
+    - name: apps-auth

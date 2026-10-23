@@ -46,4 +46,5 @@ spec:
     name: project-estate-dashboard
   path: ./apps/estate-dashboard
   dependsOn:
+    - name: apps-auth
     - name: apps-delivery

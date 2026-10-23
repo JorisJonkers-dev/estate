@@ -45,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-n8n
   path: ./apps/n8n
+  dependsOn:
+    - name: apps-auth

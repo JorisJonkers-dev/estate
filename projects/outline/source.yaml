@@ -45,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-outline
   path: ./apps/outline
+  dependsOn:
+    - name: apps-auth
