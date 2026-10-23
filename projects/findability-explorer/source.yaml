@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/findability-explorer
   ref:
-    digest: sha256:87ed578e5eb71f8fce6a1d0bc2441604ab32d14f16532fdd724c82f09003d501
+    digest: sha256:6e38f56b991365eb962093c8594e40d71c2712b42957183e2bfa8e2d4739d3ac
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/findability-explorer
-    event.toolkit.fluxcd.io/sha: 5dba23d88617350e430f9b574e96be9d06f8786e
+    event.toolkit.fluxcd.io/sha: ca1434f6a836241edf85d0c300c7c216e82a4f1f
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 1.0.0
+    event.toolkit.fluxcd.io/version: 1.1.0
     event.toolkit.fluxcd.io/url: https://digital-strategy.jorisjonkers.dev
 spec:
   interval: 10m
@@ -45,13 +45,3 @@ spec:
     kind: OCIRepository
     name: project-findability-explorer
   path: ./apps/findability-explorer
-  patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-          annotations:
-            kustomize.toolkit.fluxcd.io/force: Enabled
-      target:
-        kind: Deployment
