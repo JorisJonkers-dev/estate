@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.0](https://github.com/JorisJonkers-dev/estate/compare/v0.29.0...v0.30.0) (2026-10-23)
+
+
+### Features
+
+* hand auth over to the estate path ([#214](https://github.com/JorisJonkers-dev/estate/issues/214)) ([e4eec38](https://github.com/JorisJonkers-dev/estate/commit/e4eec38a442e02ff9614e22cc2fc1ce9a147cea1))
+
 ## [0.29.0](https://github.com/JorisJonkers-dev/estate/compare/v0.28.0...v0.29.0) (2026-10-23)
 
 
