@@ -55,8 +55,8 @@ participants:
     reason: releases when the delivery machinery changes, not on a weekly cadence
     reviewBy: 2027-03-31
   # JorisJonkers-dev/auth-api, the Project `auth`: auth-api and the auth-ui of
-  # JorisJonkers-dev/auth-ui's latest release, still delivered by fleet-infra.
-  # Composed so the dashboard can sign in through it and name it in `dependsOn`.
+  # JorisJonkers-dev/auth-ui's latest release, moved from fleet-infra in place,
+  # in auth-system.
   auth:
     dormant: true
     owner: joris
