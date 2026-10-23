@@ -1,22 +1,21 @@
 #!/usr/bin/env bash
 #
-# Everything a cluster needs, outside git, before the estate path can deliver
-# to it: run once per cluster, after Flux is installed and Vault is unsealed
-# (fleet-infra cluster/bootstrap/flux-bootstrap-playbook.md, and its Vault
-# unseal and restore playbooks), and again after any move.
+# Everything a cluster needs, outside git and outside Vault, before the estate
+# path can deliver to it: run once per cluster, after Flux is installed and
+# Vault is unsealed (fleet-infra cluster/bootstrap/flux-bootstrap-playbook.md,
+# and its Vault unseal and restore playbooks), and again after any move.
 #
 #   Flux       Secret flux-system/estate, an SSH key pair generated in the
 #              cluster whose public half is a read-only deploy key on estate,
 #              and Secret flux-system/render-pull, the ghcr.io credential every
 #              pin names.
-#   Vault      the Collector's and the Reporter's App keys; the estate-dashboard's
-#              OIDC client secret, in both the copy auth-api reads and the
-#              dashboard's own sign-in document, beside its session key and its
-#              GitHub token; and the role the Vault policy job logs in as.
+#   Flagger    the CRDs of the bootstrap set that no render holds.
 #
-# The GitHub Apps themselves are github-apps.sh's, once per organization. Safe
-# to re-run: each stage checks what exists before it writes, and reads back
-# what it wrote.
+# Vault is secrets.sh's, which runs first: the Collector's and the Reporter's
+# App keys, the estate-dashboard's sign-in document, and the role the Vault
+# policy job logs in as all live there. The GitHub Apps themselves are
+# github-apps.sh's, once per organization. Safe to re-run: each stage checks
+# what exists before it writes, and reads back what it wrote.
 
 here="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/wizard.sh
@@ -24,20 +23,9 @@ source "$here/lib/wizard.sh"
 # shellcheck source=lib/estate.sh
 source "$here/lib/estate.sh"
 
-TOTAL_STAGES=10
+TOTAL_STAGES=5
 
-AUTH_NS=auth-system
-AUTH_HOST=${AUTH_HOST:-https://auth.jorisjonkers.dev}
-DASHBOARD_CLIENT_ID=estate-dashboard
-DASHBOARD_REDIRECT_URI=https://estate.jorisjonkers.dev/auth/callback
 DEPLOY_KEY_TITLE="flux-system/estate (read-only)"
-# The Vault policy job (platform.intent.yml policyJob): the role every
-# Project's job logs in as, and the ServiceAccount each runs as in its own
-# Project's namespace (deploy-kit 0.31.0, deploy-kit#548). The estate-scoped
-# job of a catalog the old path runs is the same ServiceAccount in that
-# catalog's namespace.
-POLICY_ROLE=policy-admin
-POLICY_SA=vault-policy
 # The CRDs of the bootstrap set that no render holds (platform.intent.yml
 # bootstrap.crds): Flagger's, at the release its image in the delivery Project is.
 FLAGGER_VERSION=v1.45.0
@@ -45,29 +33,19 @@ FLAGGER_CRDS_URL="https://raw.githubusercontent.com/fluxcd/flagger/$FLAGGER_VERS
 FLAGGER_CRDS_SHA256=58bd594b9e33deb0edceac81f6ed160b458a7933039fb295552724f656033ee5
 
 WORK=$(umask 077 && mktemp -d)
-trap 'rm -rf "$WORK"' EXIT
+trap estate_cleanup EXIT
 
 banner "Estate: one cluster's credentials"
 
 # ── 1 ─────────────────────────────────────────────────────────────────────
-stage "Preflight: tools, cluster, GitHub and Vault"
-require_tools "$KUBECTL" flux gh jq curl openssl shasum
+stage "Preflight: tools, cluster and GitHub"
+require_tools "$KUBECTL" flux gh jq curl shasum
 require_cluster
 $KUBECTL get crd ocirepositories.source.toolkit.fluxcd.io >/dev/null 2>&1 \
   || die "Flux is not installed; run fleet-infra's flux-bootstrap-playbook first"
 ok "Flux is installed"
 gh auth status >/dev/null 2>&1 || die "gh is not signed in: run 'gh auth login'"
 ok "gh signed in"
-require_vault_token
-for key in ESTATE_COLLECTOR_APP_ID ESTATE_COLLECTOR_INSTALLATION_ID ESTATE_REPORTER_APP_ID ESTATE_REPORTER_INSTALLATION_ID; do
-  if [[ -z "$(_existing "$key" || true)" ]]; then
-    note "$ENV_FILE has no $key (a new machine?). The App's settings page shows it."
-    value=""
-    ask value "$key:"
-    [[ "$value" =~ ^[0-9]+$ ]] || die "$key is a number"
-    write_env "$key" "$value"
-  fi
-done
 pause
 
 # ── 2 ─────────────────────────────────────────────────────────────────────
@@ -136,208 +114,6 @@ ok "Secret flux-system/render-pull holds a ghcr.io credential"
 pause
 
 # ── 4 ─────────────────────────────────────────────────────────────────────
-stage "Vault: the Collector's key"
-if check_collector_key; then
-  ok "secret/$COLLECTOR_KV_PATH holds the Collector's id, installation id and key"
-else
-  say "Vault does not hold the Collector's key (a fresh Vault?). GitHub shows a key"
-  say "only once, so generate a new one; the old one keeps working until deleted."
-  open_url "https://github.com/organizations/$ORG/settings/apps/$(_existing ESTATE_COLLECTOR_APP_SLUG || echo jorisjonkers-dev-estate-collector)"
-  step "Credentials → Key pairs → Generate a private key. Your browser downloads a .pem file."
-  step "Paste its full path below (/Users/…, not ~/…)."
-  ask COLLECTOR_PEM "Path of the downloaded .pem:"
-  [[ -s "$COLLECTOR_PEM" ]] || die "no file at $COLLECTOR_PEM"
-  store_collector_key "$COLLECTOR_PEM"
-  if confirm "Delete $COLLECTOR_PEM now that Vault holds it?"; then rm -f "$COLLECTOR_PEM"; fi
-  ok "secret/$COLLECTOR_KV_PATH restored"
-  note "Delete the older key in the App's settings once the Collector has run."
-fi
-pause
-
-# ── 5 ─────────────────────────────────────────────────────────────────────
-stage "Vault: the Reporter's key"
-if check_reporter_key; then
-  ok "secret/$REPORTER_KV_PATH holds the Reporter's id, installation id and key"
-else
-  say "Vault does not hold the Reporter's key (a fresh Vault?). GitHub shows a key"
-  say "only once, so generate a new one; the old one keeps working until deleted."
-  open_url "https://github.com/organizations/$ORG/settings/apps/$(_existing ESTATE_REPORTER_APP_SLUG || echo jorisjonkers-dev-estate-reporter)"
-  step "Credentials → Key pairs → Generate a private key. Your browser downloads a .pem file."
-  step "Paste its full path below (/Users/…, not ~/…)."
-  ask REPORTER_PEM "Path of the downloaded .pem:"
-  [[ -s "$REPORTER_PEM" ]] || die "no file at $REPORTER_PEM"
-  store_reporter_key "$REPORTER_PEM"
-  if confirm "Delete $REPORTER_PEM now that Vault holds it?"; then rm -f "$REPORTER_PEM"; fi
-  ok "secret/$REPORTER_KV_PATH restored"
-  note "Delete the older key in the App's settings once the Reporter has run."
-fi
-pause
-
-# ── 6 ─────────────────────────────────────────────────────────────────────
-stage "Vault: the estate-dashboard's sign-in document"
-say "auth-api reads secret/$AUTH_KV_PATH → $DASHBOARD_CLIENT_KV_KEY;"
-say "the dashboard reads secret/$DASHBOARD_KV_PATH → $DASHBOARD_KV_KEY. They must be equal."
-AUTH_COPY=$(vault_field "$AUTH_KV_PATH" "$DASHBOARD_CLIENT_KV_KEY")
-DASHBOARD_COPY=$(vault_field "$DASHBOARD_KV_PATH" "$DASHBOARD_KV_KEY")
-MINTED=false
-if [[ -n "$AUTH_COPY" && "$AUTH_COPY" == "$DASHBOARD_COPY" ]]; then
-  ok "both copies present and equal"
-  CLIENT_SECRET=$AUTH_COPY
-else
-  if [[ -n "$AUTH_COPY" ]]; then
-    CLIENT_SECRET=$AUTH_COPY
-    ok "auth-api's copy exists; the dashboard's copy is missing or different and takes it"
-  else
-    CLIENT_SECRET=$(openssl rand -base64 48 | tr -d '/+=\n' | cut -c1-48)
-    [[ ${#CLIENT_SECRET} -eq 48 ]] || die "could not generate a 48-character secret"
-    MINTED=true
-    ok "no copy in Vault; generated a new 48-character secret"
-  fi
-  confirm "Write it to secret/$AUTH_KV_PATH and secret/$DASHBOARD_KV_PATH?" || die "stopped"
-  printf '%s' "$CLIENT_SECRET" | vault_set "$AUTH_KV_PATH" "$DASHBOARD_CLIENT_KV_KEY"
-  printf '%s' "$CLIENT_SECRET" | vault_set "$DASHBOARD_KV_PATH" "$DASHBOARD_KV_KEY"
-  [[ "$(vault_field "$AUTH_KV_PATH" "$DASHBOARD_CLIENT_KV_KEY")" == "$CLIENT_SECRET" \
-    && "$(vault_field "$DASHBOARD_KV_PATH" "$DASHBOARD_KV_KEY")" == "$CLIENT_SECRET" ]] \
-    || die "the two Vault copies do not read back equal"
-  ok "both Vault copies read back equal"
-fi
-# The session key seals the dashboard's cookie and the refresh tokens it stores. Kept where it
-# exists: a new one signs every admin out and makes every stored token unreadable.
-SESSION_HELD=$(vault_field "$DASHBOARD_KV_PATH" "$DASHBOARD_SESSION_KV_KEY")
-if [[ ${#SESSION_HELD} -ge 32 ]]; then
-  ok "secret/$DASHBOARD_KV_PATH holds a session key"
-  unset SESSION_HELD
-else
-  SESSION_KEY=$(openssl rand -base64 48 | tr -d '/+=\n' | cut -c1-48)
-  [[ ${#SESSION_KEY} -eq 48 ]] || die "could not generate a 48-character session key"
-  printf '%s' "$SESSION_KEY" | vault_set "$DASHBOARD_KV_PATH" "$DASHBOARD_SESSION_KV_KEY"
-  [[ "$(vault_field "$DASHBOARD_KV_PATH" "$DASHBOARD_SESSION_KV_KEY")" == "$SESSION_KEY" ]] \
-    || die "the session key does not read back"
-  unset SESSION_KEY
-  ok "secret/$DASHBOARD_KV_PATH holds a new 48-character session key"
-fi
-# The dashboard reads pins, the deploy log, open issues and composition runs from the Estate repository, which is
-# private. GitHub shows a token only once, so a fresh Vault needs a new one.
-if [[ -n "$(vault_field "$DASHBOARD_KV_PATH" "$DASHBOARD_GITHUB_KV_KEY")" ]]; then
-  ok "secret/$DASHBOARD_KV_PATH holds a GitHub token"
-else
-  say "The dashboard reads the Estate repository with a token that may read it and nothing else."
-  open_url "https://github.com/settings/personal-access-tokens/new"
-  step "Resource owner: $ORG. Repository access: Only select repositories, estate."
-  step "Repository permissions: Actions, Contents, Issues and Metadata, read-only. Nothing else."
-  step "Generate token, and copy it."
-  ask_secret DASHBOARD_GITHUB_TOKEN "Paste the token (Enter skips; the dashboard then reads no estate):"
-  if [[ -n "${DASHBOARD_GITHUB_TOKEN:-}" ]]; then
-    printf '%s' "$DASHBOARD_GITHUB_TOKEN" | vault_set "$DASHBOARD_KV_PATH" "$DASHBOARD_GITHUB_KV_KEY"
-    [[ -n "$(vault_field "$DASHBOARD_KV_PATH" "$DASHBOARD_GITHUB_KV_KEY")" ]] || die "the GitHub token does not read back"
-    unset DASHBOARD_GITHUB_TOKEN
-    ok "secret/$DASHBOARD_KV_PATH holds the GitHub token"
-  else
-    SKIPPED+=("the estate-dashboard's GitHub token: re-run cluster.sh to add it")
-  fi
-fi
-pause
-
-# ── 7 ─────────────────────────────────────────────────────────────────────
-stage "Prove auth accepts the estate-dashboard client"
-# token_error SECRET prints the OAuth error the token endpoint answers a bogus
-# code with: invalid_grant means the client and secret were accepted.
-token_error() {
-  printf 'user = "%s:%s"\n' "$DASHBOARD_CLIENT_ID" "$1" \
-    | curl -sS --config - "$AUTH_HOST/api/oauth2/token" \
-        --data-urlencode grant_type=authorization_code \
-        --data-urlencode code=bootstrap-check \
-        --data-urlencode "redirect_uri=$DASHBOARD_REDIRECT_URI" \
-    | sed -n 's/.*"error" *: *"\([^"]*\)".*/\1/p' || true
-}
-if ! $KUBECTL -n "$AUTH_NS" get deploy auth-api >/dev/null 2>&1; then
-  warn "auth-api is not deployed yet; re-run cluster.sh once it is"
-  SKIPPED+=("prove the estate-dashboard client once auth-api runs: re-run cluster.sh")
-else
-  # auth-api reads its env file once, at start, so a new secret needs a restart.
-  if [[ "$MINTED" == true ]] && confirm "Restart auth-api so it reads the new secret?"; then
-    $KUBECTL -n "$AUTH_NS" rollout restart deploy/auth-api >/dev/null
-    $KUBECTL -n "$AUTH_NS" rollout status deploy/auth-api --timeout=15m >/dev/null \
-      || die "auth-api did not finish restarting"
-    ok "auth-api restarted"
-  fi
-  WITH_REAL=$(token_error "$CLIENT_SECRET")
-  WITH_WRONG=$(token_error "not-the-secret-$(openssl rand -hex 4)")
-  say "with the Vault secret: ${WITH_REAL:-<no error field>}"
-  say "with a wrong secret:   ${WITH_WRONG:-<no error field>}"
-  [[ "$WITH_REAL" == "invalid_grant" ]] || die "auth did not accept estate-dashboard with the Vault secret"
-  [[ "$WITH_WRONG" == "invalid_client" ]] || die "auth accepted a wrong secret"
-  ok "estate-dashboard authenticates at $AUTH_HOST with the Vault secret, and only with it"
-fi
-pause
-
-# ── 8 ─────────────────────────────────────────────────────────────────────
-stage "Vault: the role the policy job logs in as"
-# The job writes every rendered policy and Kubernetes auth role, so its own
-# role is the one thing it cannot create: it exists before the first render.
-#
-# One role serves every Project's job, so what it may write is confined by name
-# to the namespace the job's ServiceAccount is in: the `<namespace>-*` policies
-# and roles, and KV documents under `secret/data/<namespace>/`, the generated
-# keys. Vault fills the namespace in from the login's alias, so a job in one
-# namespace cannot write another's names. It cannot confine what a written
-# policy grants or a written role binds, so the job is trusted as far as the
-# signed render is (deploy-kit docs/adr/model/0087). It reads every KV
-# document, because a generated key may adopt a value from an old location
-# outside its Project, and it lists the policies and roles, which it reads
-# back to report what the render no longer names. What is denied below is what
-# a render never needs: changing its own policy or role, the built-in
-# policies, or minting a role that hands out policy-admin or root.
-ACCESSOR=$(vault_exec auth list -format=json </dev/null | jq -r '."kubernetes/".accessor')
-[[ "$ACCESSOR" == auth_kubernetes_* ]] || die "the kubernetes auth mount has no accessor Vault reports"
-NS="{{identity.entity.aliases.$ACCESSOR.metadata.service_account_namespace}}"
-vault_exec policy write "$POLICY_ROLE" - >/dev/null <<HCL
-path "sys/policies/acl" {
-  capabilities = ["list"]
-}
-path "sys/policies/acl/$NS-*" {
-  capabilities = ["create", "read", "update", "delete"]
-}
-path "auth/kubernetes/role" {
-  capabilities = ["list"]
-}
-path "auth/kubernetes/role/$NS-*" {
-  capabilities = ["create", "read", "update", "delete"]
-  denied_parameters = {
-    "token_policies" = ["policy-admin", "root"]
-    "policies"       = ["policy-admin", "root"]
-  }
-}
-path "secret/data/$NS/*" {
-  capabilities = ["create", "read", "update"]
-}
-path "secret/data/*" {
-  capabilities = ["read"]
-}
-path "sys/policies/acl/policy-admin" {
-  capabilities = ["deny"]
-}
-path "sys/policies/acl/root" {
-  capabilities = ["deny"]
-}
-path "sys/policies/acl/default" {
-  capabilities = ["deny"]
-}
-path "auth/kubernetes/role/policy-admin" {
-  capabilities = ["deny"]
-}
-HCL
-vault_exec write "auth/kubernetes/role/$POLICY_ROLE" \
-  bound_service_account_names="$POLICY_SA" \
-  bound_service_account_namespaces="*" \
-  token_policies="$POLICY_ROLE" \
-  token_ttl=10m </dev/null >/dev/null
-[[ "$(vault_exec read -field=token_policies "auth/kubernetes/role/$POLICY_ROLE" </dev/null)" == *"$POLICY_ROLE"* ]] \
-  || die "auth/kubernetes/role/$POLICY_ROLE does not read back with its policy"
-ok "role $POLICY_ROLE binds every namespace's $POLICY_SA to policy $POLICY_ROLE, confined to its namespace's names"
-pause
-
-# ── 9 ─────────────────────────────────────────────────────────────────────
 stage "The bootstrap set: Flagger's CRDs"
 # platform.intent.yml lists flagger.app/v1beta1 in the bootstrap set: the
 # render holds Flagger's Deployment, never its CRDs, and Flagger exits at start
@@ -355,7 +131,7 @@ $KUBECTL wait --for=condition=Established --timeout=60s \
 ok "Flagger $FLAGGER_VERSION's CRDs are established"
 pause
 
-# ── 10 ────────────────────────────────────────────────────────────────────
+# ── 5 ─────────────────────────────────────────────────────────────────────
 stage "Prove Flux reads the estate repository"
 if ! $KUBECTL -n flux-system get gitrepository platform >/dev/null 2>&1; then
   warn "GitRepository flux-system/platform is not applied yet (fleet-infra's estate.yaml)"
@@ -374,3 +150,4 @@ fi
 pause
 
 finish
+note "Vault's part is secrets.sh's: run ./bootstrap/secrets.sh if it has not run on this cluster."

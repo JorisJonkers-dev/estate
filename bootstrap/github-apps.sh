@@ -2,8 +2,9 @@
 #
 # The estate's three GitHub Apps, once per organization (deploy-kit
 # spec/v1/60-setup.md#the-estate-repository). They live on GitHub, not in the
-# cluster, so moving the cluster does not repeat this; cluster.sh restores the
-# keys that live in Vault.
+# cluster, so moving the cluster does not repeat this; secrets.sh restores the
+# keys that live in Vault, and is what writes them here too: a newly created
+# App's key is handed to `secrets.sh --only collector-key` (or reporter-key).
 #
 #   dispatch   actions write, contents read, statuses write, deployments write,
 #              installed on every repository so any one can publish. Its key and
@@ -28,7 +29,18 @@ source "$here/lib/estate.sh"
 TOTAL_STAGES=10
 
 WORK=$(umask 077 && mktemp -d)
-trap 'rm -rf "$WORK"' EXIT
+trap estate_cleanup EXIT
+
+# store_key SECTION PEM_VAR PEM_FILE hands an App's key to secrets.sh, the one
+# script that writes Vault, over the Vault session this script already holds.
+# A key created this run is passed as a file in $WORK; without one, secrets.sh
+# checks Vault and, where the key is missing, walks through generating one.
+store_key() {
+  local pem=""
+  [[ -s "$3" ]] && pem="$3"
+  env "$2=$pem" _ESTATE_VAULT_INHERITED=1 VAULT_ADDR="$VAULT_ADDR" ESTATE_ENV_FILE="$ENV_FILE"     "$here/secrets.sh" --only "$1"
+  rm -f "$3"
+}
 
 # manifest_form NAME PERMISSIONS_JSON writes a page that posts a GitHub App
 # manifest to the org's "new App" form, and prints its path.
@@ -93,7 +105,7 @@ banner "Estate: the dispatch, Collector and Reporter GitHub Apps"
 
 # ── 1 ─────────────────────────────────────────────────────────────────────
 stage "Preflight: tools, organization scope and Vault"
-require_tools gh jq "$KUBECTL"
+require_tools gh jq "$KUBECTL" vault
 if gh auth status 2>&1 | grep -q "admin:org"; then
   ok "gh carries admin:org"
 else
@@ -105,7 +117,7 @@ else
 fi
 say "The Collector's and the Reporter's keys go to Vault, so Vault is checked first."
 require_cluster
-require_vault_token
+vault_connect
 pause
 
 # ── 2 ─────────────────────────────────────────────────────────────────────
@@ -171,20 +183,8 @@ pause
 
 # ── 6 ─────────────────────────────────────────────────────────────────────
 stage "Store the Collector's key in Vault"
-if [[ -s "$WORK/collector.pem" ]]; then
-  store_collector_key "$WORK/collector.pem"
-elif check_collector_key; then
-  :
-else
-  say "Vault does not hold the Collector's key, and GitHub shows a key only once."
-  open_url "https://github.com/organizations/$ORG/settings/apps/$(_existing ESTATE_COLLECTOR_APP_SLUG)"
-  step "Credentials → Key pairs → Generate a private key. Your browser downloads a .pem file."
-  step "Paste its full path below (/Users/…, not ~/…)."
-  ask COLLECTOR_PEM "Path of the downloaded .pem:"
-  [[ -s "$COLLECTOR_PEM" ]] || die "no file at $COLLECTOR_PEM"
-  store_collector_key "$COLLECTOR_PEM"
-  if confirm "Delete $COLLECTOR_PEM now that Vault holds it?"; then rm -f "$COLLECTOR_PEM"; fi
-fi
+store_key collector-key ESTATE_COLLECTOR_PEM "$WORK/collector.pem"
+check_app_key ESTATE_COLLECTOR "$COLLECTOR_KV_PATH" || die "secret/$COLLECTOR_KV_PATH does not hold the Collector's key"
 ok "secret/$COLLECTOR_KV_PATH holds the Collector's id, installation id and key"
 pause
 
@@ -217,20 +217,8 @@ pause
 
 # ── 9 ─────────────────────────────────────────────────────────────────────
 stage "Store the Reporter's key in Vault"
-if [[ -s "$WORK/reporter.pem" ]]; then
-  store_reporter_key "$WORK/reporter.pem"
-elif check_reporter_key; then
-  :
-else
-  say "Vault does not hold the Reporter's key, and GitHub shows a key only once."
-  open_url "https://github.com/organizations/$ORG/settings/apps/$(_existing ESTATE_REPORTER_APP_SLUG)"
-  step "Credentials → Key pairs → Generate a private key. Your browser downloads a .pem file."
-  step "Paste its full path below (/Users/…, not ~/…)."
-  ask REPORTER_PEM "Path of the downloaded .pem:"
-  [[ -s "$REPORTER_PEM" ]] || die "no file at $REPORTER_PEM"
-  store_reporter_key "$REPORTER_PEM"
-  if confirm "Delete $REPORTER_PEM now that Vault holds it?"; then rm -f "$REPORTER_PEM"; fi
-fi
+store_key reporter-key ESTATE_REPORTER_PEM "$WORK/reporter.pem"
+check_app_key ESTATE_REPORTER "$REPORTER_KV_PATH" || die "secret/$REPORTER_KV_PATH does not hold the Reporter's key"
 ok "secret/$REPORTER_KV_PATH holds the Reporter's id, installation id and key"
 pause
 
@@ -258,7 +246,7 @@ if gh secret list --repo "$ORG/estate" --env production --json name --jq '.[].na
 else
   # From Vault into the secret through memory alone: the key never touches the
   # disk, and a read that failed never sets an empty secret.
-  key="$(vault_exec kv get -mount=secret -field=private-key "$COLLECTOR_KV_PATH")" ||
+  key="$(vault kv get -mount=secret -field=private-key "$COLLECTOR_KV_PATH" </dev/null)" ||
     die "could not read secret/$COLLECTOR_KV_PATH"
   [[ "$key" == *"PRIVATE KEY"* ]] || die "secret/$COLLECTOR_KV_PATH holds no private key"
   printf '%s\n' "$key" | gh secret set ESTATE_COLLECTOR_APP_PRIVATE_KEY --repo "$ORG/estate" --env production >/dev/null ||
