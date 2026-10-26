@@ -110,7 +110,9 @@ libraries:
     grants:
       immich: write
       arr: write
-      jellyfin: read
+      # Writes each item's .nfo metadata beside the media
+      # (JorisJonkers-dev/jellyfin#19).
+      jellyfin: write
       qbittorrent: write
   # Torrents still downloading, and seeding once done: a directory of its own on
   # the same node, which only the download client writes.
