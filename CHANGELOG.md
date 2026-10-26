@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.1](https://github.com/JorisJonkers-dev/estate/compare/v0.30.0...v0.30.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **platform:** grant jellyfin write on the media library ([#218](https://github.com/JorisJonkers-dev/estate/issues/218)) ([3ec6529](https://github.com/JorisJonkers-dev/estate/commit/3ec65290a24a6ae744bf33363ab5b0ed02f375b5))
+
 ## [0.30.0](https://github.com/JorisJonkers-dev/estate/compare/v0.29.0...v0.30.0) (2026-10-23)
 
 
