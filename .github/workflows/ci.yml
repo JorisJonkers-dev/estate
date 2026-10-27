@@ -78,7 +78,7 @@ jobs:
           persist-credentials: false
       - name: Actionlint
         env:
-          ACTIONLINT_VERSION: "1.7.7"
+          ACTIONLINT_VERSION: "1.7.12"
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --location \
