@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/estate-dashboard
   ref:
-    digest: sha256:cd6b9d41fa40b68162f0924ff1b24cbe09653d28371375ad5c36dfe5f20d7c0b
+    digest: sha256:d296f0ea7e7e6b572ff9230f26093dbbc01285e16ca6312ae5ccbaa87e8943a9
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/estate-dashboard
-    event.toolkit.fluxcd.io/sha: 971a0c66e6f4619bc678cc75aac3039156598b1b
+    event.toolkit.fluxcd.io/sha: 335f39ea52e0addeee45899cf279f4bba5090c86
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.9.0
+    event.toolkit.fluxcd.io/version: 0.10.0
     event.toolkit.fluxcd.io/url: https://estate.jorisjonkers.dev
 spec:
   interval: 10m
