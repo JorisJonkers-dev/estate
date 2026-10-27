@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.31.0](https://github.com/JorisJonkers-dev/estate/compare/v0.30.1...v0.31.0) (2026-10-27)
+
+
+### Features
+
+* compose the estate on deploy-kit 1.0.1 ([#233](https://github.com/JorisJonkers-dev/estate/issues/233)) ([5af9e29](https://github.com/JorisJonkers-dev/estate/commit/5af9e298127b383973bdc6564c9e7b5265f6d152))
+
+
+### Bug Fixes
+
+* **rollback:** read only the fragment annotation in the in-progress guard ([#220](https://github.com/JorisJonkers-dev/estate/issues/220)) ([779c765](https://github.com/JorisJonkers-dev/estate/commit/779c765d222d6d91f7f8167c15ceb6c665f15eed))
+
 ## [0.30.1](https://github.com/JorisJonkers-dev/estate/compare/v0.30.0...v0.30.1) (2026-10-26)
 
 
