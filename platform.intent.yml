@@ -31,6 +31,9 @@ substrate:
   cni: flannel
   networkPolicyController: embedded # no non-enforcing stage: default-deny stays render-only
   clusterDns: kube-system
+  # What a Process that serves DNS resolves through, so it never depends on the
+  # cluster DNS it may be keeping up: adguard's live nameservers.
+  upstreamNameservers: [9.9.9.10, 149.112.112.10]
   # The slowest image pull a pod may wait on, which every derived deadline
   # allows on top of its own start: the Pis boot from USB sticks, and pulling
   # the Release Gate's image on enschede-pi-1 took 94s on 2026-10-14
@@ -68,15 +71,26 @@ tiers:
     audiences: [anonymous, authenticated]
     listener: tls
     certificates: acme
-    forwardAuth: "http://auth-api.auth-system.svc.cluster.local:8081/api/auth/forward"
+    forwardAuth: {provider: auth/auth, surface: http, path: /api/auth/forward} # auth-api's forward-auth endpoint
     traefik: edge/traefik-public # declared in platform/edge.project.yml, placed on the public-ingress node
+    ingressClass: traefik-public # the class the live public Traefik admits
   - name: lan
     audiences: [lan]
     listener: plain
     certificates: none
     traefik: edge/traefik-lan # placed on a LAN node
+    ingressClass: traefik-lan # the class the live LAN Traefik admits
 
 # One policy per Durability Class.
+# How the public tier's proxy registers with Let's Encrypt and proves its names
+# (deploy-kit spec/v1/14-platform-intent.md#tiers). The account is the live
+# ClusterIssuer's. The token's document holds `CF_DNS_API_TOKEN`; it is written
+# before edge hands over, and nothing reads it while edge is legacy.
+acme:
+  email: postmaster@jorisjonkers.dev
+  dnsProvider: cloudflare
+  token: secret/data/platform/cloudflare
+
 durability:
   reconstructible: {}
   recoverable:
@@ -91,6 +105,9 @@ durability:
     offCluster:
       destination: "s3://jorisjonkers-dev-backups"
       credential: secret/data/platform/backup/off-cluster
+      # The age public key each copy is encrypted to on the pod; the private
+      # key is kept off the cluster, and only a restore holds it.
+      recipient: age1h8ma007nkcxcrph9cmrf7hqsqcppzu9keyvyzct255z8k925asms9g95wg
       # eu2.contabostorage.com resolved on 2026-10-07; a policy admits an
       # address range, never a hostname, so a move of the endpoint is a change
       # here.
