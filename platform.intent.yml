@@ -150,6 +150,15 @@ gpus:
     resource: nvidia.com/gpu
     runtimeClass: nvidia-cdi
 
+# The Node Agents the node facts derive (deploy-kit
+# spec/v1/14-platform-intent.md#node-agents), at the images fleet-infra runs
+# today. They are the `node` Project, legacy until its handover: fleet-infra
+# still delivers them, and composition delivers none.
+nodeAgents:
+  gpu-device: { image: nvidia-device-plugin, memory: 64Mi, cpu: 10m }
+  gpu-metrics: { image: dcgm-exporter, memory: 256Mi, cpu: 50m }
+  node-metrics: { image: node-exporter, memory: 64Mi, cpu: 20m }
+
 # The VPN every attached Process's traffic leaves through (deploy-kit
 # spec/v1/14-platform-intent.md#vpn): gluetun on ProtonVPN WireGuard, on
 # Netherlands servers that forward a port. The credential's one key,
@@ -292,6 +301,7 @@ handover:
     - agents
     - mail
     - utility
+    - node
   estate:
     - delivery
     - estate-dashboard
