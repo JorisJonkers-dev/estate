@@ -22,7 +22,6 @@ owner: joris
 applications:
   - id: platform-postgres
     observability:
-      alertClass: page # every Application with a database depends on it
       scrape:
         process: postgres
         surface: metrics
@@ -84,7 +83,6 @@ applications:
 
   - id: platform-rabbitmq
     observability:
-      alertClass: urgent
       scrape:
         process: rabbitmq
         surface: metrics
