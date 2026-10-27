@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.31.1](https://github.com/JorisJonkers-dev/estate/compare/v0.31.0...v0.31.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* drop reviewBy from the participants list, which deploy-kit 1.0 removed ([#234](https://github.com/JorisJonkers-dev/estate/issues/234)) ([8b88933](https://github.com/JorisJonkers-dev/estate/commit/8b889338815c9224191f24b200e5263442e6cb96))
+* name the Node Agents' images, and list node on the old path ([#236](https://github.com/JorisJonkers-dev/estate/issues/236)) ([7eea80e](https://github.com/JorisJonkers-dev/estate/commit/7eea80e02e1e4c444d90a11c12bb3baf132d1dfe))
+
 ## [0.31.0](https://github.com/JorisJonkers-dev/estate/compare/v0.30.1...v0.31.0) (2026-10-27)
 
 
