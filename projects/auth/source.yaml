@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/auth
   ref:
-    digest: sha256:9ccd7aed6afadc0e04b74342691cdaedefae6ab34876db2590fbdb1c4b666d05
+    digest: sha256:dc7262dcb4358987482fb1113de14b4a97001e8163037237af22fc85630ba8a4
   secretRef:
     name: render-pull
   verify:
