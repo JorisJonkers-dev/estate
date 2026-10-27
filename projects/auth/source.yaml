@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/auth
   ref:
-    digest: sha256:8dd0a1783b156c816c8e9658d06ba7d63d415f4f4ed979391a5b2a2fa7b886b3
+    digest: sha256:c5f1818d0755a41a71a8a17b94a77f1b10f321ecf1047e5793e8d6aaf208695b
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/auth-api
-    event.toolkit.fluxcd.io/sha: 9c91a22ee155e17fe136c60f4ef126227891af99
+    event.toolkit.fluxcd.io/sha: 95ea6db161baaac1228c54183470d6468c41c680
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.20.0
+    event.toolkit.fluxcd.io/version: 0.21.1
     event.toolkit.fluxcd.io/url: https://auth.jorisjonkers.dev
 spec:
   interval: 10m
@@ -45,13 +45,3 @@ spec:
     kind: OCIRepository
     name: project-auth
   path: ./apps/auth
-  patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-          annotations:
-            kustomize.toolkit.fluxcd.io/force: Enabled
-      target:
-        kind: Deployment
