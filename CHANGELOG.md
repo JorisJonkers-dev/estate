@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.2](https://github.com/JorisJonkers-dev/estate/compare/v0.31.1...v0.31.2) (2026-10-27)
+
+
+### Bug Fixes
+
+* run delivery 0.15.2's policy job, and allow 1s p95 in a release's analysis ([#238](https://github.com/JorisJonkers-dev/estate/issues/238)) ([812ad27](https://github.com/JorisJonkers-dev/estate/commit/812ad27eee222f03be465de89446ec836ac72a9f))
+
 ## [0.31.1](https://github.com/JorisJonkers-dev/estate/compare/v0.31.0...v0.31.1) (2026-10-27)
 
 
