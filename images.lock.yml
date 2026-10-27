@@ -70,18 +70,18 @@ images:
 
   # Built by JorisJonkers-dev/delivery 0.2.0. Each runs as 65532:65532 by
   # number; the backup CronJob runs a method as its plan's uid and gid.
-  vault-policy: # delivery 0.9.1, which also writes a catalog method's own policy
+  vault-policy: # delivery 0.15.0, on deploy-kit 1.0's schemas
     repository: ghcr.io/jorisjonkers-dev/delivery/vault-policy
-    digest: "sha256:24132a8159172495a2dc8573b50fdff1dd8242e680f08a5b294e58f42b4f5e26"
+    digest: "sha256:79ec43dad84a05f46ab59bfe9395f31750eb088aa551997d65f87ef277a6762e"
     uid: 65532
     gid: 65532
-    version: "0.9.1"
-  postgres-catalog: # delivery 0.9.0, which applies the database catalog
+    version: "0.15.0"
+  postgres-catalog: # delivery 0.15.0, which applies the database catalog
     repository: ghcr.io/jorisjonkers-dev/delivery/postgres-catalog
-    digest: "sha256:2d6322f91c2191ab0a64c31ecdc6d074d6bcb89d2a208ee8ef84aa2c8a0ad28a"
+    digest: "sha256:378f721245ba80ffe79fe43c9cdbbd29c76ebb865bbbccfe8561e91ef280e70c"
     uid: 65532
     gid: 65532
-    version: "0.9.0"
+    version: "0.15.0"
   # The platform's VPN, run as root beside each attached Process.
   gluetun:
     repository: docker.io/qmcgaw/gluetun
@@ -91,22 +91,22 @@ images:
     version: "v3.41.3"
   file-backup:
     repository: ghcr.io/jorisjonkers-dev/delivery/file-backup
-    digest: "sha256:3780da3df24d102076648f048a1c4fe2452f7d7cea9cbafdd2dda064b897fa91"
+    digest: "sha256:ea816e11b0b78689ad5d00a2438d6d5ec4cddf08ceb2be67c45eb4688cbe774f"
     uid: 65532
     gid: 65532
-    version: "0.9.2"
+    version: "0.15.0"
   postgres-backup:
     repository: ghcr.io/jorisjonkers-dev/delivery/postgres-backup
-    digest: "sha256:cc087aa9184fbed7aa4cd0ee9a435429af32f96f04fca336a6b0ee43985bcae0"
+    digest: "sha256:6d8370f988bda1b17b3b35cc7d455ea7ecb8ec8f828a90af987492dda5704793"
     uid: 65532
     gid: 65532
-    version: "0.9.2"
+    version: "0.15.0"
   rabbitmq-backup:
     repository: ghcr.io/jorisjonkers-dev/delivery/rabbitmq-backup
-    digest: "sha256:63755a6895b8a4f0e7ed8986419169c415267929f414728502fb716f27472a93"
+    digest: "sha256:1f940b83fa4d3d3e18ee08dfd09a76c60e249cee97ca31718aac981bcdf3b562"
     uid: 65532
     gid: 65532
-    version: "0.9.2"
+    version: "0.15.0"
 
   # The data and mail projects' images, resolved on 2026-10-15 as the digest
   # each live pod runs. fleet-infra still delivers both projects; these pin
