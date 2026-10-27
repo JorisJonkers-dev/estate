@@ -254,7 +254,9 @@ delivery:
     # A check fails when more than this share of the Canary's requests errors,
     # or when one is slower than this. Every release is held to both.
     errorRate: 1%
-    latency: 500ms
+    # 1s, not 500ms: on the Raspberry Pis a new copy reading Postgres in Frankfurt
+    # measured 532ms and 567ms at p95 on 2026-10-27, and the edge alerts above 1s.
+    latency: 1000ms
 
 # The Applications whose Processes may hold Kubernetes API access, and where
 # the API server answers. Each is in the delivery Project, save the

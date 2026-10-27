@@ -70,12 +70,12 @@ images:
 
   # Built by JorisJonkers-dev/delivery 0.2.0. Each runs as 65532:65532 by
   # number; the backup CronJob runs a method as its plan's uid and gid.
-  vault-policy: # delivery 0.15.0, on deploy-kit 1.0's schemas
+  vault-policy: # delivery 0.15.2, which accepts read on a transit key
     repository: ghcr.io/jorisjonkers-dev/delivery/vault-policy
-    digest: "sha256:79ec43dad84a05f46ab59bfe9395f31750eb088aa551997d65f87ef277a6762e"
+    digest: "sha256:d834c4c8734f9d0a5d81494d097837550c7ce19ae3d269719c2e115c86022a19"
     uid: 65532
     gid: 65532
-    version: "0.15.0"
+    version: "0.15.2"
   postgres-catalog: # delivery 0.15.0, which applies the database catalog
     repository: ghcr.io/jorisjonkers-dev/delivery/postgres-catalog
     digest: "sha256:378f721245ba80ffe79fe43c9cdbbd29c76ebb865bbbccfe8561e91ef280e70c"
