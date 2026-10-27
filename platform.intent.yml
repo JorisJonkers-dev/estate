@@ -107,7 +107,7 @@ durability:
       credential: secret/data/platform/backup/off-cluster
       # The age public key each copy is encrypted to on the pod; the private
       # key is kept off the cluster, and only a restore holds it.
-      recipient: AGE_RECIPIENT_FROM_THE_MAINTAINER
+      recipient: age1h8ma007nkcxcrph9cmrf7hqsqcppzu9keyvyzct255z8k925asms9g95wg
       # eu2.contabostorage.com resolved on 2026-10-07; a policy admits an
       # address range, never a hostname, so a move of the endpoint is a change
       # here.
