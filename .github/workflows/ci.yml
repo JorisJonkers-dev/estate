@@ -1,0 +1,120 @@
+# The checks a pull request to main must pass. `Pipeline Complete` is the one
+# required check the Main ruleset names: it fails when any job before it
+# failed, was cancelled or was skipped.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # The estate's own documents, read together with every other participant's
+  # newest published fragment, at the toolkit toolkit.yml pins: what
+  # composition would read, short of composing.
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          registry-url: https://npm.pkg.github.com
+          scope: "@jorisjonkers-dev"
+      - uses: oras-project/setup-oras@005458ad77f1c8facd38a094e4af2e69e5607ff4 # v2.0.2
+        with:
+          version: 1.3.4
+      - name: Install the pinned toolkit
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(yq -er '."deploy-kit"' toolkit.yml)"
+          npm install --no-save --ignore-scripts "@jorisjonkers-dev/deploy-kit@${version}"
+          test "$(node -p "require('@jorisjonkers-dev/deploy-kit/package.json').version")" = "$version"
+      - name: Pull every other participant's newest fragment
+        env:
+          OWNER: jorisjonkers-dev
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$TOKEN" | oras login ghcr.io -u "$ACTOR" --password-stdin > /dev/null
+          mkdir -p fragments
+          for project in $(yq '.participants | keys | .[]' participants.yml); do
+            digest="$(oras resolve "ghcr.io/${OWNER}/intent-${project}:latest" 2>/dev/null)" \
+              || { echo "::notice::${project} has published no fragment"; continue; }
+            oras pull "ghcr.io/${OWNER}/intent-${project}@${digest}" --output "fragments/${project}" > /dev/null
+            # This repository's own fragments are read from the pull request instead.
+            if [ "$(yq '.metadata.repository' "fragments/${project}/fragment.yml")" = "$GITHUB_REPOSITORY" ]; then
+              rm -rf "fragments/${project}"
+            fi
+          done
+      - name: Validate
+        run: |
+          npx --no-install deploy-kit validate \
+            platform.intent.yml node-contract.yml images.lock.yml platform fragments
+
+  actionlint:
+    name: Actionlint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Actionlint
+        env:
+          ACTIONLINT_VERSION: "1.7.7"
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            | tar -xz actionlint
+          ./actionlint -color .github/workflows/*.yml
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Secret scan
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          ./gitleaks git . --config .gitleaks.toml --no-banner --redact
+
+  pipeline-complete:
+    name: Pipeline Complete
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [validate, actionlint, secret-scan]
+    if: always()
+    steps:
+      - name: "Fail: a job failed, was cancelled, or was skipped"
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
+        run: exit 1
+      - name: Every job succeeded
+        if: ${{ !(contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')) }}
+        run: echo "Every job succeeded."
