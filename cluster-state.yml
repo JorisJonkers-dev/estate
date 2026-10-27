@@ -10,7 +10,7 @@ apiVersion: state.jorisjonkers.dev/v1
 kind: ClusterState
 schemaVersion: 1.0.0
 cluster: "production"
-capturedAt: "2026-10-27T19:54:46Z"
+capturedAt: "2026-10-27T20:04:46Z"
 bindings:
   - { claim: "alertmanager-metrics-stack-alertmanager-db-alertmanager-metrics-stack-alertmanager-0", node: "frankfurt-contabo-1" }
   - { claim: "audit-vault-0", node: "frankfurt-contabo-1" }
@@ -60,8 +60,11 @@ bindings:
   - { claim: "workspace-94d22967", node: "enschede-gtx-960m-1" }
   - { claim: "workspace-d4b41a9a", node: "enschede-gtx-960m-1" }
 placements:
+  - { process: "auth-api", node: "enschede-t1000-1" }
+  - { process: "auth-api", node: "frankfurt-contabo-1" }
   - { process: "auth-api-primary", node: "enschede-gtx-960m-1" }
   - { process: "auth-api-primary", node: "enschede-t1000-1" }
+  - { process: "auth-ui", node: "enschede-pi-2" }
   - { process: "auth-ui-primary", node: "frankfurt-contabo-1" }
   - { process: "bazarr", node: "enschede-t1000-1" }
   - { process: "collector", node: "enschede-pi-2" }
@@ -82,7 +85,6 @@ placements:
   - { process: "karakeep-chrome-primary", node: "frankfurt-contabo-1" }
   - { process: "karakeep-search", node: "enschede-pi-3" }
   - { process: "n8n", node: "frankfurt-contabo-1" }
-  - { process: "outline", node: "enschede-pi-3" }
   - { process: "outline-primary", node: "enschede-t1000-1" }
   - { process: "outline-primary", node: "frankfurt-contabo-1" }
   - { process: "overleaf", node: "enschede-t1000-1" }
