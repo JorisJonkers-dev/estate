@@ -165,3 +165,24 @@ images:
     uid: 0
     gid: 0
     version: "0.4.2"
+  # The Node Agents (platform.intent.yml's nodeAgents), the images fleet-infra
+  # runs today. The device plugin and the card counters run as root, as the
+  # catalog's privileges need; the host metrics as the image's own user.
+  nvidia-device-plugin:
+    repository: nvcr.io/nvidia/k8s-device-plugin
+    digest: "sha256:a61ba9fd8efb82f3a79f877f7580e02c1e8e7593f62473644bc9c79e315c3312"
+    uid: 0
+    gid: 0
+    version: "v0.20.0"
+  dcgm-exporter:
+    repository: nvcr.io/nvidia/k8s/dcgm-exporter
+    digest: "sha256:613ab03c11d442fd960ff515f547e9921537454a712d08160bc8f677f89f1c35"
+    uid: 0
+    gid: 0
+    version: "4.6.0-4.8.3"
+  node-exporter:
+    repository: quay.io/prometheus/node-exporter
+    digest: "sha256:8c9bac11973b94b59be88d6e11fee4429aa743c8846cdc75d65b18db33f6a106"
+    uid: 65532
+    gid: 65532
+    version: "v1.12.1"
