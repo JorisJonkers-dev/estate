@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/findability-explorer
   ref:
-    digest: sha256:f9453d422ac43c72bf54d0605119d49645e279a7a49bc214580d50f52283739c
+    digest: sha256:cc8b1cbbe19e25ce2fce0651647d30e30b97bcabc35462be3330eaeb96f15cde
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/findability-explorer
-    event.toolkit.fluxcd.io/sha: bdc82adecc0e5541c2705543d7728d7472643744
+    event.toolkit.fluxcd.io/sha: f19a0a85c93f0d91478e7d3bbda5975a05b8d99c
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 1.11.0
+    event.toolkit.fluxcd.io/version: 1.11.1
     event.toolkit.fluxcd.io/url: https://digital-strategy.jorisjonkers.dev
 spec:
   interval: 10m
