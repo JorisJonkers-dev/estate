@@ -7,6 +7,12 @@ metadata:
   namespace: flux-system
   labels:
     app.kubernetes.io/managed-by: deploy-kit
+  annotations:
+    estate.jorisjonkers.dev/paused-by: ExtraToast
+    estate.jorisjonkers.dev/paused-at: "2026-10-28T11:48:03Z"
+    estate.jorisjonkers.dev/paused-reason: Bad design
+    estate.jorisjonkers.dev/rollback-version: 1.11.1
+    estate.jorisjonkers.dev/rollback-fragment: ghcr.io/jorisjonkers-dev/intent-findability-explorer@sha256:fa70be6c358b3a83e46df8090946b11a154264146f6b2f9cd6a84ab6f2c00d88
 spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/findability-explorer
