@@ -336,6 +336,9 @@ metadata:
   namespace: $NS
 spec:
   replicas: 2
+  # One pod per node with no revision key: a surging pod would find no node,
+  # and the drill never rolls the template anyway.
+  strategy: {type: Recreate}
   selector:
     matchLabels: {app: responder}
   template:
