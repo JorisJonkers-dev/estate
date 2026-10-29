@@ -1,0 +1,111 @@
+# Grafana's data sources, as fleet-infra's grafana-datasources ConfigMap
+# declares them (cluster/flux/apps/observability/grafana/grafana-datasources.yaml),
+# at the stores' addresses in observability-system. The uids are the ones
+# every dashboard names. Alertmanager is added so Grafana lists the alerts the
+# Discord channel receives.
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: POST
+      exemplarTraceIdDestinations:
+        - name: traceID
+          datasourceUid: tempo
+
+  - name: Loki
+    type: loki
+    uid: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      # Every log line emitted inside a traced request carries
+      # `trace_id` and `span_id` JSON fields (OTel logback-mdc
+      # injects them; logback-spring.xml surfaces them via
+      # LogstashEncoder). Turning them into derivedFields lets
+      # any Loki query render them as a clickable link that opens
+      # the trace in Tempo.
+      derivedFields:
+        - name: trace_id
+          matcherRegex: '"trace_id"\s*:\s*"([0-9a-f]+)"'
+          datasourceUid: tempo
+          url: '$${__value.raw}'
+          urlDisplayLabel: 'Trace'
+        - name: span_id
+          matcherRegex: '"span_id"\s*:\s*"([0-9a-f]+)"'
+
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: false
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: loki
+        # Filter Loki by trace_id when you click "Logs for this
+        # trace" on a span. Without filterByTraceID:true the link
+        # opens every log line for the service+timeframe, which
+        # is useless on a busy service.
+        filterByTraceID: true
+        filterBySpanID: false
+        # Map the span's `service.name` resource attribute to
+        # Loki's `service_name` label so the auto-generated query
+        # narrows to the right service.
+        tags:
+          - { key: 'service.name', value: 'service_name' }
+        customQuery: true
+        query: '{service_name="$${__span.tags["service.name"]}"} | json | trace_id="$${__trace.traceId}"'
+      tracesToMetrics:
+        datasourceUid: prometheus
+        tags:
+          - { key: 'service.name', value: 'service_name' }
+          - { key: 'http.route', value: 'uri' }
+        queries:
+          - name: 'Endpoint p95 latency (5m)'
+            query: 'histogram_quantile(0.95, sum by(le)(rate(http_server_requests_seconds_bucket{service_name="$$__tags["service.name"]", uri="$$__tags["http.route"]"}[5m])))'
+          - name: 'Endpoint request rate'
+            query: 'sum(rate(http_server_requests_seconds_count{service_name="$$__tags["service.name"]", uri="$$__tags["http.route"]"}[5m]))'
+          - name: 'Endpoint error rate (5xx)'
+            query: 'sum(rate(http_server_requests_seconds_count{service_name="$$__tags["service.name"]", uri="$$__tags["http.route"]", status=~"5.."}[5m]))'
+      tracesToProfilesV2:
+        datasourceUid: pyroscope
+        profileTypeId: process_cpu:cpu:nanoseconds:cpu:nanoseconds
+        tags:
+          - { key: service.name, value: service_name }
+      serviceMap:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true
+      # Span-derived metric `traces_spanmetrics_latency_*` produced
+      # by Tempo's metricsGenerator is the right backend for
+      # per-span p95/p99 panels. Setting the search to it makes
+      # exemplar-clicks land at the trace immediately.
+      spanBar:
+        type: 'Duration'
+
+  - name: Pyroscope
+    type: grafana-pyroscope-datasource
+    uid: pyroscope
+    access: proxy
+    url: http://pyroscope:4040
+    editable: false
+    jsonData:
+      minStep: '15s'
+
+
+  - name: Alertmanager
+    type: alertmanager
+    uid: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    editable: false
+    jsonData:
+      implementation: prometheus
+      handleGrafanaManagedAlerts: false

@@ -1,0 +1,63 @@
+# Tempo with its metrics generator, as fleet-infra's tempo chart renders it
+# today (its `tempo` ConfigMap, read 2026-10-29): 7 days of traces on its own
+# claim, OTLP and Jaeger receivers, and span and service-graph metrics
+# remote-written into Prometheus. Only the addresses change.
+multitenancy_enabled: false
+usage_report:
+  reporting_enabled: false
+compactor:
+  compaction:
+    block_retention: 168h
+distributor:
+  receivers:
+    jaeger:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:14250
+        thrift_binary:
+          endpoint: 0.0.0.0:6832
+        thrift_compact:
+          endpoint: 0.0.0.0:6831
+        thrift_http:
+          endpoint: 0.0.0.0:14268
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+server:
+  http_listen_port: 3200
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/traces
+    wal:
+      path: /var/tempo/wal
+overrides:
+  defaults:
+    metrics_generator:
+      generate_native_histograms: both
+      processors:
+        - service-graphs
+        - span-metrics
+        - local-blocks
+metrics_generator:
+  processor:
+    local_blocks:
+      flush_to_storage: true
+    service_graphs: {}
+    span_metrics:
+      dimensions:
+        - http.method
+        - http.route
+        - http.status_code
+        - k8s.pod.name
+        - service.version
+  storage:
+    path: /var/tempo/generator/wal
+    remote_write:
+      - url: http://prometheus:9090/api/v1/write
+  traces_storage:
+    path: /var/tempo/generator/traces

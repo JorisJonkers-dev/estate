@@ -1,0 +1,138 @@
+# kube-state-metrics' CustomResourceState: the Ready condition of every Flux
+# source and unit, as gotk_resource_ready, byte for byte what fleet-infra's
+# metrics-stack values render today. The label is exported_namespace, not
+# namespace, so it never collides with the target's own namespace label.
+# Alert on `== 0`, and always filter type="Ready".
+kind: CustomResourceStateMetrics
+spec:
+  resources:
+  - groupVersionKind:
+      group: kustomize.toolkit.fluxcd.io
+      kind: Kustomization
+      version: v1
+    labelsFromPath:
+      exported_namespace:
+      - metadata
+      - namespace
+      name:
+      - metadata
+      - name
+    metricNamePrefix: gotk
+    metrics:
+    - each:
+        gauge:
+          labelsFromPath:
+            type:
+            - type
+          path:
+          - status
+          - conditions
+          valueFrom:
+          - status
+        type: Gauge
+      help: 1 when the Flux resource's Ready condition is True, 0 when False.
+      name: resource_ready
+  - groupVersionKind:
+      group: helm.toolkit.fluxcd.io
+      kind: HelmRelease
+      version: v2
+    labelsFromPath:
+      exported_namespace:
+      - metadata
+      - namespace
+      name:
+      - metadata
+      - name
+    metricNamePrefix: gotk
+    metrics:
+    - each:
+        gauge:
+          labelsFromPath:
+            type:
+            - type
+          path:
+          - status
+          - conditions
+          valueFrom:
+          - status
+        type: Gauge
+      help: 1 when the Flux resource's Ready condition is True, 0 when False.
+      name: resource_ready
+  - groupVersionKind:
+      group: source.toolkit.fluxcd.io
+      kind: GitRepository
+      version: v1
+    labelsFromPath:
+      exported_namespace:
+      - metadata
+      - namespace
+      name:
+      - metadata
+      - name
+    metricNamePrefix: gotk
+    metrics:
+    - each:
+        gauge:
+          labelsFromPath:
+            type:
+            - type
+          path:
+          - status
+          - conditions
+          valueFrom:
+          - status
+        type: Gauge
+      help: 1 when the Flux resource's Ready condition is True, 0 when False.
+      name: resource_ready
+  - groupVersionKind:
+      group: source.toolkit.fluxcd.io
+      kind: HelmRepository
+      version: v1
+    labelsFromPath:
+      exported_namespace:
+      - metadata
+      - namespace
+      name:
+      - metadata
+      - name
+    metricNamePrefix: gotk
+    metrics:
+    - each:
+        gauge:
+          labelsFromPath:
+            type:
+            - type
+          path:
+          - status
+          - conditions
+          valueFrom:
+          - status
+        type: Gauge
+      help: 1 when the Flux resource's Ready condition is True, 0 when False.
+      name: resource_ready
+  - groupVersionKind:
+      group: source.toolkit.fluxcd.io
+      kind: OCIRepository
+      version: v1
+    labelsFromPath:
+      exported_namespace:
+      - metadata
+      - namespace
+      name:
+      - metadata
+      - name
+    metricNamePrefix: gotk
+    metrics:
+    - each:
+        gauge:
+          labelsFromPath:
+            type:
+            - type
+          path:
+          - status
+          - conditions
+          valueFrom:
+          - status
+        type: Gauge
+      help: 1 when the Flux resource's Ready condition is True, 0 when False.
+      name: resource_ready

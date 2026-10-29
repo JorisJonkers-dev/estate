@@ -1,0 +1,527 @@
+# The observability Project: the telemetry collector, the log collector, the
+# metrics stack and its operators, the three stores and the status page
+# (deploy-kit spec/v1/14-platform-intent.md#the-foundation-is-declared). It
+# starts from deploy-kit's worked example
+# (spec/v1/examples/observability/observability.project.yml) and takes every
+# value the example leaves to the estate from what fleet-infra runs today
+# (cluster/flux/apps/observability, observability-rules and
+# grafana-dashboards at 72a449c, and the live objects, read 2026-10-29).
+#
+# The namespace moves: the old path runs the stack in `observability`, this
+# file in `observability-system`. The stores start fresh there, on new claims,
+# and the old claims stay read-only until their retention would have run out
+# (decided 2026-10-27, JorisJonkers-dev/deploy-kit#660). Every claim below is
+# therefore new, and `reconstructible`: its history is accepted lost.
+#
+# Every Process whose Runtime Profile exports telemetry is handed this
+# collector's `otlp` surface as its endpoint
+# (deploy-kit spec/v1/10-project-intent.md#runtime-profiles), so no project
+# writes the address and none can write it wrong.
+#
+# What the model cannot say yet, and what that costs, is in
+# docs/runbooks/observability-handover.md.
+
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Project
+schemaVersion: 1.0.0
+
+project: observability # the namespace derives: observability-system
+owner: joris
+
+applications:
+  # The OTLP collector. Live, Grafana Alloy does this beside tailing logs; here
+  # the two jobs are two Applications, and this one runs the trace pipeline
+  # Alloy's otelcol blocks run today, unchanged.
+  - id: otel-collector
+    processes:
+      - name: otel-collector
+        lifecycle: application
+        image: otel-collector
+        runtime: none
+        provides:
+          otlp: 4317 # gRPC: what every exporting Runtime Profile is handed
+          otlp-http: 4318 # HTTP: the edge proxies' tracing and the Faro receiver
+          health: 13133
+        placement:
+          memory: 256Mi
+          cpu: 50m
+        # The image's own arguments read this path.
+        assets:
+          - { from: config/otel-collector.yaml, mountAt: /etc/otelcol-contrib/config.yaml }
+        dependsOn:
+          - { application: tempo, surface: otlp-http }
+          - { application: loki, surface: http }
+        probes:
+          readiness: { path: /, port: 13133 }
+          liveness: { path: /, port: 13133 }
+        startupBudget: 20s
+        # Not `continuous`: Flagger's Service for a blue-green Process carries
+        # one port, and the collector serves three (JorisJonkers-dev/deploy-kit#728).
+        cutover: interrupted
+
+  # The metrics stack the Platform document's `telemetry.metrics` names: every
+  # declared scrape surface admits it, and nothing else scrapes
+  # (deploy-kit spec/v1/16-dependencies.md#the-derived-allow-set).
+  - id: prometheus
+    observability:
+      scrape: { process: prometheus, surface: http, path: /metrics }
+    # The platform's alert rules: only the monitoring stack carries them
+    # (deploy-kit spec/v1/10-project-intent.md#alert-rules). platform.yaml is
+    # fleet-infra's platform-alerts; kube-prometheus.yaml the chart's defaults.
+    alertRules:
+      - { from: rules/platform.yaml }
+      - { from: rules/kube-prometheus.yaml }
+    processes:
+      - name: prometheus
+        lifecycle: application
+        image: prometheus
+        runtime: none
+        provides:
+          http: 9090
+        placement:
+          site: frankfurt # live: the metrics stack runs on Frankfurt
+          memory: 3Gi # live working set 2.2Gi, read 2026-10-29
+          cpu: 200m
+        # The image's own arguments, and what kube-prometheus-stack's values
+        # set: 15 days kept, Tempo's metrics generator remote-writes span and
+        # service-graph metrics here, and exemplars are kept for the latency
+        # dashboards.
+        args:
+          - --config.file=/etc/prometheus/prometheus.yml
+          - --storage.tsdb.path=/prometheus
+          - --storage.tsdb.retention.time=15d
+          - --web.enable-remote-write-receiver
+          - --enable-feature=exemplar-storage
+        volumes:
+          # Live: 20Gi (the chart's 50Gi never reached the existing claim).
+          - { claim: prometheus-data, mountAt: /prometheus, size: 20Gi, durability: reconstructible }
+        probes:
+          readiness: { path: /-/ready, port: 9090 }
+          liveness: { path: /-/healthy, port: 9090 }
+        startupBudget: 300s # replaying the write-ahead log of a full store
+        cutover: interrupted # one pod on a ReadWriteOnce claim
+
+  # The Prometheus operator: Prometheus, Alertmanager and every monitor and
+  # rule are objects the render emits, and it reconciles them cluster-wide.
+  - id: prometheus-operator
+    observability:
+      scrape: { process: prometheus-operator, surface: http, path: /metrics }
+    processes:
+      - name: prometheus-operator
+        lifecycle: application
+        image: prometheus-operator
+        runtime: none
+        provides:
+          http: 8080
+        placement:
+          site: frankfurt # live: beside the Prometheus and Alertmanager it manages
+          memory: 128Mi
+          cpu: 50m
+        probes:
+          readiness: { path: /healthz, port: 8080 }
+          liveness: { path: /healthz, port: 8080 }
+        startupBudget: 30s
+        cutover: interrupted
+        api:
+          reason: >-
+            the operator reconciles every monitor, rule and Alertmanager routing object into the Prometheus and Alertmanager configuration, cluster-wide
+          rules:
+            - group: monitoring.coreos.com
+              objects: [prometheuses, prometheuses/status, alertmanagers, alertmanagers/status, servicemonitors, podmonitors, prometheusrules, alertmanagerconfigs]
+              verbs: [get, list, watch, create, update, patch, delete]
+            - group: core
+              objects: [services, endpoints, pods, nodes, namespaces, configmaps, secrets]
+              verbs: [get, list, watch, create, update, delete]
+            - group: apps
+              objects: [statefulsets]
+              verbs: [get, list, watch, create, update, delete]
+
+  # The cluster's object state as metrics, and Flux's readiness beside it.
+  - id: kube-state-metrics
+    observability:
+      scrape: { process: kube-state-metrics, surface: http, path: /metrics }
+    processes:
+      - name: kube-state-metrics
+        lifecycle: application
+        image: kube-state-metrics
+        runtime: none
+        provides:
+          http: 8080
+          telemetry: 8081
+        placement:
+          memory: 128Mi
+          cpu: 20m
+        # The image's entrypoint names both ports. These arguments list only
+        # what the rules below grant, and read Flux's objects' Ready
+        # conditions as gotk_resource_ready, which FluxResourceNotReady and
+        # FluxSourceFailing alert on: Flux v2 dropped its own condition
+        # metric, so without this neither alert can fire.
+        args:
+          - --resources=cronjobs,daemonsets,deployments,horizontalpodautoscalers,jobs,namespaces,nodes,persistentvolumeclaims,persistentvolumes,poddisruptionbudgets,pods,replicasets,resourcequotas,services,statefulsets
+          - --custom-resource-state-config-file=/etc/kube-state-metrics/custom-resource-state.yaml
+        assets:
+          - { from: config/custom-resource-state.yaml, mountAt: /etc/kube-state-metrics/custom-resource-state.yaml }
+        probes:
+          readiness: { path: /livez, port: 8080 }
+          liveness: { path: /livez, port: 8080 }
+        startupBudget: 30s
+        cutover: continuous
+        api:
+          reason: >-
+            kube-state-metrics reports the state of every object it lists, and the readiness of every Flux source and unit, cluster-wide
+          rules:
+            - group: core
+              objects: [pods, nodes, namespaces, services, persistentvolumeclaims, persistentvolumes, resourcequotas]
+              verbs: [list, watch]
+            - group: apps
+              objects: [deployments, statefulsets, daemonsets, replicasets]
+              verbs: [list, watch]
+            - group: batch
+              objects: [jobs, cronjobs]
+              verbs: [list, watch]
+            - group: autoscaling
+              objects: [horizontalpodautoscalers]
+              verbs: [list, watch]
+            - group: policy
+              objects: [poddisruptionbudgets]
+              verbs: [list, watch]
+            - group: kustomize.toolkit.fluxcd.io
+              objects: [kustomizations]
+              verbs: [list, watch]
+            - group: helm.toolkit.fluxcd.io
+              objects: [helmreleases]
+              verbs: [list, watch]
+            - group: source.toolkit.fluxcd.io
+              objects: [gitrepositories, helmrepositories, ocirepositories]
+              verbs: [list, watch]
+
+  # The operator that hands the Grafana below every Application's dashboards.
+  - id: grafana-operator
+    observability:
+      scrape: { process: grafana-operator, surface: metrics, path: /metrics }
+    processes:
+      - name: grafana-operator
+        lifecycle: application
+        image: grafana-operator
+        runtime: none
+        provides:
+          metrics: 8080
+          health: 8081
+        placement:
+          memory: 128Mi # live requests 96Mi
+          cpu: 20m
+        probes:
+          readiness: { path: /healthz, port: 8081 }
+          liveness: { path: /healthz, port: 8081 }
+        startupBudget: 30s
+        cutover: interrupted
+        api:
+          reason: >-
+            the operator imports every Application's dashboards into the Grafana it selects, cluster-wide
+          rules:
+            - group: grafana.integreatly.org
+              objects: [grafanas, grafanas/status, grafanadashboards, grafanadashboards/status]
+              verbs: [get, list, watch, update, patch]
+            - group: core
+              objects: [configmaps, secrets]
+              verbs: [get, list, watch]
+
+  # Grafana signs people in itself against auth-api, as it does live. The
+  # worked example makes it a native Client of the identity Project's
+  # provider; the estate runs no such provider yet (no `signIn` block, no
+  # identity.jorisjonkers.dev CRD), so its client secret is read from the
+  # document auth-api's registration lives in, through the one secret
+  # delivery, and the sign-in URLs are auth-api's.
+  - id: grafana
+    observability:
+      scrape: { process: grafana, surface: http, path: /metrics }
+    exposure:
+      # Anonymous at the edge, as live: Grafana sends every visitor to the
+      # sign-in itself (auto_login), so no forward-auth sits in front.
+      - name: public
+        host: grafana.jorisjonkers.dev
+        audience: anonymous
+        routes:
+          - { path: /, match: prefix, process: grafana, surface: http }
+    # Every live dashboard, carried here until each Project that owns one
+    # ships it in its own file (see the runbook): only the uid identifies a
+    # dashboard, so a later move is one file between two Projects.
+    dashboards:
+      - { from: dashboards/home.json }
+      - { from: dashboards/infrastructure-overview.json }
+      - { from: dashboards/service-overview.json }
+      - { from: dashboards/service-template.json }
+      - { from: dashboards/service-graph.json }
+      - { from: dashboards/spring-service-endpoints.json }
+      - { from: dashboards/spring-boot-jvm.json }
+      - { from: dashboards/spring-boot-2.1.json }
+      - { from: dashboards/postgresql-hikaricp.json }
+      - { from: dashboards/slo-burn-rate.json }
+      - { from: dashboards/gatus-uptime.json }
+      - { from: dashboards/error-feed.json }
+      - { from: dashboards/loki-logs.json }
+      - { from: dashboards/tempo-traces.json }
+      - { from: dashboards/tempo-operational.json }
+      - { from: dashboards/pyroscope-overview.json }
+      - { from: dashboards/flux-cluster-stats.json }
+      - { from: dashboards/flux-control-plane.json }
+      # Owned by other Projects, carried until each ships its own.
+      - { from: dashboards/auth-api.json } # auth
+      - { from: dashboards/agents-api.json } # agents
+      - { from: dashboards/stalwart.json } # mail
+      - { from: dashboards/traefik.json } # edge
+      - { from: dashboards/vault.json } # secrets
+      - { from: dashboards/postgres-exporter.json } # data
+      - { from: dashboards/rabbitmq.json } # data
+      - { from: dashboards/rabbitmq-overview.json } # data
+      - { from: dashboards/redis-exporter.json } # data
+      - { from: dashboards/valkey-redis.json } # data
+      - { from: dashboards/node-telemetry.json } # node
+      - { from: dashboards/dcgm.json } # node
+      - { from: dashboards/metallb.json } # node
+    processes:
+      - name: grafana
+        lifecycle: application
+        image: grafana
+        runtime: none
+        provides:
+          http: 3000
+        placement:
+          site: frankfurt # live
+          memory: 512Mi # live working set 213Mi, before the plugins load
+          cpu: 50m
+        egress:
+          to: internet
+          reason: Grafana installs its four app plugins from grafana.com at start, as the chart's plugin list does live.
+        # The data sources, as fleet-infra's grafana-datasources ConfigMap
+        # declares them, at the stores' new addresses.
+        assets:
+          - { from: config/grafana-datasources.yaml, mountAt: /etc/grafana/provisioning/datasources/datasources.yaml }
+        dependsOn:
+          - { application: prometheus, surface: http }
+          - { application: loki, surface: http }
+          - { application: tempo, surface: http }
+          - { application: pyroscope, surface: http }
+          - { application: alertmanager, surface: http }
+        secrets:
+          - path: secret/data/platform/observability
+            keys: [grafana.oauth_client_secret]
+            access: read
+            delivery: env
+            rotation: { tolerates: restart }
+        volumes:
+          # Users, preferences and anything made in the UI. Users come back at
+          # their next sign-in and dashboards are re-imported, so it starts
+          # fresh with the rest.
+          - { claim: grafana-data, mountAt: /var/lib/grafana, size: 10Gi, durability: reconstructible }
+        probes:
+          readiness: { path: /api/health, port: 3000 }
+          liveness: { path: /api/health, port: 3000 }
+        startupBudget: 120s # the plugin downloads
+        cutover: interrupted # one pod on a ReadWriteOnce claim
+
+  # The log store: fleet-infra's single-binary Loki, filesystem storage.
+  - id: loki
+    observability:
+      scrape: { process: loki, surface: http, path: /metrics }
+    processes:
+      - name: loki
+        lifecycle: application
+        image: loki
+        runtime: none
+        provides:
+          http: 3100
+        placement:
+          site: frankfurt # live
+          memory: 1Gi # live working set 476Mi
+          cpu: 100m
+        args: [-config.file=/etc/loki/config.yaml, -target=all]
+        assets:
+          - { from: config/loki.yaml, mountAt: /etc/loki/config.yaml }
+        writablePaths: [/tmp]
+        probes:
+          readiness: { path: /ready, port: 3100 }
+          liveness: { path: /ready, port: 3100 }
+        startupBudget: 60s
+        cutover: interrupted
+        volumes:
+          - { claim: loki-data, mountAt: /var/loki, size: 20Gi, durability: reconstructible }
+
+  # The trace store, with the metrics generator that writes span and
+  # service-graph metrics into Prometheus.
+  - id: tempo
+    observability:
+      scrape: { process: tempo, surface: http, path: /metrics }
+    processes:
+      - name: tempo
+        lifecycle: application
+        image: tempo
+        runtime: none
+        provides:
+          http: 3200
+          otlp: 4317
+          otlp-http: 4318
+        placement:
+          site: frankfurt # live
+          memory: 1Gi # live working set 745Mi
+          cpu: 100m
+        args: [-config.file=/etc/tempo/tempo.yaml]
+        assets:
+          - { from: config/tempo.yaml, mountAt: /etc/tempo/tempo.yaml }
+        dependsOn:
+          - { application: prometheus, surface: http }
+        writablePaths: [/tmp]
+        probes:
+          readiness: { path: /ready, port: 3200 }
+          liveness: { path: /ready, port: 3200 }
+        startupBudget: 60s
+        cutover: interrupted
+        volumes:
+          - { claim: tempo-data, mountAt: /var/tempo, size: 20Gi, durability: reconstructible }
+
+  # The profile store.
+  - id: pyroscope
+    observability:
+      scrape: { process: pyroscope, surface: http, path: /metrics }
+    processes:
+      - name: pyroscope
+        lifecycle: application
+        image: pyroscope
+        runtime: none
+        provides:
+          http: 4040
+        placement:
+          site: frankfurt # live
+          memory: 512Mi # live requests 512Mi, working set 118Mi
+          cpu: 100m
+        # Single binary, without profiling itself into itself.
+        args: [-config.file=/etc/pyroscope/config.yaml, -target=all, -self-profiling.disable-push=true]
+        probes:
+          readiness: { path: /ready, port: 4040 }
+          liveness: { path: /ready, port: 4040 }
+        startupBudget: 30s
+        cutover: interrupted
+        volumes:
+          # The image works in /, so its default ./data is this claim.
+          - { claim: pyroscope-data, mountAt: /data, size: 20Gi, durability: reconstructible }
+
+  # Gatus, which gathers every Project's external checks through its sidecar
+  # (deploy-kit spec/v1/14-platform-intent.md#the-foundation-is-declared).
+  - id: gatus
+    exposure:
+      - name: status
+        host: status.jorisjonkers.dev
+        audience: anonymous
+        routes:
+          - { path: /, match: prefix, process: gatus, surface: http }
+    observability:
+      scrape: { process: gatus, surface: http, path: /metrics }
+    processes:
+      - name: gatus
+        lifecycle: application
+        image: gatus
+        runtime: none
+        provides:
+          http: 8080
+        placement:
+          site: frankfurt # live
+          memory: 128Mi # live requests 128Mi
+          cpu: 20m
+        # Gatus reads every file in its configuration directory: its own
+        # settings, and one file per Project the sidecar writes beside it.
+        assets:
+          - { from: config/gatus.yaml, mountAt: /data/config/gatus.yaml }
+        probes:
+          readiness: { path: /health, port: 8080 }
+          liveness: { path: /health, port: 8080 }
+        startupBudget: 30s
+        cutover: interrupted
+        volumes:
+          # The uptime history; the checks' files live beside it.
+          - { claim: gatus-data, mountAt: /data, size: 2Gi, durability: reconstructible }
+        sidecars:
+          - name: checks
+            image: gatus-checks
+            memory: 64Mi
+            cpu: 10m
+            volumes:
+              - { claim: gatus-data, mountAt: /data }
+        api:
+          reason: >-
+            the checks sidecar watches every Project's external-checks ConfigMap, cluster-wide
+          rules:
+            - group: core
+              objects: [configmaps]
+              verbs: [get, list, watch]
+
+  # The log collector: an ordinary Process that tails pod logs through the
+  # Kubernetes API, with no host privilege and one copy, not one per node. It
+  # also receives the browser telemetry the sites post to faro.jorisjonkers.dev.
+  - id: alloy
+    observability:
+      scrape: { process: alloy, surface: http, path: /metrics }
+    exposure:
+      - name: faro
+        host: faro.jorisjonkers.dev
+        audience: anonymous
+        routes:
+          - { path: /, match: prefix, process: alloy, surface: faro }
+    processes:
+      - name: alloy
+        lifecycle: application
+        image: alloy
+        runtime: none
+        provides:
+          http: 12345
+          faro: 12347
+        placement:
+          memory: 1Gi # six live copies hold 160 to 490Mi each; this one reads every pod
+          cpu: 100m
+        args: [run, /etc/alloy/config.alloy, --storage.path=/var/lib/alloy/data, --server.http.listen-addr=0.0.0.0:12345]
+        assets:
+          - { from: config/alloy.alloy, mountAt: /etc/alloy/config.alloy }
+        writablePaths: [/var/lib/alloy/data]
+        dependsOn:
+          - { application: loki, surface: http }
+          - { application: otel-collector, surface: otlp }
+        probes:
+          readiness: { path: /-/ready, port: 12345 }
+          liveness: { path: /-/ready, port: 12345 }
+        startupBudget: 30s
+        # Not `continuous`: Flagger's Service for a blue-green Process carries
+        # one port, and Faro's is the second (JorisJonkers-dev/deploy-kit#728).
+        cutover: interrupted
+        api:
+          reason: >-
+            Alloy tails every pod's log through the API, cluster-wide
+          rules:
+            - group: core
+              objects: [pods, pods/log, namespaces]
+              verbs: [get, list, watch]
+
+  # The monitoring stack's Alertmanager, which the Platform document names by
+  # role; the one routing of every alert renders into its namespace, and each
+  # receiver's webhook reaches it through the one secret delivery
+  # (deploy-kit spec/v1/14-platform-intent.md#monitoring).
+  - id: alertmanager
+    observability:
+      scrape: { process: alertmanager, surface: http, path: /metrics }
+    processes:
+      - name: alertmanager
+        lifecycle: application
+        image: alertmanager
+        runtime: none
+        provides:
+          http: 9093
+        placement:
+          site: frankfurt # live
+          memory: 128Mi
+          cpu: 50m
+        volumes:
+          # Silences and the notification log.
+          - { claim: alertmanager-data, mountAt: /alertmanager, size: 5Gi, durability: reconstructible }
+        probes:
+          readiness: { path: /-/ready, port: 9093 }
+          liveness: { path: /-/healthy, port: 9093 }
+        startupBudget: 30s
+        cutover: interrupted # one pod on a ReadWriteOnce claim

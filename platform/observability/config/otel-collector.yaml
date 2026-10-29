@@ -1,0 +1,73 @@
+# The OTLP pipeline Grafana Alloy runs live (fleet-infra
+# cluster/flux/apps/observability/alloy/release.yaml, its otelcol blocks),
+# spelled for the OpenTelemetry Collector: receive OTLP, drop the health
+# checks' spans, name each span for its service, batch, then send traces to
+# Tempo and logs to Loki. The statements are Alloy's, unchanged.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - https://jorisjonkers.dev
+            - https://auth.jorisjonkers.dev
+            - https://agents.jorisjonkers.dev
+          allowed_headers: ["*"]
+
+processors:
+  # The OTel Java agent's Tomcat hook creates these independent of Spring's
+  # ObservationRegistry, so the collector is where they are dropped.
+  filter/drop_actuator:
+    error_mode: ignore
+    traces:
+      span:
+        - 'attributes["http.route"] == "/api/actuator/health/**"'
+        - 'attributes["http.route"] == "/api/actuator/health"'
+        - 'attributes["http.route"] == "/actuator/health/**"'
+        - 'attributes["http.route"] == "/actuator/health"'
+        - 'attributes["http.route"] == "/api/v1/health"'
+        - 'IsMatch(attributes["url.path"], "^/api/actuator/.*") == true'
+        - 'IsMatch(attributes["url.path"], "^/actuator/.*") == true'
+        - 'attributes["url.path"] == "/api/v1/health"'
+  # The originating service in every span's name, so the trace list shows it.
+  transform/span_names:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - 'set(name, Concat([attributes["http.request.method"], resource.attributes["service.name"], attributes["http.route"]], " ")) where kind == SPAN_KIND_SERVER and IsString(attributes["http.request.method"]) and IsString(resource.attributes["service.name"]) and IsString(attributes["http.route"])'
+          - 'set(name, Concat([attributes["http.request.method"], resource.attributes["service.name"], Concat([attributes["server.address"], attributes["url.path"]], "")], " ")) where kind == SPAN_KIND_SERVER and IsString(attributes["http.request.method"]) and IsString(resource.attributes["service.name"]) and IsString(attributes["server.address"]) and IsString(attributes["url.path"]) and not IsString(attributes["http.route"])'
+          - 'set(name, Concat([attributes["http.request.method"], resource.attributes["service.name"], attributes["url.path"]], " ")) where kind == SPAN_KIND_SERVER and IsString(attributes["http.request.method"]) and IsString(resource.attributes["service.name"]) and IsString(attributes["url.path"]) and not IsString(attributes["http.route"]) and not IsString(attributes["server.address"])'
+          - 'set(name, Concat([name, "←", resource.attributes["service.name"]], " ")) where kind == SPAN_KIND_CLIENT and IsString(resource.attributes["service.name"]) and IsString(attributes["http.request.method"])'
+          - 'set(name, Concat([resource.attributes["service.name"], name], " ")) where kind == SPAN_KIND_INTERNAL and IsString(resource.attributes["service.name"])'
+  batch: {}
+
+exporters:
+  otlphttp/tempo:
+    endpoint: http://tempo:4318
+    tls:
+      insecure: true
+  # Loki 3's native OTLP endpoint.
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [filter/drop_actuator, transform/span_names, batch]
+      exporters: [otlphttp/tempo]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/loki]

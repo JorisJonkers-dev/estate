@@ -61,7 +61,8 @@ jobs:
             validate-with: platform node-contract.yml images.lock.yml
             validate-with-fragments: delivery estate-dashboard auth
           - project-file: platform/edge.project.yml
-          - project-file: platform/observability.project.yml
+          - project-file: platform/observability/observability.project.yml
+            validate-with: platform/observability/config platform/observability/env platform/observability/rules platform/observability/dashboards
           - project-file: platform/secrets.project.yml
           - project-file: platform/data/data.project.yml
             validate-with: platform/data/config platform/data/env
