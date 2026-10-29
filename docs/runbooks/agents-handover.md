@@ -41,10 +41,10 @@ the four that are absent (`memory-api-key`, `overleaf-session`,
 
 | # | where | what | when | outage |
 |---|---|---|---|---|
-| A | fleet-infra, "mark agents-system and its three claims never to be pruned" | the namespace, in both copies, and `hermes-data`, `claude-credentials`, `codex-credentials` get `kustomize.toolkit.fluxcd.io/prune: disabled`. By hand: the three volumes to `Retain` | before the window | none |
-| B | fleet-infra, "orphan the agents Project" | `apps-agents` and `apps-stateless` mark every object they apply through `commonMetadata`; `apps-agents` stops pruning | in the window, step 1 | none |
-| C | fleet-infra, "drop the agents Project's manifests" | `cluster/flux/apps/agents/`, `stateless/agents-api/`, `stateless/agents-ui/` and `flux-system/apps-agents` go. hermes's two routes move unchanged to `apps-edge`, and its NetworkPolicy to `apps-stateless`, now also admitting the MCP server's Flagger primary | in the window, step 2 | none |
-| D | this repository, this change, then its release | the ledger moves `agents` to `estate`; the Platform document gains the seeder, `dns.direct` on the public tier and the two API holders | in the window, step 3 | hermes's recreate |
+| A | JorisJonkers-dev/fleet-infra#559, "mark agents-system and its three claims never to be pruned" | the namespace, in both copies, and `hermes-data`, `claude-credentials`, `codex-credentials` get `kustomize.toolkit.fluxcd.io/prune: disabled`. By hand: the three volumes to `Retain` | before the window | none |
+| B | JorisJonkers-dev/fleet-infra#560, "orphan the agents Project" | `apps-agents` and `apps-stateless` mark every object they apply through `commonMetadata`; `apps-agents` stops pruning | in the window, step 1 | none |
+| C | JorisJonkers-dev/fleet-infra#561, "drop the agents Project's manifests" | `cluster/flux/apps/agents/`, `stateless/agents-api/`, `stateless/agents-ui/` and `flux-system/apps-agents` go. hermes's two routes move unchanged to `apps-edge`, and its NetworkPolicy to `apps-stateless`, now also admitting the MCP server's Flagger primary | in the window, step 2 | none |
+| D | JorisJonkers-dev/estate#258, then its release | the ledger moves `agents` to `estate`; the Platform document gains the seeder, `dns.direct` on the public tier and the two API holders | in the window, step 3 | hermes's recreate |
 | E | fleet-infra | `agents-system` leaves the old `vso` role's bound namespaces in `bootstrap-auth.sh`; the drift check needs no entry, since both images are third-party | after the flip | none |
 
 C must land before D: the estate's unit is also `flux-system/apps-agents`.
