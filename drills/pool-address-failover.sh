@@ -376,7 +376,7 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
-            capabilities: {drop: [ALL]}
+            capabilities: {drop: [ALL], add: [NET_BIND_SERVICE]}
           volumeMounts:
             - {name: config, mountPath: /etc/coredns}
       volumes:
