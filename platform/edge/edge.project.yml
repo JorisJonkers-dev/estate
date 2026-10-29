@@ -1,0 +1,205 @@
+# The edge as Project Intent: the two Traefik instances the Platform
+# document's tiers name, and the DNS controller that publishes the public
+# tier's hosts (deploy-kit spec/v1/14-platform-intent.md#the-foundation-is-declared).
+# They replace fleet-infra's traefik (ingress-system), traefik-lan
+# (ingress-lan-system) and external-dns (external-dns) HelmReleases, and start
+# in edge-system: they hold no data (JorisJonkers-dev/deploy-kit#662,
+# docs/runbooks/edge-handover.md).
+#
+# Two instances are two Applications, placed by capability: one on the
+# public-ingress node, one on a LAN node. Both are delivery machinery
+# (`delivery.machinery`), so their `continuous` cutover derives a rolling
+# switchover rather than a gated blue/green one: an edge proxy is what a
+# blue/green switch is performed through.
+
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Project
+schemaVersion: 1.0.0
+
+project: edge # the namespace derives: edge-system
+owner: joris
+
+applications:
+  - id: traefik-public
+    # Its request metrics, as the old path's PodMonitor scraped them; Traefik
+    # serves them on its own entry point, beside /ping.
+    observability:
+      scrape: { process: traefik-public, surface: admin, path: /metrics }
+    processes:
+      - name: traefik-public
+        lifecycle: application
+        image: traefik
+        runtime: none
+        provides:
+          web: 8000
+          websecure: 8443
+          admin: 8080
+        # Live, the proxy runs with no request and uses 88Mi (2026-10-29); the
+        # worked example's 128Mi leaves too little room for the ACME state.
+        placement:
+          memory: 256Mi
+          cpu: 50m
+          capabilities: [public-ingress]
+        writablePaths: [/tmp]
+        probes:
+          readiness: { path: /ping, port: 8080 }
+          liveness: { path: /ping, port: 8080 }
+        startupBudget: 20s
+        cutover: continuous
+        # Traefik's Kubernetes provider watches every route, middleware and TLS
+        # object, and the Services, endpoints and Secrets they name, in every
+        # namespace: the live chart's ClusterRole, less the Ingress provider,
+        # which the render does not enable. Nothing derives it for a tier's
+        # proxy, so it is declared (JorisJonkers-dev/deploy-kit#727).
+        api:
+          reason: >-
+            Traefik reads every route and what it names, cluster-wide, to
+            serve its tier
+          rules:
+            - group: core
+              objects: [services, secrets, nodes, configmaps, namespaces]
+              verbs: [get, list, watch]
+            - group: core
+              objects: [pods]
+              verbs: [get]
+            - group: discovery.k8s.io
+              objects: [endpointslices]
+              verbs: [get, list, watch]
+            - group: traefik.io
+              objects:
+                - ingressroutes
+                - ingressroutetcps
+                - ingressrouteudps
+                - middlewares
+                - middlewaretcps
+                - serverstransports
+                - serverstransporttcps
+                - tlsoptions
+                - tlsstores
+                - traefikservices
+              verbs: [get, list, watch]
+
+  - id: traefik-lan
+    # Its request metrics, as the old path's PodMonitor scraped them; Traefik
+    # serves them on its own entry point, beside /ping.
+    observability:
+      scrape: { process: traefik-lan, surface: admin, path: /metrics }
+    processes:
+      - name: traefik-lan
+        lifecycle: application
+        image: traefik
+        runtime: none
+        provides:
+          web: 8000
+          websecure: 8443
+          admin: 8080
+        # Live, the proxy runs with no request and uses 129Mi (2026-10-29):
+        # the worked example's 128Mi limit would kill it.
+        placement:
+          memory: 256Mi
+          cpu: 50m
+          capabilities: [lan-ingress]
+        writablePaths: [/tmp]
+        probes:
+          readiness: { path: /ping, port: 8080 }
+          liveness: { path: /ping, port: 8080 }
+        startupBudget: 20s
+        cutover: continuous
+        # Traefik's Kubernetes provider watches every route, middleware and TLS
+        # object, and the Services, endpoints and Secrets they name, in every
+        # namespace: the live chart's ClusterRole, less the Ingress provider,
+        # which the render does not enable. Nothing derives it for a tier's
+        # proxy, so it is declared (JorisJonkers-dev/deploy-kit#727).
+        api:
+          reason: >-
+            Traefik reads every route and what it names, cluster-wide, to
+            serve its tier
+          rules:
+            - group: core
+              objects: [services, secrets, nodes, configmaps, namespaces]
+              verbs: [get, list, watch]
+            - group: core
+              objects: [pods]
+              verbs: [get]
+            - group: discovery.k8s.io
+              objects: [endpointslices]
+              verbs: [get, list, watch]
+            - group: traefik.io
+              objects:
+                - ingressroutes
+                - ingressroutetcps
+                - ingressrouteudps
+                - middlewares
+                - middlewaretcps
+                - serverstransports
+                - serverstransporttcps
+                - tlsoptions
+                - tlsstores
+                - traefikservices
+              verbs: [get, list, watch]
+
+  # The DNS controller: it publishes each public route's host in Cloudflare
+  # from the annotations the tier puts on it, so the records follow the routes.
+  # It replaces fleet-infra's external-dns HelmRelease (chart 1.21.1) in the
+  # `external-dns` namespace, with the same image and the same flags.
+  - id: external-dns
+    processes:
+      - name: external-dns
+        lifecycle: application
+        image: external-dns
+        runtime: none
+        # The live release's flags, word for word. upsert-only: it never
+        # deletes a record. The annotation filter keeps it to the public tier's
+        # routes, and the owner id is the one every existing TXT record carries,
+        # so it takes over the records the old copy wrote.
+        args:
+          - --log-level=info
+          - --log-format=text
+          - --interval=1m
+          - --source=service
+          - --source=traefik-proxy
+          - --policy=upsert-only
+          - --registry=txt
+          - --provider=cloudflare
+          - --annotation-filter=kubernetes.io/ingress.class=traefik-public
+          - --domain-filter=jorisjonkers.dev
+          - --txt-owner-id=edge-system-external-dns
+        provides:
+          metrics: 7979
+        # Live, it runs with no request and uses 58Mi (2026-10-29).
+        placement:
+          memory: 128Mi
+          cpu: 10m
+          # The Cloudflare token answers only from frankfurt-contabo-1's
+          # address (403, code 9109, from anywhere else), as the live
+          # release's nodeSelector says.
+          site: frankfurt
+        # The token the public tier's ACME resolver reads too
+        # (platform.intent.yml's acme.token, JorisJonkers-dev/estate#229).
+        secrets:
+          - path: secret/data/platform/cloudflare
+            keys: [CF_DNS_API_TOKEN]
+            access: read
+            delivery: env
+            rotation: { tolerates: restart }
+        probes:
+          readiness: { path: /healthz, port: 7979 }
+          liveness: { path: /healthz, port: 7979 }
+        startupBudget: 30s
+        # One copy: two would race on the same records.
+        cutover: interrupted
+        egress: { to: internet, reason: Cloudflare's API }
+        api:
+          reason: >-
+            external-dns reads every public route and the Services behind it,
+            cluster-wide, to publish their hosts
+          rules:
+            - group: core
+              objects: [services, pods, nodes]
+              verbs: [get, list, watch]
+            - group: discovery.k8s.io
+              objects: [endpointslices]
+              verbs: [get, list, watch]
+            - group: traefik.io
+              objects: [ingressroutes, ingressroutetcps, ingressrouteudps]
+              verbs: [get, list, watch]
