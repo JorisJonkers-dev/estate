@@ -64,6 +64,11 @@ bootstrap:
     - secrets.hashicorp.com/v1beta1
     - monitoring.coreos.com/v1
     - flagger.app/v1beta1 # the Canary every blue-green Process renders; bootstrap/cluster.sh applies it, Flagger's binary never does
+    # The pools and advertisements the l4-speaker Node Agent renders. MetalLB's
+    # chart installed them on the old path; bootstrap/cluster.sh adopts them at
+    # v0.15.3, the speaker's release, with bgppeers' conversion webhook dropped:
+    # no webhook is rendered, and the estate holds no BGPPeer to convert.
+    - metallb.io/v1beta1
 
 # Where the edge terminates. A route's audience is the only way it reaches a tier.
 # Each fact states the edge fleet-infra runs today (read 2026-10-29), so a route
@@ -196,19 +201,24 @@ gpus:
 
 # The Node Agents the node facts derive (deploy-kit
 # spec/v1/14-platform-intent.md#node-agents), at the images fleet-infra runs
-# today. They are the `node` Project, legacy until its handover: fleet-infra
-# still delivers them, and composition delivers none.
+# today, by digest. They are the `node` Project, in `node-system`
+# (JorisJonkers-dev/deploy-kit#659). Each memory is the request and the limit
+# both, so each sits above what the live copy uses (read 2026-10-29 with
+# `kubectl top`):
+#   - gpu-metrics: dcgm-exporter holds 407-415Mi once DCGM has initialised,
+#     and was OOM-killed at 256Mi; 1Gi is the live limit.
+#   - l4-speaker: the speaker container peaks at 73Mi, the controller at 61Mi.
+#   - gpu-device and node-metrics: 22Mi and 11Mi.
 nodeAgents:
   gpu-device: { image: nvidia-device-plugin, memory: 64Mi, cpu: 10m }
-  gpu-metrics: { image: dcgm-exporter, memory: 256Mi, cpu: 50m }
+  gpu-metrics: { image: dcgm-exporter, memory: 1Gi, cpu: 50m }
   node-metrics: { image: node-exporter, memory: 64Mi, cpu: 20m }
-  # MetalLB, which announces `lan-edge` from the Enschede nodes. Live, it
-  # requests nothing; these are the worked example's requests.
+  # MetalLB, which announces each pool-kind L4 Address from its site's nodes.
   l4-speaker:
     image: metallb-speaker
-    memory: 64Mi
+    memory: 128Mi
     cpu: 20m
-    controller: { image: metallb-controller, memory: 64Mi, cpu: 10m }
+    controller: { image: metallb-controller, memory: 128Mi, cpu: 10m }
 
 # The VPN every attached Process's traffic leaves through (deploy-kit
 # spec/v1/14-platform-intent.md#vpn): gluetun on ProtonVPN WireGuard, on
@@ -340,10 +350,13 @@ policyJob:
 # Every Project fleet-infra still delivers is named under `legacy`, so its
 # project file is read rather than refused as E_HANDOVER_UNLISTED. `delivery`
 # was never on the old path: its Applications (the Release Gate, Flagger, the
-# Collector) are born on the estate path, and so is `estate-dashboard`. A
-# Project that retires leaves the ledger: `knowledge` was retired with the old
-# knowledge stack (fleet-infra#495), and `knowledge-platform` and `media` were
-# split into the Projects that now run their apps under `estate`.
+# Collector) are born on the estate path, and so is `estate-dashboard`.
+# `node` declares nothing: its Node Agents are derived from `nodeAgents`, the
+# node contract and the pools, and it moved in JorisJonkers-dev/deploy-kit#659
+# (docs/runbooks/node-handover.md). A Project that retires leaves the ledger:
+# `knowledge` was retired with the old knowledge stack (fleet-infra#495), and
+# `knowledge-platform` and `media` were split into the Projects that now run
+# their apps under `estate`.
 handover:
   retireBy: 2027-03-31
   legacy:
@@ -354,7 +367,6 @@ handover:
     - agents
     - mail
     - utility
-    - node
   estate:
     - delivery
     - estate-dashboard
@@ -374,6 +386,7 @@ handover:
     - prowlarr
     - n8n
     - auth
+    - node
   # Where the old path runs a legacy Application that the estate path
   # reaches, rather than where its declaration puts it
   # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). Live Vault is
