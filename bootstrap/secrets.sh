@@ -18,9 +18,9 @@
 #   --only S[,S]           run these sections (and the auth-api stage, when one is a client)
 #   --rotate               with --only: replace values that are present instead of skipping
 #                          them: an OIDC client secret, an API key, the Discord webhook, the
-#                          metrics token. Never a key whose rotation breaks stored state
-#                          (a session key, a VAPID or S3 pair): those are only ever minted
-#                          where missing. --rotate-client-secret is the same flag.
+#                          metrics token, the Cloudflare DNS token. Never a key whose rotation
+#                          breaks stored state (a session key, a VAPID or S3 pair): those are
+#                          only ever minted where missing. --rotate-client-secret is the same flag.
 #   --replace              with --only hermes|overleaf: write a new version holding only the
 #                          fields offered; names every field it drops and waits for "yes"
 #   --rollback             with --only hermes|overleaf: roll the document back to a version
@@ -61,6 +61,7 @@ SECTIONS=(
   "policy-admin|the role deploy-kit's Vault policy job logs in as, confined to its namespace's names"
   "metrics-token|the token Prometheus scrapes Vault's metrics with; re-minted only when invalid"
   "discord-webhook|the Discord webhook Alertmanager posts alerts to"
+  "cloudflare|the Cloudflare DNS token the public tier's Traefik issues certificates with"
   "collector-key|the delivery Collector GitHub App's id, installation id and key"
   "reporter-key|the delivery Reporter GitHub App's id, installation id and key"
   "estate-dashboard|the dashboard's OIDC client secret, session key and GitHub token"
@@ -626,6 +627,69 @@ discord_test_alert() {
   else
     later "the test alert was not accepted (HTTP $code); verify delivery another way"
   fi
+}
+
+# ── cloudflare ────────────────────────────────────────────────────────────
+# On deploy-kit 1.0 the public tier's own Traefik issues its certificates: its
+# ACME resolver reads CF_DNS_API_TOKEN from the document platform.intent.yml's
+# acme.token names (deploy-kit src/model/tier-proxy.ts, DNS_TOKEN_KEYS). Until
+# edge hands over (JorisJonkers-dev/deploy-kit#662) fleet-infra's cert-manager
+# and external-dns read the same token from secret/platform/edge, so the first
+# write copies it from there and both keep working.
+CF_KV_PATH=platform/cloudflare
+CF_KEY=CF_DNS_API_TOKEN
+CF_EDGE_PATH=platform/edge
+CF_EDGE_KEY=cloudflare.dns_api_token
+CF_ZONE=jorisjonkers.dev
+section_cloudflare() {
+  local doc cur edge token from
+  doc=$(kv_load "$CF_KV_PATH")
+  cur=$(kv_field "$doc" "$CF_KEY")
+  doc=$(kv_load "$CF_EDGE_PATH")
+  edge=$(kv_field "$doc" "$CF_EDGE_KEY")
+  if [[ -n "$cur" && -z "$ROTATE" ]]; then
+    ok "secret/$CF_KV_PATH → $CF_KEY exists ($(fp "$cur"))"
+    [[ -z "$edge" || "$edge" == "$cur" ]] \
+      || note "it differs from secret/$CF_EDGE_PATH → $CF_EDGE_KEY ($(fp "$edge")), which fleet-infra still reads"
+    result cloudflare "already right"
+    return 0
+  fi
+  if [[ -n "$edge" && -z "$ROTATE" ]]; then
+    token=$edge
+    from="secret/$CF_EDGE_PATH → $CF_EDGE_KEY"
+  else
+    say "Creating the token is Cloudflare's side:"
+    step "dash.cloudflare.com → My Profile → API Tokens → Create Token → Edit zone DNS"
+    step "Zone Resources: Include, Specific zone, $CF_ZONE."
+    CF_TOKEN=""
+    ask_secret CF_TOKEN "Paste the new token (Enter skips):"
+    token=$(printf '%s' "${CF_TOKEN:-}" | tr -d '[:space:]')
+    unset CF_TOKEN
+    from="the token pasted"
+    if [[ -z "$token" ]]; then
+      later "secret/$CF_KV_PATH has no $CF_KEY: the public tier cannot issue certificates once edge hands over"
+      result cloudflare "not written"
+      return 0
+    fi
+    [[ "$token" != "$cur" ]] || die "that is the token already in use: a rotation that changes nothing is worse than none"
+  fi
+  if [[ -z "$LOCAL_VAULT" ]]; then
+    printf 'Authorization: Bearer %s\n' "$token" \
+      | curl -fsS --max-time 20 -H @- "https://api.cloudflare.com/client/v4/zones?name=$CF_ZONE" \
+      | jq -e --arg z "$CF_ZONE" 'any(.result[]; .name == $z)' >/dev/null \
+      || die "Cloudflare rejects $from ($(fp "$token")), or it cannot see $CF_ZONE"
+    ok "Cloudflare accepts $(fp "$token") and it sees $CF_ZONE"
+  fi
+  confirm "Write $from ($(fp "$token")) to secret/$CF_KV_PATH → $CF_KEY?" \
+    || { later "secret/$CF_KV_PATH → $CF_KEY is not written"; result cloudflare "not written"; return 0; }
+  printf '%s' "$token" | kv_set "$CF_KV_PATH" "$CF_KEY"
+  doc=$(kv_load "$CF_KV_PATH")
+  [[ "$(kv_field "$doc" "$CF_KEY")" == "$token" ]] || die "secret/$CF_KV_PATH does not read back"
+  ok "secret/$CF_KV_PATH → $CF_KEY = $(fp "$token")"
+  result cloudflare written
+  [[ -z "$ROTATE" || -z "$edge" ]] \
+    || later "secret/$CF_EDGE_PATH → $CF_EDGE_KEY still holds $(fp "$edge"): fleet-infra reads that one until edge hands over"
+  unset token
 }
 
 # ── collector-key, reporter-key ───────────────────────────────────────────
@@ -1411,6 +1475,7 @@ for CURRENT_SECTION in "${SELECTED[@]}"; do
     policy-admin) section_policy_admin ;;
     metrics-token) section_metrics_token ;;
     discord-webhook) section_discord_webhook ;;
+    cloudflare) section_cloudflare ;;
     collector-key) section_app_key collector-key ESTATE_COLLECTOR "$COLLECTOR_KV_PATH" Collector "${ESTATE_COLLECTOR_PEM:-}" ;;
     reporter-key) section_app_key reporter-key ESTATE_REPORTER "$REPORTER_KV_PATH" Reporter "${ESTATE_REPORTER_PEM:-}" ;;
     estate-dashboard) section_estate_dashboard ;;
