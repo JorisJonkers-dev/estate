@@ -54,6 +54,9 @@ parameters = pika.ConnectionParameters(
 )
 
 log("start")
+# STARTUP_DELAY stands in for a service that takes a while to start: the pod is
+# not Ready until it connects, so a rollout keeps the old one until then.
+time.sleep(float(os.environ.get("STARTUP_DELAY", "0")))
 while not stopping:
     try:
         connection = pika.BlockingConnection(parameters)

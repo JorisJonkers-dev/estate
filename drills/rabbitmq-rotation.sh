@@ -19,7 +19,10 @@
 #   ./drills/rabbitmq-rotation.sh --check   its preflight alone
 #
 # DRILL_TTL and DRILL_MAX_TTL set the drill engine's lease (60 s and 240 s),
-# DRILL_CONTEXT the kubectl context.
+# DRILL_RENEWAL_PERCENT how far into each lease VSO renews (67, VSO's default:
+# lower renews, and so replaces, earlier), DRILL_STARTUP_DELAY how long the
+# consumer waits before it connects, standing in for a slow-starting service
+# (0 s), and DRILL_CONTEXT the kubectl context.
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib/drill.sh"
 
@@ -30,6 +33,8 @@ VHOST=drill-369
 VAULT_NAME=drill-369-consumer # its policy and its Kubernetes auth role
 TTL=${DRILL_TTL:-60}
 MAX_TTL=${DRILL_MAX_TTL:-240}
+RENEWAL_PERCENT=${DRILL_RENEWAL_PERCENT:-67}
+STARTUP_DELAY=${DRILL_STARTUP_DELAY:-0}
 PYTHON_IMAGE=${DRILL_PYTHON_IMAGE:-python:3.13-alpine}
 PIKA_VERSION=1.3.2
 
@@ -41,6 +46,7 @@ OLD_USER=""
 NEW_USER=""
 REPLACED_AT=""
 OLD_GONE_AT=""
+BROKER_CUT_AT="" # when the broker force-closed a connection, by the consumer's clock
 OBSERVED=0
 declare -A FOLLOWED=() LINES=() TERMINATING=() POD_USER=() CONNECTED=()
 TIMELINE=()
@@ -189,7 +195,12 @@ consumer_event() {
   case "$ev" in
     connected) [[ -n "${CONNECTED[$user]:-}" ]] || CONNECTED[$user]=$ts ;;
     refused | connect-failed | lost) ANOMALIES+=("$at \`$pod\` as \`$user\`: $ev${detail:+, $detail}") ;;
-    closed) [[ "$detail" == *by=broker* ]] && ANOMALIES+=("$at \`$pod\` as \`$user\`: the broker closed the connection, $detail") ;;
+    closed)
+      if [[ "$detail" == *by=broker* ]]; then
+        ANOMALIES+=("$at \`$pod\` as \`$user\`: the broker closed the connection, $detail")
+        [[ -n "$BROKER_CUT_AT" ]] || BROKER_CUT_AT=$ts
+      fi
+      ;;
   esac
   tl "$at \`$pod\` $ev${detail:+ ($detail)}, as \`$user\`"
 }
@@ -362,7 +373,7 @@ spec:
   vaultAuthRef: consumer
   mount: $MOUNT
   path: creds/drill
-  renewalPercent: 67
+  renewalPercent: $RENEWAL_PERCENT
   revoke: true
   destination:
     name: consumer-creds
@@ -408,6 +419,7 @@ spec:
               valueFrom: {fieldRef: {fieldPath: metadata.name}}
             - {name: RABBITMQ_HOST, value: rabbitmq.data-system.svc.cluster.local}
             - {name: RABBITMQ_VHOST, value: $VHOST}
+            - {name: STARTUP_DELAY, value: "$STARTUP_DELAY"}
             - name: RABBITMQ_USERNAME
               valueFrom: {secretKeyRef: {name: consumer-creds, key: username}}
             - name: RABBITMQ_PASSWORD
@@ -446,7 +458,7 @@ tl "first lease \`$LEASE_ID\`, $(jq -r '.status.secretLease.duration' <<<"$VDS")
 
 # ── 5 ─────────────────────────────────────────────────────────────────────
 stage "Watch a renewal, a replacement, and the old user go"
-note "VSO renews at 67% of each lease; the max_ttl of ${MAX_TTL}s forces a replacement. Expect about $(_dur $((MAX_TTL + TTL)))."
+note "VSO renews at ${RENEWAL_PERCENT}% of each lease; the consumer waits ${STARTUP_DELAY}s before it connects; the max_ttl of ${MAX_TTL}s forces a replacement. Expect about $(_dur $((MAX_TTL + TTL)))."
 wait_until "a renewal, a replacement, the consumer on the new user, the old user gone" $((MAX_TTL * 3 + 300)) observe_rotation || true
 
 # ── 6 ─────────────────────────────────────────────────────────────────────
@@ -473,6 +485,18 @@ TEARDOWN_DONE=yes
 # ── 7 ─────────────────────────────────────────────────────────────────────
 stage "Result"
 NEW_AT=${CONNECTED[$NEW_USER]:-}
+# The old user's deletion, at the broker's own cut where the consumer saw one,
+# else when the drill first found the user gone.
+DELETED_AT=${BROKER_CUT_AT:-$OLD_GONE_AT}
+MARGIN=""
+if [[ -n "$REPLACED_AT" && -n "$DELETED_AT" ]]; then
+  MARGIN="- The replacement came $((DELETED_AT - REPLACED_AT)) s before RabbitMQ deleted the old user"
+  if [[ -n "$NEW_AT" ]]; then
+    if ((NEW_AT <= DELETED_AT)); then MARGIN+=", and the consumer was on the new user $((DELETED_AT - NEW_AT)) s before it"
+    else MARGIN+=", but the consumer reached the new user only $((NEW_AT - DELETED_AT)) s after it"; fi
+  fi
+  MARGIN+=" (renewal at ${RENEWAL_PERCENT}%, a ${STARTUP_DELAY} s startup)."
+fi
 OLD_SAW=()
 for pod in "${!POD_USER[@]}"; do
   [[ "${POD_USER[$pod]}" == "$OLD_USER" && -n "$OLD_USER" ]] || continue
@@ -480,14 +504,14 @@ for pod in "${!POD_USER[@]}"; do
     "$RUN_DIR/consumer-$pod.log" | tail -n 8)")
   OLD_SAW+=("$(jq -R -r 'fromjson? | select(.event == "tick") | "- last successful tick \(.ts | floor | strftime("%H:%M:%S"))"' "$RUN_DIR/consumer-$pod.log" | tail -n 1)")
 done
-if ((RENEWALS >= 1)) && [[ -n "$REPLACED_AT" && -n "$NEW_AT" && -n "$OLD_GONE_AT" ]] && ((NEW_AT <= OLD_GONE_AT)) && ((${#ANOMALIES[@]} == 0)); then
-  VERDICT="the cycle is clean: the consumer ran on the new user $(_dur $((OLD_GONE_AT - NEW_AT))) before RabbitMQ dropped the old one, and no connection was refused or closed by the broker. The dynamic credential holds."
+if ((RENEWALS >= 1)) && [[ -n "$REPLACED_AT" && -n "$NEW_AT" && -n "$OLD_GONE_AT" ]] && ((NEW_AT <= DELETED_AT)) && ((${#ANOMALIES[@]} == 0)); then
+  VERDICT="the cycle is clean: the consumer ran on the new user $(_dur $((DELETED_AT - NEW_AT))) before RabbitMQ dropped the old one, and no connection was refused or closed by the broker. The dynamic credential holds."
 else
   VERDICT="the cycle is not clean"
   ((RENEWALS >= 1)) || VERDICT+="; no renewal was seen"
   [[ -n "$REPLACED_AT" ]] || VERDICT+="; no replacement was seen"
   [[ -n "$REPLACED_AT" && -z "$NEW_AT" ]] && VERDICT+="; the consumer never connected as the new user"
-  [[ -n "$NEW_AT" && -n "$OLD_GONE_AT" ]] && ((NEW_AT > OLD_GONE_AT)) && VERDICT+="; the old user was deleted $(_dur $((NEW_AT - OLD_GONE_AT))) before the consumer was on the new one"
+  [[ -n "$NEW_AT" && -n "$DELETED_AT" ]] && ((NEW_AT > DELETED_AT)) && VERDICT+="; the old user was deleted $(_dur $((NEW_AT - DELETED_AT))) before the consumer was on the new one"
   ((${#ANOMALIES[@]})) && VERDICT+="; the consumer saw ${#ANOMALIES[@]} failure(s), listed below"
   VERDICT+=". That is the evidence for choosing between a dynamic and a static credential."
 fi
@@ -495,12 +519,13 @@ result_head "a RabbitMQ dynamic credential rotated under a connected consumer"
 res "### The live mount's lease" "" \
   "Read before the drill and unchanged after it: \`sys/mounts/rabbitmq/tune\` is \`$LIVE_TUNE\`, and \`rabbitmq/config/lease\` is \`$LIVE_LEASE\`. Role \`app-consumer\`: \`$LIVE_ROLE\`." "" \
   "### The drill" "" \
-  "A separate engine, \`$MOUNT\`, on the same broker, leasing for ${TTL}s up to ${MAX_TTL}s, so the live mount and its consumer were never touched. VSO (\`$(kc -n vso-system get deploy vault-secrets-operator-controller-manager -o jsonpath='{.spec.template.spec.containers[-1].image}' 2>/dev/null || printf '?')\`) delivered it with a \`VaultDynamicSecret\` (\`renewalPercent: 67\`, \`rolloutRestartTargets\` naming the consumer) to one pika consumer holding one connection, with a 10 s heartbeat and a publish every 5 s." "" \
+  "A separate engine, \`$MOUNT\`, on the same broker, leasing for ${TTL}s up to ${MAX_TTL}s, so the live mount and its consumer were never touched. VSO (\`$(kc -n vso-system get deploy vault-secrets-operator-controller-manager -o jsonpath='{.spec.template.spec.containers[-1].image}' 2>/dev/null || printf '?')\`) delivered it with a \`VaultDynamicSecret\` (\`renewalPercent: $RENEWAL_PERCENT\`, \`rolloutRestartTargets\` naming the consumer) to one pika consumer holding one connection, with a 10 s heartbeat and a publish every 5 s, which waits ${STARTUP_DELAY}s after starting before it connects and is Ready only once connected." "" \
   "| time | what happened |" "|---|---|" "${TIMELINE[@]}" "" \
   "What the old connection (\`${OLD_USER:-none}\`) saw:" "" "${OLD_SAW[@]:-- nothing recorded}" ""
 if ((${#ANOMALIES[@]})); then
   res "Failures the consumer logged:" "" "${ANOMALIES[@]/#/- }" ""
 fi
+[[ -n "$MARGIN" ]] && res "$MARGIN" ""
 res "**Verdict:** $VERDICT" "" "### Done when" \
   "- [x] The mount's real lease lifetime is recorded." \
   "- [$( ((RENEWALS >= 1)) && [[ -n "$REPLACED_AT" ]] && printf x || printf ' ')] One renewal and one replacement are observed, with the consumer's log of each." \
