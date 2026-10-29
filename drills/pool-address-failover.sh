@@ -254,13 +254,21 @@ else
     POOL=$LAN_POOL
   else
     ADDRESS=${DRILL_ADDRESS:-}
-    if [[ -z "$ADDRESS" ]]; then
-      say "Pick an address on the LAN that nothing uses, outside the router's DHCP range."
-      ask ADDRESS "Address for the drill:"
-    fi
-    [[ "$ADDRESS" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "$ADDRESS is not an IPv4 address"
-    lb_addresses | grep -qx "$ADDRESS" && die "$ADDRESS is a Service's address already"
-    ping -c 1 -t 1 "$ADDRESS" >/dev/null 2>&1 && die "$ADDRESS answers ping: something uses it"
+    [[ -z "$ADDRESS" ]] && say "Pick an address on the LAN that nothing uses, outside the router's DHCP range."
+    while :; do
+      [[ -n "$ADDRESS" ]] || ask ADDRESS "Address for the drill:"
+      if [[ ! "$ADDRESS" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        warn "${ADDRESS:-nothing} is not an IPv4 address"
+      elif lb_addresses | grep -qx "$ADDRESS"; then
+        warn "$ADDRESS is a Service's address already"
+      elif ping -c 1 -t 1 "$ADDRESS" >/dev/null 2>&1; then
+        warn "$ADDRESS answers ping: something uses it"
+      else
+        break
+      fi
+      [[ -n "${DRILL_ADDRESS:-}" ]] && die "DRILL_ADDRESS=$DRILL_ADDRESS cannot be the drill's address"
+      ADDRESS=""
+    done
     ok "$ADDRESS answers nothing"
     POOL=drill-372
     OWN_POOL=yes

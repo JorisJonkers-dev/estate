@@ -25,8 +25,9 @@ the issue that asks it.
   the start, the actions only you can take (such as pulling a cable), and one
   judgement at the end.
 - **While it waits**, `c` copies the command again, `s` gives up on the wait
-  and `q` stops the drill. A wait that times out asks whether to keep
-  waiting, carry on, or stop.
+  and `q` stops the drill. The first wait after a command it hands you waits
+  at your pace, with no time limit, and says it is waiting on you. Any other
+  wait that times out asks whether to keep waiting, carry on, or stop.
 - **Stopping early** prints, and copies, the commands that remove everything
   it asked you to create. A run that finds an earlier run's namespace hands
   you its removal first.

@@ -42,6 +42,7 @@ RESULT=""       # the Markdown the drill posts on its issue
 T0=$EPOCHSECONDS
 HANDED=0
 LAST_HANDED=""
+WAITING_ON_YOU="" # set by hand until a wait first sees its effect
 HINT=""         # what a wait's check last saw, shown beside the spinner
 CHOICE=""
 TEARDOWN=""     # commands that remove what the drill asked you to create
@@ -130,6 +131,7 @@ hand() {
   file="$RUN_DIR/$(printf '%02d' "$HANDED")-$(tr 'A-Z ' 'a-z-' <<<"$title" | tr -cd 'a-z0-9-').sh"
   printf '%s\n' "$body" >"$file"
   LAST_HANDED=$body
+  WAITING_ON_YOU=yes
   _spin_clear
   _bell
   printf '\n  %s┌─ you run: %s%s%s\n' "$YELLOW" "$BOLD" "$title" "$RESET" >&3
@@ -149,15 +151,21 @@ hand() {
 # it takes. While it waits, c copies the last command again, s gives up on the
 # wait and q stops the drill. Returns 0 once CHECK succeeded, 1 on the time
 # limit, 2 when skipped.
+#
+# The first wait after a handed command waits on you, at your pace: it has no
+# time limit, and says so until its check sees something.
 wait_until() {
   local desc="$1" limit="$2" start=$EPOCHSECONDS key i
   shift 2
   HINT=""
+  [[ -n "$WAITING_ON_YOU" ]] && limit=0
   while :; do
     if "$@" >/dev/null 2>&1; then
+      WAITING_ON_YOU=""
       ok "$desc $DIM($(_dur $((EPOCHSECONDS - start))))$RESET"
       return 0
     fi
+    [[ -n "$WAITING_ON_YOU" && -z "$HINT" ]] && HINT="waiting for you to run the command above in a second terminal (c copies it again)"
     if ((limit > 0 && EPOCHSECONDS - start >= limit)); then
       bad "$desc: not within $(_dur "$limit")${HINT:+ (last seen: $HINT)}"
       return 1
