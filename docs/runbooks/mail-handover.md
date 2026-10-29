@@ -19,8 +19,7 @@ never an agent's.
 |---|---|---|
 | W1 | `delivery`, `_canary` and `_estate` republished on 1.0.0 | JorisJonkers-dev/deploy-kit#380 |
 | W2 | the handover runbook this file follows | JorisJonkers-dev/deploy-kit#381 |
-| W3 | this repository's releases publish with deploy-kit 1.2.0: the mail fragment names the sidecar's `command` (1.1.0) and the Asset it mounts (1.2.0), which an older toolkit refuses, so the Publish Fragment release `release.yml` calls runs 1.2.0 | this repository |
-| W4 | `stalwart.recovery_admin` in `secret/platform/mail`: `bootstrap/secrets.sh --only mail` writes it from the admin login | a person |
+| W3 | `stalwart.recovery_admin` in `secret/platform/mail`: `bootstrap/secrets.sh --only mail` writes it from the admin login | a person |
 
 ## The changes, in order
 
@@ -28,7 +27,7 @@ never an agent's.
 |---|---|---|---|
 | M1 | fleet-infra, PR "orphan the mail Project" | every object `cluster/flux/apps/mail/` applies gets `kustomize.toolkit.fluxcd.io/prune: disabled`, the namespace and the claim `stalwart-data` above all: the claim's volume reclaims `Delete`, so a prune would destroy every mailbox | none |
 | M2 | fleet-infra, PR "drop the mail Project's manifests" | the manifests and the Flux Kustomization `apps-mail` leave fleet-infra; `ingressroute-stalwart.yaml` moves unchanged to `apps-edge`, beside the redirect Middleware it already uses, since routes flip only with the edge's own handover | none |
-| P | a person | `bootstrap/secrets.sh --only mail` (W4); it also restarts `auth-api-primary` one pod at a time, since auth reads `secret/platform/mail` too | none |
+| P | a person | `bootstrap/secrets.sh --only mail` (W3); it also restarts `auth-api-primary` one pod at a time, since auth reads `secret/platform/mail` too | none |
 | B | this repository, this change, then its release | the ledger moves `mail` to `estate`, and the Platform document gains the L4 Address `mail-node` | the recreate |
 | C | fleet-infra | the drift check's entry for `stalwart-provisioner`, and the `mail-system` binding of the old `vso` role in `bootstrap-auth.sh` | none |
 
