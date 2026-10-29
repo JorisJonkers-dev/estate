@@ -9,7 +9,7 @@ the issue that asks it.
 |---|---|---|---|
 | [`pool-address-failover.sh`](pool-address-failover.sh) | JorisJonkers-dev/deploy-kit#372 | how long DNS goes unanswered when the node announcing one pool address fails, for a pod failure and a node failure | a machine on the Enschede LAN; the drill takes the announcing node off the network for 90 s |
 | [`flagger-spread-promotion.sh`](flagger-spread-promotion.sh) | JorisJonkers-dev/deploy-kit#371 | whether Flagger keeps `matchLabelKeys` on its primary, and promotes a Process with as many replicas as nodes | anywhere kubectl reaches the cluster |
-| [`rabbitmq-rotation.sh`](rabbitmq-rotation.sh) | JorisJonkers-dev/deploy-kit#369 | whether VSO moves a connected RabbitMQ consumer onto a new credential before Vault deletes the old user | anywhere kubectl reaches the cluster; Vault signs you in |
+| [`rabbitmq-rotation.sh`](rabbitmq-rotation.sh) | JorisJonkers-dev/deploy-kit#369 | whether VSO moves a connected RabbitMQ consumer onto a new credential before Vault deletes the old user; `DRILL_RENEWAL_PERCENT` and `DRILL_STARTUP_DELAY` test an early rotation against a slow-starting consumer | anywhere kubectl reaches the cluster; Vault signs you in |
 
 ## How a drill runs
 
