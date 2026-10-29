@@ -115,6 +115,18 @@ durability:
         - { cidr: 185.219.143.84/32, port: 443 }
         - { cidr: 185.219.143.85/32, port: 443 }
 
+# The addresses a client off the cluster reaches a raw surface on, by name
+# (deploy-kit spec/v1/14-platform-intent.md#l4-addresses). lan-dns is the
+# address adguard answers the LAN's DNS on: 192.168.0.98, the first of the two
+# the router names today. The old path's MetalLB pool `enschede-lan` holds
+# .97-.99; a pool named lan-dns holding .98 alone has to exist before utility
+# hands over, since the address pool's name is the L4 Address's.
+l4Addresses:
+  lan-dns:
+    kind: pool
+    site: enschede
+    range: 192.168.0.98/32
+
 # Directories several projects share, on the node that holds them (deploy-kit
 # spec/v1/14-platform-intent.md#libraries). /srv/media is the btrfs media disk on
 # enschede-t1000-1, owned deploy:deploy (gid 1000, nix-config's deployUser), as
@@ -158,6 +170,14 @@ nodeAgents:
   gpu-device: { image: nvidia-device-plugin, memory: 64Mi, cpu: 10m }
   gpu-metrics: { image: dcgm-exporter, memory: 256Mi, cpu: 50m }
   node-metrics: { image: node-exporter, memory: 64Mi, cpu: 20m }
+  # The announcer of every pool-kind L4 Address, at the MetalLB fleet-infra runs
+  # today. The live pods request nothing; these are deploy-kit's worked
+  # example's quantities.
+  l4-speaker:
+    image: metallb-speaker
+    memory: 64Mi
+    cpu: 20m
+    controller: { image: metallb-controller, memory: 64Mi, cpu: 10m }
 
 # The VPN every attached Process's traffic leaves through (deploy-kit
 # spec/v1/14-platform-intent.md#vpn): gluetun on ProtonVPN WireGuard, on
@@ -261,12 +281,23 @@ delivery:
 # The Applications whose Processes may hold Kubernetes API access, and where
 # the API server answers. Each is in the delivery Project, save the
 # estate-dashboard, which reads Flux's sources and units and Flagger's Canaries
-# and writes nothing (JorisJonkers-dev/estate-dashboard). This document
-# validates only beside its fragment: alone it refuses E_UNKNOWN_API_HOLDER.
+# and writes nothing (JorisJonkers-dev/estate-dashboard), and headlamp, which
+# holds no rule and acts with each signed-in user's own token. This document
+# validates only beside their fragments: alone it refuses E_UNKNOWN_API_HOLDER.
 apiAccess:
-  holders: [delivery/flagger, delivery/release-gate, delivery/collector, delivery/reporter, estate-dashboard/estate-dashboard]
+  holders: [delivery/flagger, delivery/release-gate, delivery/collector, delivery/reporter, estate-dashboard/estate-dashboard, utility/headlamp]
   server:
     - { cidr: 10.43.0.1/32, port: 443 } # Service default/kubernetes, read 2026-10-07
+
+# Who among people may use the cluster, and as what (deploy-kit
+# spec/v1/14-platform-intent.md#human-grants). The one grant the old path holds
+# is ClusterRoleBinding headlamp-oidc-admin, in fleet-infra beside headlamp; it
+# moves here with utility's handover, because removing headlamp must not remove
+# anyone's kubectl access. auth-api decides who is in the group.
+humanGrants:
+  - group: oidc:k8s-admin
+    clusterRole: cluster-admin
+    reason: the platform owner administers the cluster with kubectl and headlamp over OIDC
 
 # The job that writes every rendered Vault policy and role into the Secret
 # Store. Its role, and the role's binding to the job's ServiceAccount
@@ -302,7 +333,6 @@ handover:
     - data
     - agents
     - mail
-    - utility
     - node
   estate:
     - delivery
@@ -323,6 +353,7 @@ handover:
     - prowlarr
     - n8n
     - auth
+    - utility
   # Where the old path runs a legacy Application that the estate path
   # reaches, rather than where its declaration puts it
   # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). Live Vault is

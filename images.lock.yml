@@ -165,6 +165,23 @@ images:
     uid: 0
     gid: 0
     version: "0.4.2"
+  # utility's two, the images fleet-infra runs today (read from the live pods on
+  # 2026-10-29). AdGuard's image names no user and runs as root on the old path;
+  # here it runs as 1000, the gid the old pods' fsGroup used, on unprivileged
+  # ports. headlamp's image names its user (`headlamp`); this is that user's
+  # number, as the old path's chart runs it.
+  adguard:
+    repository: docker.io/adguard/adguardhome
+    digest: "sha256:aba9e3bf0613be3ba3755e1fc311b126e2c24bec25e18b6483894a88283074f0"
+    uid: 1000
+    gid: 1000
+    version: "v0.107.79"
+  headlamp:
+    repository: ghcr.io/headlamp-k8s/headlamp
+    digest: "sha256:db3f0e0fc58d358d41daa3fe7fc852437552c7ee873c3645470f7b86a8e0db49"
+    uid: 100
+    gid: 101
+    version: "v0.45.0"
   # The Node Agents (platform.intent.yml's nodeAgents), the images fleet-infra
   # runs today. The device plugin and the card counters run as root, as the
   # catalog's privileges need; the host metrics as the image's own user.
@@ -186,3 +203,19 @@ images:
     uid: 65532
     gid: 65532
     version: "v1.12.1"
+  # MetalLB v0.15.3, the l4-speaker Node Agent and its controller, as fleet-infra
+  # runs them (read from the live pods on 2026-10-29). The speaker runs as root,
+  # as the catalog's host network and NET_RAW need; the controller as the
+  # nobody user the old path's chart sets.
+  metallb-speaker:
+    repository: quay.io/metallb/speaker
+    digest: "sha256:c6a5b25b2e1fba610a57b2db4bb8141d7c133569d561a8cc29e38ca5113efbc4"
+    uid: 0
+    gid: 0
+    version: "v0.15.3"
+  metallb-controller:
+    repository: quay.io/metallb/controller
+    digest: "sha256:6698ccc54c380913816ed1fd0758637ec87dd79da419c4ab170a2c26c158ab89"
+    uid: 65534
+    gid: 65534
+    version: "v0.15.3"

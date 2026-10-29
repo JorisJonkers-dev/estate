@@ -1,0 +1,104 @@
+# deploy-kit Project Intent for utility: adguard, the LAN's DNS resolver, and headlamp, the
+# cluster dashboard. Both run third-party images, so no repository of their own publishes them:
+# this file publishes with the Platform document, on this repository's releases, and their
+# images are in images.lock.yml. Neither holds data.
+#
+# It starts from deploy-kit's worked example (spec/v1/examples/utility/utility.project.yml).
+# Each value that differs from it is read from the live objects fleet-infra runs in
+# utility-system, and the comment beside it says why. The handover's diff against those objects
+# is JorisJonkers-dev/deploy-kit#657.
+
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Project
+schemaVersion: 1.0.0
+
+project: utility # the namespace derives: utility-system, where both already run
+owner: joris
+
+applications:
+  - id: adguard
+    # The LAN's devices ask adguard for names on 53, over UDP and TCP, at lan-dns: one
+    # address, 192.168.0.98, the one the router names first today. Both entries are one
+    # Service, so one address answers both protocols. The two replicas are failover, not load
+    # sharing: one node announces the address, and the other replica takes over when that
+    # node goes, in 5.3s for a pod and 6.6s for a node (JorisJonkers-dev/deploy-kit#372).
+    l4Exposure:
+      - { address: lan-dns, port: 53, protocol: udp, process: adguard, surface: dns }
+      - { address: lan-dns, port: 53, protocol: tcp, process: adguard, surface: dns }
+
+    # The web UI, at the host and behind the forward-auth the old path's IngressRoute has:
+    # AdGuard runs with no users of its own.
+    exposure:
+      - name: public
+        host: adguard.jorisjonkers.dev
+        audience: authenticated
+        routes:
+          - { path: /, match: prefix, process: adguard, surface: http }
+
+    processes:
+      - name: adguard
+        lifecycle: application
+        image: adguard # adguard/adguardhome; the lock resolves digest, uid and gid
+        runtime: none
+        provides:
+          http: 3000
+          dns: 5353
+        # The live pods request 50m and 128Mi, and are limited at 512Mi; the model sets the
+        # request to the limit.
+        placement:
+          memory: 128Mi
+          cpu: 50m
+          capabilities: [adguard]
+        replicas:
+          count: 2
+          reason: the LAN keeps its resolver while one node is down
+          across: node
+        writablePaths: [/opt/adguardhome/work, /opt/adguardhome/conf]
+        # AdGuard reads its configuration from here and rewrites it on every start, so a
+        # read-only mount stops it. It has to be a seeded Asset, copied onto the writable path
+        # before each start (JorisJonkers-dev/deploy-kit#693), before this file merges.
+        assets:
+          - from: config/AdGuardHome.yaml
+            mountAt: /opt/adguardhome/conf/AdGuardHome.yaml
+        # Its DNS-over-HTTPS upstream, and the filter lists it fetches, are on the internet.
+        egress: { to: internet, reason: answers the LAN from a DNS-over-HTTPS upstream }
+        # On the DNS port, as the old path probes: with the Local traffic policy, readiness is
+        # what decides which node announces the address, so it has to mean "answers DNS". The
+        # web UI stays up while the DNS listener is wedged.
+        probes:
+          readiness: { tcp: 5353 }
+          liveness: { tcp: 5353 }
+        startupBudget: 30s
+        cutover: continuous
+
+  - id: headlamp
+    # The host, audience and OIDC client the old path serves: auth-api's `headlamp` client
+    # names https://dashboard.jorisjonkers.dev/oidc-callback, so the worked example's LAN
+    # host would sign no one in.
+    exposure:
+      - name: public
+        host: dashboard.jorisjonkers.dev
+        audience: authenticated
+        routes:
+          - { path: /, match: prefix, process: headlamp, surface: http }
+    processes:
+      - name: headlamp
+        lifecycle: application
+        image: headlamp # ghcr.io/headlamp-k8s/headlamp; the lock resolves digest, uid and gid
+        runtime: none
+        provides:
+          http: 4466
+        # The live pod requests nothing; the worked example's quantities stand.
+        placement:
+          memory: 128Mi
+          cpu: 50m
+        api:
+          reason: it acts on the API with each signed-in user's own token, and holds nothing of its own
+        # It exchanges each user's sign-in code at auth-api's token endpoint.
+        dependsOn:
+          - { application: auth, surface: http }
+        probes:
+          readiness: { path: /, port: 4466 }
+          liveness: { path: /, port: 4466 }
+        startupBudget: 30s
+        cutover: continuous
