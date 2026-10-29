@@ -173,13 +173,14 @@ watch_failed_node() {
   event "Kubernetes marks $FAILED_NODE NotReady"
 }
 
-# answers_stopped FROM_MS succeeds once a query after FROM_MS went unanswered.
+# answers_stopped FROM_MS succeeds once five queries in a row after FROM_MS went
+# unanswered: an outage, not a stray lost packet.
 answers_stopped() {
   local gap
   watch_failed_node
   gap=$(probe gap "$PROBE_LOG" "$1") || return 1
-  HINT="every query answered so far"
-  (($(jq -r .misses <<<"$gap") > 0))
+  HINT="$(jq -r .misses <<<"$gap") unanswered in a row so far"
+  (($(jq -r .misses <<<"$gap") >= 5))
 }
 
 # answers_back FROM_MS succeeds once a stretch of misses after FROM_MS has
@@ -197,6 +198,13 @@ answers_back() {
   HINT="$(jq -r .misses <<<"$gap") unanswered"
   [[ "$(jq -r .open <<<"$gap")" == false ]] && steady 10
 }
+
+# node_lost succeeds once Kubernetes marks the failed node NotReady.
+node_lost() { watch_failed_node; HINT="still Ready"; [[ -n "$NOT_READY_AT" ]]; }
+
+# outage_over FROM_MS succeeds once DRILL_OUTAGE seconds have passed since FROM_MS,
+# so a node Kubernetes has not yet noticed is not taken for one already back.
+outage_over() { watch_failed_node; ((EPOCHSECONDS - $1 / 1000 >= OUTAGE)); }
 
 pod_going() {
   local out
@@ -360,6 +368,16 @@ spec:
       labels: {app: responder}
     spec:
       automountServiceAccountToken: false
+      # Pulls the node-failure pod's image onto both nodes now, so the cut
+      # starts in seconds rather than after a pull.
+      initContainers:
+        - name: pull-cut-image
+          image: $CUT_IMAGE
+          command: ["true"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -483,7 +501,12 @@ data:
     iface=\$(ip -4 route show default | awk '{print \$5; exit}')
     [ -n "\$iface" ]
     echo "taking \$iface down for ${OUTAGE}s"
-    systemd-run --unit=drill-$RUN_ID-link-up --on-active=$OUTAGE "\$(command -v ip)" link set dev "\$iface" up
+    restore="\$(command -v ip) link set dev \$iface up"
+    if systemctl is-active --quiet pi-net-recovery.timer; then
+      restore="\$restore; \$(command -v systemctl) start pi-net-recovery.timer"
+    fi
+    systemd-run --unit=drill-$RUN_ID-link-up --on-active=$OUTAGE /bin/sh -c "\$restore"
+    systemctl stop pi-net-recovery.timer 2>/dev/null || true
     ip link set dev "\$iface" down
 ---
 apiVersion: v1
@@ -517,14 +540,27 @@ fi
 need "queries go unanswered" 900 answers_stopped "$FROM" || die "no query went unanswered; did $FAILED_NODE go off the network?"
 need "answers back from the other node" 300 answers_back "$FROM" || true
 measure NODE "$FROM"
+# A real outage shows either another node answering after the gap, or
+# Kubernetes losing the node; a gap with neither was no failure of the node.
+NODE_VALID=yes
+if [[ "$(jq -r '.before.node // ""' <<<"$GAP_NODE")" == "$(jq -r '.after.node // ""' <<<"$GAP_NODE")" ]] \
+  && ! wait_until "Kubernetes loses $FAILED_NODE" $((OUTAGE + 30)) node_lost; then
+  NODE_VALID=""
+  bad "$FAILED_NODE answered on both sides of the gap and Kubernetes never lost it: it never went off the network, so the gap is no measurement"
+fi
 MAC_AFTER=$(arp_mac "$ADDRESS")
 event "ARP for $ADDRESS here: ${MAC_BEFORE:-none} → ${MAC_AFTER:-none}"
 if [[ -n "$DRILL_HAND" ]]; then
   shout "Bring $FAILED_NODE back: plug it in, or power it on."
   need "$FAILED_NODE Ready again" 0 node_ready "$FAILED_NODE" || true
-elif ! need "$FAILED_NODE back and Ready" $((OUTAGE + 600)) node_ready "$FAILED_NODE"; then
-  shout "$FAILED_NODE did not come back: power-cycle it."
-  need "$FAILED_NODE Ready again" 0 node_ready "$FAILED_NODE" || true
+else
+  # Kubernetes notices a node only after its grace period, so a node it still
+  # calls Ready may be off the network yet: the outage runs its length first.
+  wait_until "the ${OUTAGE}s outage is over" $((OUTAGE + 30)) outage_over "$FROM" || true
+  if ! wait_until "$FAILED_NODE back and Ready" 600 node_ready "$FAILED_NODE"; then
+    shout "$FAILED_NODE did not come back: power-cycle it."
+    need "$FAILED_NODE Ready again" 0 node_ready "$FAILED_NODE" || true
+  fi
 fi
 need "both responders Ready again" 600 responders_ready || true
 
@@ -550,17 +586,20 @@ gap_row() {
   jq -r --arg what "$1" '"| \($what) | \(.before.node // "?") → \(.after.node // "none within the wait") | \(.gap_ms / 1000 * 10 | floor / 10) s | \(.misses) |"' <<<"$2"
 }
 result_head "the failover gap of one pool address in front of two replicas"
+# shellcheck disable=SC2016 # the backticks are Markdown, printed as they are
 res "Two CoreDNS responders on \`${NODES[0]}\` and \`${NODES[1]}\`, behind one LoadBalancer Service at \`$ADDRESS\` (pool \`$POOL\`) with \`externalTrafficPolicy: Local\`. A LAN client ($CLIENT) asked \`version.bind\` every 100 ms with a 250 ms timeout; every answer names the node that gave it." "" \
   "| failure | answered by, before → after | gap | unanswered queries |" \
   "|---|---|---|---|" \
   "$(gap_row "pod on \`$POD_ANNOUNCER\` deleted" "$GAP_POD")" \
-  "$(gap_row "\`$FAILED_NODE\` off the network" "$GAP_NODE")" "" \
-  "- The client's ARP entry for \`$ADDRESS\` went from \`${MAC_BEFORE:-none}\` to \`${MAC_AFTER:-none}\` across the node failure." \
+  "$(if [[ -n "$NODE_VALID" ]]; then gap_row "\`$FAILED_NODE\` off the network" "$GAP_NODE"; else printf '| `%s` off the network | not measured: the node never went off the network | — | — |' "$FAILED_NODE"; fi)" "" \
+  "$( [[ -n "$MAC_BEFORE$MAC_AFTER" ]] && printf '- The client'\''s ARP entry for `%s` went from `%s` to `%s` across the node failure.' "$ADDRESS" "${MAC_BEFORE:-none}" "${MAC_AFTER:-none}")" \
   "- Kubernetes marked \`$FAILED_NODE\` NotReady $(if [[ -n "$NOT_READY_AT" ]]; then printf '%s after it was taken off' "$(_dur $((NOT_READY_AT - ${FROM:0:${#FROM}-3})))"; else printf 'not at all while it was off'; fi)." \
   "- The gap runs from the last answer before the failure to the first answer after it; the full log is \`probe.log\` in the run's record."
 GAP_S=$(jq -r '.gap_ms / 1000 * 10 | floor / 10' <<<"$GAP_NODE")
-say "The node failure left $ADDRESS unanswered for $BOLD$GAP_S s$RESET (the pod failure: $(jq -r '.gap_ms / 1000 * 10 | floor / 10' <<<"$GAP_POD") s)."
-if [[ ! -t 0 ]]; then
+[[ -n "$NODE_VALID" ]] && say "The node failure left $ADDRESS unanswered for $BOLD$GAP_S s$RESET (the pod failure: $(jq -r '.gap_ms / 1000 * 10 | floor / 10' <<<"$GAP_POD") s)."
+if [[ -z "$NODE_VALID" ]]; then
+  res "" "**Verdict:** none yet: the node failure was not measured; run the drill again."
+elif [[ ! -t 0 ]]; then
   res "" "**Verdict:** the maintainer's: is $GAP_S s acceptable for the whole LAN's DNS on one address, or does it reopen the one-address decision?"
 else
   choose "Is that gap acceptable for the whole LAN's DNS on one address? (y/n)" y n
@@ -571,7 +610,7 @@ else
   fi
 fi
 res "" "### Done when" \
-  "- [x] The gap is recorded for a pod failure and for a node failure." \
+  "- [$([[ -n "$NODE_VALID" ]] && printf x || printf ' ')] The gap is recorded for a pod failure and for a node failure." \
   "- [x] The result is posted here." \
   "- [$([[ -z "$LEFT" ]] && printf x || printf ' ')] Nothing the drill created is left in the cluster.${LEFT:+ Left:$LEFT}"
 show_result
