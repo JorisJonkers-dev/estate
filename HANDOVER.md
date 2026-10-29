@@ -20,15 +20,14 @@ holds data.
   env file (`env/headlamp/base.env`, the flags the old chart passed, as
   `HEADLAMP_CONFIG_*`).
 - **`platform.intent.yml`**:
-  - `l4Addresses.lan-dns`, a pool of one address, 192.168.0.98.
-  - `nodeAgents.l4-speaker`, MetalLB as fleet-infra runs it. Composition
-    refuses a pool without it (`E_NO_NODE_AGENT_POLICY`); `validate` does not.
+  - `l4Addresses.lan-dns`, a pool of one address, 192.168.0.98, announced by
+    the `l4-speaker` Node Agent the edge's `lan-edge` pool already declares.
   - `apiAccess.holders` gains `utility/headlamp`.
   - `humanGrants`: the `oidc:k8s-admin` grant to `cluster-admin`, which the old
     path holds as `headlamp-oidc-admin` beside headlamp.
   - The ledger moves `utility` from `legacy` to `estate`.
-- **`images.lock.yml`**: adguard, headlamp, metallb-speaker and
-  metallb-controller, by the digests the live pods run.
+- **`images.lock.yml`**: adguard and headlamp, by the digests the live pods
+  run.
 - **`participants.yml`** and **`release.yml`**: utility publishes with the
   Platform document, on this repository's releases.
 
@@ -55,7 +54,9 @@ holds data.
 - **fleet-infra, before the third change:**
   - MetalLB has an `IPAddressPool` named `lan-dns`, holding 192.168.0.98/32
     with `autoAssign: false`, and an `L2Advertisement` for it; `enschede-lan`
-    no longer holds .98. MetalLB refuses two pools that overlap.
+    no longer holds .98. MetalLB refuses two pools that overlap, and the old
+    `adguard-ha-a` Service loses .98 when it leaves `enschede-lan`, so this
+    lands in the cut-over window, while .97 still answers.
   - The old headlamp Service also exposes 4466, and the IngressRoute
     `edge-system/headlamp` names 4466 rather than 80: Flagger's `headlamp`
     Service exposes 4466 alone.

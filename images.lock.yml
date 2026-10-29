@@ -183,8 +183,9 @@ images:
     gid: 101
     version: "v0.45.0"
   # The Node Agents (platform.intent.yml's nodeAgents), the images fleet-infra
-  # runs today. The device plugin and the card counters run as root, as the
-  # catalog's privileges need; the host metrics as the image's own user.
+  # runs today. The device plugin, the card counters and the L4 speaker run as
+  # root, as the catalog's privileges need; the host metrics and the speaker's
+  # controller as the image's own user.
   nvidia-device-plugin:
     repository: nvcr.io/nvidia/k8s-device-plugin
     digest: "sha256:a61ba9fd8efb82f3a79f877f7580e02c1e8e7593f62473644bc9c79e315c3312"
@@ -203,10 +204,8 @@ images:
     uid: 65532
     gid: 65532
     version: "v1.12.1"
-  # MetalLB v0.15.3, the l4-speaker Node Agent and its controller, as fleet-infra
-  # runs them (read from the live pods on 2026-10-29). The speaker runs as root,
-  # as the catalog's host network and NET_RAW need; the controller as the
-  # nobody user the old path's chart sets.
+  # MetalLB, which announces the LAN edge's pool, resolved on 2026-10-29 from
+  # the tags fleet-infra runs.
   metallb-speaker:
     repository: quay.io/metallb/speaker
     digest: "sha256:c6a5b25b2e1fba610a57b2db4bb8141d7c133569d561a8cc29e38ca5113efbc4"

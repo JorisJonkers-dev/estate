@@ -66,22 +66,53 @@ bootstrap:
     - flagger.app/v1beta1 # the Canary every blue-green Process renders; bootstrap/cluster.sh applies it, Flagger's binary never does
 
 # Where the edge terminates. A route's audience is the only way it reaches a tier.
+# Each fact states the edge fleet-infra runs today (read 2026-10-29), so a route
+# rendered later stands on it (JorisJonkers-dev/estate#200).
 tiers:
   - name: public-frankfurt
     audiences: [anonymous, authenticated]
+    # websecure on 443, with web on 80 beside it.
     listener: tls
+    # Its own resolver, once edge hands over: the Cloudflare token below only
+    # answers from frankfurt-contabo-1's address, and `address` holds this
+    # proxy there. Until then the wildcard comes from fleet-infra's
+    # cert-manager, through the same account.
     certificates: acme
-    forwardAuth: {provider: auth/auth, surface: http, path: /api/auth/forward} # auth-api's forward-auth endpoint
+    # The headers the live forward-auth Middleware hands on to the route. The
+    # path auth-api answers on is /api/v1/auth/verify (AuthVerificationController),
+    # not this one; correcting it re-renders the gated Applications on the
+    # estate path, so it lands on its own (JorisJonkers-dev/estate#200).
+    forwardAuth:
+      provider: auth/auth
+      surface: http
+      path: /api/auth/forward
+      responseHeaders: [X-User-Id, X-User-Roles, X-Agents-Verified-Jwt]
+    # No `proxiedBy`: not every request comes through Cloudflare. hermes,
+    # agents-ws and jellyfin publish unproxied records, and the node's own
+    # address answers on 443 directly, so a client could write
+    # CF-Connecting-IP itself.
     traefik: edge/traefik-public # declared in platform/edge.project.yml, placed on the public-ingress node
-    ingressClass: traefik-public # the class the live public Traefik admits
+    ingressClass: traefik-public # the class the live public Traefik admits, and external-dns filters on
+    # No `dns` yet: live, the public records point at ingress.jorisjonkers.dev,
+    # proxied by Cloudflare, but stating it re-renders every Application with a
+    # public exposure on the estate path, so it lands on its own
+    # (JorisJonkers-dev/estate#200).
+    # Host ports 80 and 443 on the Frankfurt node, which Cloudflare forwards to.
+    address: edge-frankfurt
   - name: lan
     audiences: [lan]
-    listener: plain
+    # The live LAN Traefik serves every route on websecure.
+    listener: tls
+    # It serves the wildcard the proxy already holds: the default TLSStore's,
+    # which fleet-infra's cert-manager issues. It cannot issue its own: it runs
+    # in Enschede, and the Cloudflare token only answers from Frankfurt.
     certificates: none
     traefik: edge/traefik-lan # placed on a LAN node
     ingressClass: traefik-lan # the class the live LAN Traefik admits
+    # No `dns`: AdGuard answers the LAN's names, and external-dns writes no
+    # record for this class.
+    address: lan-edge
 
-# One policy per Durability Class.
 # How the public tier's proxy registers with Let's Encrypt and proves its names
 # (deploy-kit spec/v1/14-platform-intent.md#tiers). The account is the live
 # ClusterIssuer's. The token's document holds `CF_DNS_API_TOKEN`; it is written
@@ -91,6 +122,31 @@ acme:
   dnsProvider: cloudflare
   token: secret/data/platform/cloudflare
 
+# The addresses a client off the cluster reaches the edge and the LAN's DNS on
+# (deploy-kit spec/v1/14-platform-intent.md#l4-addresses).
+l4Addresses:
+  # frankfurt-contabo-1's own address, 167.86.79.203: the public Traefik binds
+  # 80 and 443 there as host ports.
+  edge-frankfurt:
+    kind: node
+    node: frankfurt-contabo-1
+  # The LAN Traefik's load-balancer address. Live, it is the one free address
+  # of MetalLB's enschede-lan pool (192.168.0.97-192.168.0.99, shared with
+  # AdGuard's two); this pool is that one address alone.
+  lan-edge:
+    kind: pool
+    site: enschede
+    range: 192.168.0.99/32
+  # The address adguard answers the LAN's DNS on: 192.168.0.98, the first of
+  # the two AdGuard addresses the router names today. A pool is announced under
+  # its own name, so MetalLB needs a pool `lan-dns` holding .98 alone before
+  # utility hands over.
+  lan-dns:
+    kind: pool
+    site: enschede
+    range: 192.168.0.98/32
+
+# One policy per Durability Class.
 durability:
   reconstructible: {}
   recoverable:
@@ -114,18 +170,6 @@ durability:
       egress:
         - { cidr: 185.219.143.84/32, port: 443 }
         - { cidr: 185.219.143.85/32, port: 443 }
-
-# The addresses a client off the cluster reaches a raw surface on, by name
-# (deploy-kit spec/v1/14-platform-intent.md#l4-addresses). lan-dns is the
-# address adguard answers the LAN's DNS on: 192.168.0.98, the first of the two
-# the router names today. The old path's MetalLB pool `enschede-lan` holds
-# .97-.99; a pool named lan-dns holding .98 alone has to exist before utility
-# hands over, since the address pool's name is the L4 Address's.
-l4Addresses:
-  lan-dns:
-    kind: pool
-    site: enschede
-    range: 192.168.0.98/32
 
 # Directories several projects share, on the node that holds them (deploy-kit
 # spec/v1/14-platform-intent.md#libraries). /srv/media is the btrfs media disk on
@@ -170,9 +214,8 @@ nodeAgents:
   gpu-device: { image: nvidia-device-plugin, memory: 64Mi, cpu: 10m }
   gpu-metrics: { image: dcgm-exporter, memory: 256Mi, cpu: 50m }
   node-metrics: { image: node-exporter, memory: 64Mi, cpu: 20m }
-  # The announcer of every pool-kind L4 Address, at the MetalLB fleet-infra runs
-  # today. The live pods request nothing; these are deploy-kit's worked
-  # example's quantities.
+  # MetalLB, which announces `lan-edge` from the Enschede nodes. Live, it
+  # requests nothing; these are the worked example's requests.
   l4-speaker:
     image: metallb-speaker
     memory: 64Mi
