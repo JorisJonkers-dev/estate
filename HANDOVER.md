@@ -41,9 +41,6 @@ holds data.
 ### Before it merges
 
 - JorisJonkers-dev/deploy-kit#380: the estate path runs 1.0.
-- **This repository's releases publish with deploy-kit 1.2.0.** The fragments
-  carry `seedAt` and `seeder`, which 1.1.0 added, so the Publish Fragment
-  release `release.yml` calls has to run 1.1.0 or later.
 - **fleet-infra, before the third change:**
   - MetalLB has an `IPAddressPool` named `lan-dns`, holding 192.168.0.98/32
     with `autoAssign: false`, and an `L2Advertisement` for it; `enschede-lan`
