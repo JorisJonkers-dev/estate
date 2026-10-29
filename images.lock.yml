@@ -82,6 +82,12 @@ images:
     uid: 65532
     gid: 65532
     version: "0.15.0"
+  garage-catalog: # delivery 0.16.0, which applies the bucket catalog over Garage's admin API
+    repository: ghcr.io/jorisjonkers-dev/delivery/garage-catalog
+    digest: "sha256:780b5b5529209086a3c6b05034e672e74b9268b1f5807bb98bdb1c13ec19b115"
+    uid: 65532
+    gid: 65532
+    version: "0.16.0"
   # The platform's VPN, run as root beside each attached Process.
   gluetun:
     repository: docker.io/qmcgaw/gluetun
@@ -143,6 +149,21 @@ images:
     uid: 59000
     gid: 59000
     version: "v1.90.0"
+  # Resolved on 2026-10-29 as the digest each live pod runs. mongo's entrypoint starts as root
+  # and drops to its own `mongodb` user, 999:999, which owns the live data directory. Garage's
+  # image names no user and runs as root today; the handover gives it one.
+  mongo: # mongo:8.0
+    repository: docker.io/library/mongo
+    digest: "sha256:02a0cc7939f5ed38f30f9bc714ef5f682d49baf9350c54acf302ce833087fe8a"
+    uid: 999
+    gid: 999
+    version: "8.0.29"
+  garage: # dxflrs/garage:v2.3.0
+    repository: docker.io/dxflrs/garage
+    digest: "sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690"
+    uid: 1000
+    gid: 1000
+    version: "v2.3.0"
   # 1.10.0, which fleet-infra runs. The image names its user (`nodejs`); this is
   # that user's number, read from the running pod.
   outline:

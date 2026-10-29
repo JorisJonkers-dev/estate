@@ -1,4 +1,4 @@
-# postgres-exporter's custom queries, read through PG_EXPORTER_EXTEND_QUERY_PATH.
+# postgres-exporter's custom queries, read through --extend.query-path, as on the old path.
 #
 # pg_database_collation_drifted is 1 for a database whose recorded collation
 # version differs from the C library's. Its text indexes may then be sorted in

@@ -1,0 +1,30 @@
+# Garage's own configuration, an Asset: nothing in it is derived. The RPC secret and the admin
+# token come from the environment (env/garage/base.env). Every other value is the old path's
+# garage-config ConfigMap's.
+metadata_dir = "/var/lib/garage/meta"
+# The live claim `garage-data` is mounted at /var/lib/garage/data, and the old path wrote its
+# data blocks under `data/` on it.
+data_dir = "/var/lib/garage/data/data"
+db_engine = "lmdb"
+
+# A consistent copy of the metadata database, which the backup archives in place of the live
+# one.
+metadata_snapshots_dir = "/var/lib/garage/snapshots"
+metadata_auto_snapshot_interval = "6h"
+
+replication_factor = 1
+
+rpc_bind_addr = "[::]:3901"
+
+[s3_api]
+s3_region = "garage"
+api_bind_addr = "[::]:3900"
+
+[s3_web]
+bind_addr = "[::]:3902"
+root_domain = ".web.jorisjonkers.dev"
+add_host_to_metrics = false
+
+[admin]
+api_bind_addr = "[::]:3903"
+metrics_require_token = false
