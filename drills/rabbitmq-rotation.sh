@@ -241,7 +241,7 @@ ok "VSO reaches Vault at $VAULT_IN_CLUSTER"
 clear_leftovers "$NS"
 if ! vhost_absent; then
   warn "vhost $VHOST is still there from an earlier run; it goes first"
-  hand "Remove the earlier run's vhost" <<<"$KC -n data-system exec deploy/rabbitmq -c rabbitmq -- rabbitmqctl delete_vhost $VHOST"
+  change "Remove the earlier run's vhost" <<<"$KC -n data-system exec deploy/rabbitmq -c rabbitmq -- rabbitmqctl delete_vhost $VHOST"
   need "vhost $VHOST gone" 300 vhost_absent || die "vhost $VHOST is still there"
 fi
 check_only
@@ -282,7 +282,7 @@ vault policy delete $VAULT_NAME
 vault delete auth/kubernetes/role/$VAULT_NAME
 $KC -n data-system exec deploy/rabbitmq -c rabbitmq -- rabbitmqctl delete_vhost $VHOST"
 note "VAULT_ADDR is this drill's port-forward to Vault; it stays open while the drill runs."
-hand "Mount the drill engine, its role, policy and vhost" <<EOF
+change "Mount the drill engine, its role, policy and vhost" <<EOF
 $VAULT_LOGIN
 vault secrets enable -path=$MOUNT rabbitmq
 vault kv get -mount=secret -field=rabbitmq.password platform/rabbitmq | vault write $MOUNT/config/connection connection_uri=http://rabbitmq.data-system.svc.cluster.local:15672 username="\$(vault kv get -mount=secret -field=rabbitmq.user platform/rabbitmq)" password=- verify_connection=true
@@ -426,7 +426,7 @@ EOF
   "$KUBECTL" create configmap consumer -n "$NS" --from-file=consumer.py="$DRILLS/lib/rabbitmq-consumer.py" \
     --dry-run=client -o yaml
 } >"$RUN_DIR/setup.yaml"
-hand "Create the consumer and its dynamic secret" <<<"$KC apply -f $RUN_DIR/setup.yaml"
+change "Create the consumer and its dynamic secret" <<<"$KC apply -f $RUN_DIR/setup.yaml"
 need "VSO syncs the credential" 600 vds_ready || die "the VaultDynamicSecret is not Ready"
 SECRET_USER=$(secret_user)
 ALL_USERS+=("$SECRET_USER")
@@ -448,7 +448,7 @@ wait_until "a renewal, a replacement, the consumer on the new user, the old user
 stage "Teardown"
 kill "${BG_PIDS[@]}" 2>/dev/null || true
 BG_PIDS=()
-hand "Remove the namespace, the drill engine, its policy, role and vhost" <<<"$TEARDOWN"
+change "Remove the namespace, the drill engine, its policy, role and vhost" <<<"$TEARDOWN"
 LEFT=""
 need "namespace $NS gone" 600 absent namespace "$NS" || LEFT+=" namespace $NS;"
 need "Vault has no $MOUNT mount" 300 mount_absent || LEFT+=" mount $MOUNT;"

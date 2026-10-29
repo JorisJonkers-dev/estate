@@ -244,7 +244,7 @@ spec:
   analysis: {interval: 15s, iterations: 2, threshold: 2}
 EOF
 TEARDOWN="$KC delete namespace $NS --ignore-not-found --wait=false"
-hand "Create the Deployment and its Canary" <<<"$KC apply -f $RUN_DIR/setup.yaml"
+change "Create the Deployment and its Canary" <<<"$KC apply -f $RUN_DIR/setup.yaml"
 need "Flagger initialises the Canary" 900 initialized || die "Flagger did not initialise the Canary"
 need "drill-primary rolled out: 2 of 2 ready" 600 rolled drill-primary 2 || die "drill-primary did not roll out"
 need "one primary pod on each of ${NODES[0]} and ${NODES[1]}" 120 primary_on_both || die "the primary is not spread across both nodes"
@@ -269,7 +269,7 @@ note "selector on pod $PRIMARY_POD: $(jq -c '[.requiredDuringSchedulingIgnoredDu
 
 # ── 4 ─────────────────────────────────────────────────────────────────────
 stage "Promote a new revision"
-hand "Change the template, so Flagger analyses and promotes it" <<<"$KC -n $NS patch deployment drill --type merge -p '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"drill.estate.jorisjonkers.dev/revision\":\"$RUN_ID\"}}}}}'"
+change "Change the template, so Flagger analyses and promotes it" <<<"$KC -n $NS patch deployment drill --type merge -p '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"drill.estate.jorisjonkers.dev/revision\":\"$RUN_ID\"}}}}}'"
 need "Flagger starts the analysis" 600 started || die "Flagger did not start an analysis"
 STARTED=$EPOCHSECONDS
 PLACEMENTS+=("| $(since) | $PHASE | $(placement) |")
@@ -297,7 +297,7 @@ done
 
 # ── 6 ─────────────────────────────────────────────────────────────────────
 stage "Teardown"
-hand "Remove the drill's namespace" <<<"$TEARDOWN"
+change "Remove the drill's namespace" <<<"$TEARDOWN"
 LEFT=""
 need "namespace $NS gone" 600 absent namespace "$NS" || LEFT=" namespace $NS"
 TEARDOWN_DONE=yes
