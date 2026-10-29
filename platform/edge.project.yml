@@ -44,6 +44,7 @@ applications:
         runtime: none
         provides:
           web: 8000
+          websecure: 8443
           admin: 8080
         placement:
           memory: 128Mi
