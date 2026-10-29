@@ -78,14 +78,12 @@ tiers:
     # proxy there. Until then the wildcard comes from fleet-infra's
     # cert-manager, through the same account.
     certificates: acme
-    # The headers the live forward-auth Middleware hands on to the route. The
-    # path auth-api answers on is /api/v1/auth/verify (AuthVerificationController),
-    # not this one; correcting it re-renders the gated Applications on the
-    # estate path, so it lands on its own (JorisJonkers-dev/estate#200).
+    # auth-api's forward-auth endpoint (AuthVerificationController), and the
+    # headers the live forward-auth Middleware hands on to the route.
     forwardAuth:
       provider: auth/auth
       surface: http
-      path: /api/auth/forward
+      path: /api/v1/auth/verify
       responseHeaders: [X-User-Id, X-User-Roles, X-Agents-Verified-Jwt]
     # No `proxiedBy`: not every request comes through Cloudflare. hermes,
     # agents-ws and jellyfin publish unproxied records, and the node's own
@@ -93,10 +91,8 @@ tiers:
     # CF-Connecting-IP itself.
     traefik: edge/traefik-public # declared in platform/edge.project.yml, placed on the public-ingress node
     ingressClass: traefik-public # the class the live public Traefik admits, and external-dns filters on
-    # No `dns` yet: live, the public records point at ingress.jorisjonkers.dev,
-    # proxied by Cloudflare, but stating it re-renders every Application with a
-    # public exposure on the estate path, so it lands on its own
-    # (JorisJonkers-dev/estate#200).
+    # Where the live public routes' records point, proxied by Cloudflare.
+    dns: {target: ingress.jorisjonkers.dev, proxied: true}
     # Host ports 80 and 443 on the Frankfurt node, which Cloudflare forwards to.
     address: edge-frankfurt
   - name: lan
