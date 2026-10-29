@@ -60,7 +60,8 @@ whether they exist yet: tribelt's `secret/tribelt-system/keys`
 (`session_key`, `visitor_hmac_key`) and the Findability Explorer's
 `secret/findability-explorer-system/session` (`key`, its `SESSION_KEY`).
 
-**Vault sign-in.** `secrets.sh` port-forwards to `svc/vault` in `data-system`
+**Vault sign-in.** `secrets.sh` port-forwards to `svc/vault` in `secrets-system`
+(`ESTATE_VAULT_NAMESPACE=data-system` reaches the old path's Vault instead)
 on a free local port and points the local `vault` CLI at it. It then uses a
 `VAULT_TOKEN` already in the environment if Vault accepts it; otherwise it
 signs in with OIDC (`vault login -method=oidc`): a browser opens on auth-api,

@@ -33,14 +33,27 @@ images:
     gid: 65532
     version: "v3.7.12"
 
-  # 1.21.4, which fleet-infra runs. The image starts as root and drops to its
-  # own `vault` user, uid 100 and gid 1000, which is what it runs as here.
+  # 1.21.4, which fleet-infra's Vault jobs run. The server, vault-0, runs
+  # 1.21.2 (read 2026-10-29 from `vault status`; its StatefulSet already names
+  # 2.0.4, which it takes only on a pod delete, being OnDelete). The handover
+  # restores 1.21.2's raft snapshot into this 1.21.4, a patch release forward,
+  # never into 2.x. The image starts as root and drops to its own `vault`
+  # user, uid 100 and gid 1000, which is what it runs as here.
   vault:
     repository: docker.io/hashicorp/vault
     digest: "sha256:4e33b126a59c0c333b76fb4e894722462659a6bec7c48c9ee8cea56fccfd2569"
     uid: 100
     gid: 1000
     version: "1.21.4"
+
+  # 1.5.1, which fleet-infra's vault-secrets-operator chart 1.5.1 runs. The
+  # image names its user by number, 65532:65532.
+  vault-secrets-operator:
+    repository: docker.io/hashicorp/vault-secrets-operator
+    digest: "sha256:458c842add32d033b02719dff707034b84e65dbb7d5fabbbdf8bc60877dfd401"
+    uid: 65532
+    gid: 65532
+    version: "1.5.1"
 
   # Not run by fleet-infra yet: 0.162.0, the newest stable release.
   otel-collector:

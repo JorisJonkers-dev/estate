@@ -32,6 +32,10 @@ LOCAL_VAULT=""
 # Vault's OIDC sign-in, where auth-api is the provider. The CLI's callback is
 # http://localhost:8250/oidc/callback, which auth-api's `vault` client allows.
 VAULT_OIDC_PATH=${ESTATE_VAULT_OIDC_PATH:-oidc}
+# The namespace Vault's Service is in: secrets-system since the secrets
+# Project's handover (JorisJonkers-dev/deploy-kit#663). Set it to data-system
+# to reach the old path's Vault, which a rollback of that handover unseals.
+VAULT_NAMESPACE=${ESTATE_VAULT_NAMESPACE:-secrets-system}
 VAULT_OIDC_ROLE=${ESTATE_VAULT_OIDC_ROLE:-}
 
 VAULT_PF_PID=""
@@ -61,8 +65,8 @@ require_tools() {
 
 # require_cluster names the kubectl context and stops if Vault is not there.
 require_cluster() {
-  $KUBECTL -n data-system get pod vault-0 >/dev/null 2>&1 \
-    || die "cannot see pod data-system/vault-0 (context: $($KUBECTL config current-context 2>/dev/null))"
+  $KUBECTL -n "$VAULT_NAMESPACE" get service vault >/dev/null 2>&1 \
+    || die "cannot see service $VAULT_NAMESPACE/vault (context: $($KUBECTL config current-context 2>/dev/null))"
   ok "cluster reachable, context $($KUBECTL config current-context)"
   confirm "Is $($KUBECTL config current-context) the cluster you mean to write to?" \
     || die "switch the kubectl context and re-run"
@@ -87,7 +91,7 @@ estate_cleanup() {
 # and exports VAULT_ADDR, and VAULT_TOKEN unless ~/.vault-token is the token.
 #
 #   address  ESTATE_VAULT_ADDR when set; else a port-forward to svc/vault in
-#            data-system on a free local port, so the OIDC callback, which the
+#            $VAULT_NAMESPACE on a free local port, so the OIDC callback, which the
 #            CLI serves itself on localhost:8250, never meets the forward.
 #   token    a VAULT_TOKEN already in the environment that Vault accepts; else
 #            OIDC sign-in with your estate account (a browser opens); else a
@@ -111,7 +115,7 @@ _vault_port_forward() {
   local port="" _
   VAULT_PF_LOG=$(mktemp)
   # Local port 0: kubectl picks a free one and logs it, so no port ever collides.
-  $KUBECTL -n data-system port-forward svc/vault 0:8200 </dev/null >"$VAULT_PF_LOG" 2>&1 &
+  $KUBECTL -n "$VAULT_NAMESPACE" port-forward svc/vault 0:8200 </dev/null >"$VAULT_PF_LOG" 2>&1 &
   VAULT_PF_PID=$!
   for _ in $(seq 1 30); do
     kill -0 "$VAULT_PF_PID" 2>/dev/null || die "the port-forward to svc/vault exited: $(tr '\n' ' ' <"$VAULT_PF_LOG")"

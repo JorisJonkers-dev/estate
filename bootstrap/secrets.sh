@@ -348,7 +348,7 @@ spec:
       image: hashicorp/vault:1.21.4
       env:
         - name: VAULT_ADDR
-          value: http://vault.data-system.svc.cluster.local:8200
+          value: http://vault.$VAULT_NAMESPACE.svc.cluster.local:8200
       command: ['/bin/sh', '-ec']
       args:
         - |
