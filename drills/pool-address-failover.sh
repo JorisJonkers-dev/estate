@@ -8,20 +8,26 @@
 # already on every node, answering `version.bind` (class CHAOS) with its
 # node's name. This machine asks ten times a second, so the log says who
 # answered, and when nobody did. The gap is measured twice: when the pod on the
-# announcing node is deleted, and when that node drops off the network.
+# announcing node is deleted, and when that node drops off the network: a
+# privileged pod takes its LAN link down for DRILL_OUTAGE seconds (90), and a
+# systemd timer armed on the node first brings it back.
 #
 # Run it from a machine on the Enschede LAN:
 #
 #   ./drills/pool-address-failover.sh           the drill
 #   ./drills/pool-address-failover.sh --check   its preflight alone
 #
-# DRILL_NODES="a b" picks the two nodes, DRILL_ADDRESS the Service's address,
-# DRILL_CONTEXT the kubectl context.
+# DRILL_NODES="a b" picks the two nodes, DRILL_ADDRESS the Service's address
+# (which also chooses a drill pool when the LAN pool is full), DRILL_CONTEXT
+# the kubectl context.
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib/drill.sh"
 
 TOTAL_STAGES=8
 NS=drill-372
+CUT_NS=drill-372-node # the privileged pod that takes a node off the network
+OUTAGE=${DRILL_OUTAGE:-90}
+CUT_IMAGE=${DRILL_CUT_IMAGE:-busybox:1.37.0}
 LAN_POOL=${DRILL_POOL:-enschede-lan}
 POOL=""
 ADDRESS=""
@@ -114,11 +120,16 @@ iface_address() {
   fi
 }
 
+# arp_mac ADDRESS prints the hardware address this machine holds for ADDRESS,
+# or nothing; `arp -n` exits 1 when there is no entry, which is not a failure.
 arp_mac() {
+  local table
   if command -v arp >/dev/null 2>&1; then
-    arp -n "$1" 2>/dev/null | awk '/ at /{print $4; exit}'
+    table=$(arp -n "$1" 2>/dev/null) || true
+    awk '/ at /{print $4; exit}' <<<"$table"
   else
-    ip neigh show "$1" 2>/dev/null | awk '{for (i = 1; i < NF; i++) if ($i == "lladdr") print $(i+1)}'
+    table=$(ip neigh show "$1" 2>/dev/null) || true
+    awk '{for (i = 1; i < NF; i++) if ($i == "lladdr") print $(i+1)}' <<<"$table"
   fi
 }
 
@@ -162,13 +173,14 @@ watch_failed_node() {
   event "Kubernetes marks $FAILED_NODE NotReady"
 }
 
-# answers_stopped FROM_MS succeeds once a query after FROM_MS went unanswered.
+# answers_stopped FROM_MS succeeds once five queries in a row after FROM_MS went
+# unanswered: an outage, not a stray lost packet.
 answers_stopped() {
   local gap
   watch_failed_node
   gap=$(probe gap "$PROBE_LOG" "$1") || return 1
-  HINT="every query answered so far"
-  (($(jq -r .misses <<<"$gap") > 0))
+  HINT="$(jq -r .misses <<<"$gap") unanswered in a row so far"
+  (($(jq -r .misses <<<"$gap") >= 5))
 }
 
 # answers_back FROM_MS succeeds once a stretch of misses after FROM_MS has
@@ -186,6 +198,13 @@ answers_back() {
   HINT="$(jq -r .misses <<<"$gap") unanswered"
   [[ "$(jq -r .open <<<"$gap")" == false ]] && steady 10
 }
+
+# node_lost succeeds once Kubernetes marks the failed node NotReady.
+node_lost() { watch_failed_node; HINT="still Ready"; [[ -n "$NOT_READY_AT" ]]; }
+
+# outage_over FROM_MS succeeds once DRILL_OUTAGE seconds have passed since FROM_MS,
+# so a node Kubernetes has not yet noticed is not taken for one already back.
+outage_over() { watch_failed_node; ((EPOCHSECONDS - $1 / 1000 >= OUTAGE)); }
 
 pod_going() {
   local out
@@ -226,7 +245,7 @@ kc get ipaddresspools.metallb.io -n metallb-system "$LAN_POOL" >/dev/null 2>&1 \
 wait_until "this machine is on the Enschede LAN: a LAN address answers DNS" 15 lan_answers \
   || die "no address in $LAN_POOL answers DNS from here. Run the drill from the Enschede LAN; on macOS,
     also check System Settings › Privacy & Security › Local Network allows this terminal"
-clear_leftovers "$NS"
+clear_leftovers "$NS" "$CUT_NS"
 check_only
 
 # ── 2 ─────────────────────────────────────────────────────────────────────
@@ -241,9 +260,9 @@ else
     warn "every address in $LAN_POOL is taken: $(lb_addresses | tr '\n' ' ')"
     say "The drill needs one LAN address of its own. Either:"
     step "${BOLD}a${RESET}  grow $LAN_POOL by one address in fleet-infra; Flux applies it, and this drill"
-    say "    waits for the free address and goes on. Nothing is applied by hand."
-    step "${BOLD}b${RESET}  a pool of one address for the drill alone, which you apply now and the teardown"
-    say "    removes. Quicker, but a MetalLB object written by hand for the drill's length."
+    say "    waits for the free address and goes on. Nothing is written outside Flux."
+    step "${BOLD}b${RESET}  a pool of one address for the drill alone, which the drill creates now and its"
+    say "    teardown removes. Quicker, but a MetalLB object outside Flux for the drill's length."
     choose "Grow the pool (a) or a drill pool (b)?" a b
   else
     CHOICE=b
@@ -254,13 +273,24 @@ else
     POOL=$LAN_POOL
   else
     ADDRESS=${DRILL_ADDRESS:-}
-    if [[ -z "$ADDRESS" ]]; then
-      say "Pick an address on the LAN that nothing uses, outside the router's DHCP range."
-      ask ADDRESS "Address for the drill:"
-    fi
-    [[ "$ADDRESS" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "$ADDRESS is not an IPv4 address"
-    lb_addresses | grep -qx "$ADDRESS" && die "$ADDRESS is a Service's address already"
-    ping -c 1 -t 1 "$ADDRESS" >/dev/null 2>&1 && die "$ADDRESS answers ping: something uses it"
+    [[ -z "$ADDRESS" ]] && say "Pick an address on the LAN that nothing uses, outside the router's DHCP range."
+    while :; do
+      if [[ -z "$ADDRESS" ]]; then
+        [[ -t 0 ]] || die "no terminal to ask for an address on: set DRILL_ADDRESS"
+        ask ADDRESS "Address for the drill:"
+      fi
+      if [[ ! "$ADDRESS" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        warn "${ADDRESS:-nothing} is not an IPv4 address"
+      elif lb_addresses | grep -qx "$ADDRESS"; then
+        warn "$ADDRESS is a Service's address already"
+      elif ping -c 1 -t 1 "$ADDRESS" >/dev/null 2>&1; then
+        warn "$ADDRESS answers ping: something uses it"
+      else
+        break
+      fi
+      [[ -n "${DRILL_ADDRESS:-}" ]] && die "DRILL_ADDRESS=$DRILL_ADDRESS cannot be the drill's address"
+      ADDRESS=""
+    done
     ok "$ADDRESS answers nothing"
     POOL=drill-372
     OWN_POOL=yes
@@ -287,7 +317,7 @@ spec:
   ipAddressPools: [$POOL]
 EOF
     TEARDOWN="$KC -n metallb-system delete l2advertisement,ipaddresspool $POOL --ignore-not-found"
-    hand "Create the drill's one-address pool" <<<"$KC apply -f $RUN_DIR/pool.yaml"
+    change "Create the drill's one-address pool" <<<"$KC apply -f $RUN_DIR/pool.yaml"
     need "IPAddressPool $POOL exists" 300 kc -n metallb-system get ipaddresspools.metallb.io "$POOL" \
       || die "no pool $POOL"
   fi
@@ -328,6 +358,9 @@ metadata:
   namespace: $NS
 spec:
   replicas: 2
+  # One pod per node with no revision key: a surging pod would find no node,
+  # and the drill never rolls the template anyway.
+  strategy: {type: Recreate}
   selector:
     matchLabels: {app: responder}
   template:
@@ -335,6 +368,16 @@ spec:
       labels: {app: responder}
     spec:
       automountServiceAccountToken: false
+      # Pulls the node-failure pod's image onto both nodes now, so the cut
+      # starts in seconds rather than after a pull.
+      initContainers:
+        - name: pull-cut-image
+          image: $CUT_IMAGE
+          command: ["true"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -368,7 +411,7 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
-            capabilities: {drop: [ALL]}
+            capabilities: {drop: [ALL], add: [NET_BIND_SERVICE]}
           volumeMounts:
             - {name: config, mountPath: /etc/coredns}
       volumes:
@@ -391,7 +434,7 @@ spec:
     - {name: dns, port: 53, targetPort: dns, protocol: UDP}
 EOF
 TEARDOWN="$KC delete namespace $NS --ignore-not-found --wait=false${TEARDOWN:+$'\n'$TEARDOWN}"
-hand "Create the responders and their Service" <<<"$KC apply -f $RUN_DIR/setup.yaml"
+change "Create the responders and their Service" <<<"$KC apply -f $RUN_DIR/setup.yaml"
 need "a responder Ready on each node" 600 responders_ready || die "the responders did not start"
 need "the Service holds $ADDRESS" 180 service_has_address || die "MetalLB gave the Service no address"
 need "MetalLB announces $ADDRESS" 180 announcer_known || die "no node announces $ADDRESS"
@@ -412,7 +455,7 @@ announcer_known || true
 POD_ANNOUNCER=$ANNOUNCER
 POD=$(kc -n "$NS" get pods -l app=responder --field-selector "spec.nodeName=$ANNOUNCER" -o jsonpath='{.items[0].metadata.name}')
 [[ -n "$POD" ]] || die "no responder on $ANNOUNCER"
-hand "Delete the responder on $ANNOUNCER" <<<"$KC -n $NS delete pod $POD --wait=false"
+change "Delete the responder on $ANNOUNCER" <<<"$KC -n $NS delete pod $POD --wait=false"
 need "pod $POD is going" 0 pod_going "$POD"
 FROM=$(($(ms_now) - DRILL_POLL * 1000 - 1000))
 QUIET_OK=yes need "answers back after the deletion" 180 answers_back "$FROM" || true
@@ -429,24 +472,106 @@ note "$FAILED_NODE also runs: $(kc get pods -A --field-selector "spec.nodeName=$
 need "no release in flight, so a node going away interrupts none" 1800 no_release_in_flight || true
 need "answers steady again: 30 in a row" 120 steady 30 || true
 MAC_BEFORE=$(arp_mac "$ADDRESS")
-shout "Take $FAILED_NODE off the network now: pull its cable, or power it off. Leave it off until this drill says."
-FROM=$(ms_now)
-need "queries go unanswered" 900 answers_stopped "$FROM" || die "no query went unanswered; was $FAILED_NODE taken off?"
+if [[ -n "$DRILL_HAND" ]]; then
+  shout "Take $FAILED_NODE off the network now: pull its cable, or power it off. Leave it off until this drill says."
+  FROM=$(ms_now)
+else
+  # A privileged pod on the node takes its default-route link down. Before it
+  # does, it arms a systemd timer on the node itself that brings the link back
+  # after DRILL_OUTAGE seconds, so the node returns whatever becomes of the pod,
+  # the drill or this machine.
+  cat >"$RUN_DIR/cut.yaml" <<EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: $CUT_NS
+  labels:
+    estate.jorisjonkers.dev/drill: "372"
+    pod-security.kubernetes.io/enforce: privileged
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cut
+  namespace: $CUT_NS
+data:
+  cut.sh: |
+    set -eu
+    export PATH=/run/current-system/sw/bin:/usr/bin:/bin:/usr/sbin:/sbin
+    iface=\$(ip -4 route show default | awk '{print \$5; exit}')
+    [ -n "\$iface" ]
+    echo "taking \$iface down for ${OUTAGE}s"
+    restore="\$(command -v ip) link set dev \$iface up"
+    if systemctl is-active --quiet pi-net-recovery.timer; then
+      restore="\$restore; \$(command -v systemctl) start pi-net-recovery.timer"
+    fi
+    systemd-run --unit=drill-$RUN_ID-link-up --on-active=$OUTAGE /bin/sh -c "\$restore"
+    systemctl stop pi-net-recovery.timer 2>/dev/null || true
+    ip link set dev "\$iface" down
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cut
+  namespace: $CUT_NS
+spec:
+  nodeName: $FAILED_NODE
+  hostNetwork: true
+  hostPID: true
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  tolerations: [{operator: Exists}]
+  containers:
+    - name: cut
+      image: $CUT_IMAGE
+      command: [sh, -c, "nsenter -t 1 -m -u -i -n -p -- /bin/sh -s < /cut/cut.sh && sleep 3600"]
+      securityContext: {privileged: true}
+      volumeMounts:
+        - {name: cut, mountPath: /cut}
+  volumes:
+    - name: cut
+      configMap: {name: cut}
+EOF
+  TEARDOWN="$KC delete namespace $CUT_NS --ignore-not-found --wait=false"$'\n'"$TEARDOWN"
+  note "A privileged pod on $FAILED_NODE takes its LAN link down for ${OUTAGE}s; a systemd timer on the node, armed first, brings it back."
+  FROM=$(ms_now)
+  change "Take $FAILED_NODE off the network for ${OUTAGE}s" <<<"$KC apply -f $RUN_DIR/cut.yaml"
+fi
+need "queries go unanswered" 900 answers_stopped "$FROM" || die "no query went unanswered; did $FAILED_NODE go off the network?"
 need "answers back from the other node" 300 answers_back "$FROM" || true
 measure NODE "$FROM"
+# A real outage shows either another node answering after the gap, or
+# Kubernetes losing the node; a gap with neither was no failure of the node.
+NODE_VALID=yes
+if [[ "$(jq -r '.before.node // ""' <<<"$GAP_NODE")" == "$(jq -r '.after.node // ""' <<<"$GAP_NODE")" ]] \
+  && ! wait_until "Kubernetes loses $FAILED_NODE" $((OUTAGE + 30)) node_lost; then
+  NODE_VALID=""
+  bad "$FAILED_NODE answered on both sides of the gap and Kubernetes never lost it: it never went off the network, so the gap is no measurement"
+fi
 MAC_AFTER=$(arp_mac "$ADDRESS")
 event "ARP for $ADDRESS here: ${MAC_BEFORE:-none} → ${MAC_AFTER:-none}"
-shout "Bring $FAILED_NODE back: plug it in, or power it on."
-need "$FAILED_NODE Ready again" 0 node_ready "$FAILED_NODE" || true
+if [[ -n "$DRILL_HAND" ]]; then
+  shout "Bring $FAILED_NODE back: plug it in, or power it on."
+  need "$FAILED_NODE Ready again" 0 node_ready "$FAILED_NODE" || true
+else
+  # Kubernetes notices a node only after its grace period, so a node it still
+  # calls Ready may be off the network yet: the outage runs its length first.
+  wait_until "the ${OUTAGE}s outage is over" $((OUTAGE + 30)) outage_over "$FROM" || true
+  if ! wait_until "$FAILED_NODE back and Ready" 600 node_ready "$FAILED_NODE"; then
+    shout "$FAILED_NODE did not come back: power-cycle it."
+    need "$FAILED_NODE Ready again" 0 node_ready "$FAILED_NODE" || true
+  fi
+fi
 need "both responders Ready again" 600 responders_ready || true
 
 # ── 7 ─────────────────────────────────────────────────────────────────────
 stage "Teardown"
 kill "${BG_PIDS[@]}" 2>/dev/null || true
 BG_PIDS=()
-hand "Remove the drill's workload${OWN_POOL:+ and pool}" <<<"$TEARDOWN"
+change "Remove the drill's workload${OWN_POOL:+ and pool}" <<<"$TEARDOWN"
 LEFT=""
 need "namespace $NS gone" 600 absent namespace "$NS" || LEFT+=" namespace $NS;"
+need "namespace $CUT_NS gone" 600 absent namespace "$CUT_NS" || LEFT+=" namespace $CUT_NS;"
 need "no MetalLB announcement of the drill's Service" 120 no_l2_status || LEFT+=" a ServiceL2Status;"
 if [[ -n "$OWN_POOL" ]]; then
   need "pool $POOL gone" 120 absent -n metallb-system ipaddresspools.metallb.io "$POOL" || LEFT+=" IPAddressPool $POOL;"
@@ -461,25 +586,32 @@ gap_row() {
   jq -r --arg what "$1" '"| \($what) | \(.before.node // "?") → \(.after.node // "none within the wait") | \(.gap_ms / 1000 * 10 | floor / 10) s | \(.misses) |"' <<<"$2"
 }
 result_head "the failover gap of one pool address in front of two replicas"
+# shellcheck disable=SC2016 # the backticks are Markdown, printed as they are
 res "Two CoreDNS responders on \`${NODES[0]}\` and \`${NODES[1]}\`, behind one LoadBalancer Service at \`$ADDRESS\` (pool \`$POOL\`) with \`externalTrafficPolicy: Local\`. A LAN client ($CLIENT) asked \`version.bind\` every 100 ms with a 250 ms timeout; every answer names the node that gave it." "" \
   "| failure | answered by, before → after | gap | unanswered queries |" \
   "|---|---|---|---|" \
   "$(gap_row "pod on \`$POD_ANNOUNCER\` deleted" "$GAP_POD")" \
-  "$(gap_row "\`$FAILED_NODE\` off the network" "$GAP_NODE")" "" \
-  "- The client's ARP entry for \`$ADDRESS\` went from \`${MAC_BEFORE:-none}\` to \`${MAC_AFTER:-none}\` across the node failure." \
+  "$(if [[ -n "$NODE_VALID" ]]; then gap_row "\`$FAILED_NODE\` off the network" "$GAP_NODE"; else printf '| `%s` off the network | not measured: the node never went off the network | — | — |' "$FAILED_NODE"; fi)" "" \
+  "$( [[ -n "$MAC_BEFORE$MAC_AFTER" ]] && printf '- The client'\''s ARP entry for `%s` went from `%s` to `%s` across the node failure.' "$ADDRESS" "${MAC_BEFORE:-none}" "${MAC_AFTER:-none}")" \
   "- Kubernetes marked \`$FAILED_NODE\` NotReady $(if [[ -n "$NOT_READY_AT" ]]; then printf '%s after it was taken off' "$(_dur $((NOT_READY_AT - ${FROM:0:${#FROM}-3})))"; else printf 'not at all while it was off'; fi)." \
   "- The gap runs from the last answer before the failure to the first answer after it; the full log is \`probe.log\` in the run's record."
 GAP_S=$(jq -r '.gap_ms / 1000 * 10 | floor / 10' <<<"$GAP_NODE")
-say "The node failure left $ADDRESS unanswered for $BOLD$GAP_S s$RESET (the pod failure: $(jq -r '.gap_ms / 1000 * 10 | floor / 10' <<<"$GAP_POD") s)."
-choose "Is that gap acceptable for the whole LAN's DNS on one address? (y/n)" y n
-if [[ "$CHOICE" == y ]]; then
-  res "" "**Verdict:** the gap is acceptable for DNS; one pool address in front of two replicas stands as failover."
+[[ -n "$NODE_VALID" ]] && say "The node failure left $ADDRESS unanswered for $BOLD$GAP_S s$RESET (the pod failure: $(jq -r '.gap_ms / 1000 * 10 | floor / 10' <<<"$GAP_POD") s)."
+if [[ -z "$NODE_VALID" ]]; then
+  res "" "**Verdict:** none yet: the node failure was not measured; run the drill again."
+elif [[ ! -t 0 ]]; then
+  res "" "**Verdict:** the maintainer's: is $GAP_S s acceptable for the whole LAN's DNS on one address, or does it reopen the one-address decision?"
 else
-  res "" "**Verdict:** the gap is not acceptable for DNS at $GAP_S s; this reopens the one-address decision."
+  choose "Is that gap acceptable for the whole LAN's DNS on one address? (y/n)" y n
+  if [[ "$CHOICE" == y ]]; then
+    res "" "**Verdict:** the gap is acceptable for DNS; one pool address in front of two replicas stands as failover."
+  else
+    res "" "**Verdict:** the gap is not acceptable for DNS at $GAP_S s; this reopens the one-address decision."
+  fi
 fi
 res "" "### Done when" \
-  "- [x] The gap is recorded for a pod failure and for a node failure." \
+  "- [$([[ -n "$NODE_VALID" ]] && printf x || printf ' ')] The gap is recorded for a pod failure and for a node failure." \
   "- [x] The result is posted here." \
   "- [$([[ -z "$LEFT" ]] && printf x || printf ' ')] Nothing the drill created is left in the cluster.${LEFT:+ Left:$LEFT}"
 show_result
-finish
+drill_done

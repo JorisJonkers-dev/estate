@@ -76,7 +76,7 @@ lease_set() {
   local lease
   lease=$(vault_json "$MOUNT/config/lease") || return 1
   HINT=$(jq -r '"ttl \(.data.ttl), max_ttl \(.data.max_ttl)"' <<<"$lease")
-  jq -e --argjson t "$TTL" --argjson m "$MAX_TTL" '(.data.ttl | tonumber) == $t and (.data.max_ttl | tonumber) == $m' <<<"$lease" >/dev/null
+  jq -e --argjson t "$TTL" --argjson m "$MAX_TTL" 'def secs: if type == "number" then . elif test("^[0-9]+$") then tonumber else capture("^(?<n>[0-9]+)(?<u>[smh])$") | (.n | tonumber) * {"s": 1, "m": 60, "h": 3600}[.u] end; (.data.ttl | secs) == $t and (.data.max_ttl | secs) == $m' <<<"$lease" >/dev/null
 }
 vhost_present() { rmq list_vhosts | jq -e --arg v "$VHOST" 'any(.[]; .name == $v)' >/dev/null; }
 vhost_absent() {
@@ -241,7 +241,7 @@ ok "VSO reaches Vault at $VAULT_IN_CLUSTER"
 clear_leftovers "$NS"
 if ! vhost_absent; then
   warn "vhost $VHOST is still there from an earlier run; it goes first"
-  hand "Remove the earlier run's vhost" <<<"$KC -n data-system exec deploy/rabbitmq -c rabbitmq -- rabbitmqctl delete_vhost $VHOST"
+  change "Remove the earlier run's vhost" <<<"$KC -n data-system exec deploy/rabbitmq -c rabbitmq -- rabbitmqctl delete_vhost $VHOST"
   need "vhost $VHOST gone" 300 vhost_absent || die "vhost $VHOST is still there"
 fi
 check_only
@@ -251,8 +251,13 @@ stage "Vault: what the live mount leases, read only"
 vault_connect
 LIVE_TUNE=$(vault_json sys/mounts/rabbitmq/tune | jq -c '.data | {default_lease_ttl, max_lease_ttl}') \
   || die "cannot read sys/mounts/rabbitmq/tune"
-LIVE_LEASE=$(vault read -format=json rabbitmq/config/lease 2>&1 </dev/null | jq -c '.data // .' 2>/dev/null \
-  || vault read rabbitmq/config/lease 2>&1 </dev/null | head -n 1)
+# Vault answers "No value found" where nothing was ever written to config/lease:
+# that is the finding, not a failure.
+if LIVE_LEASE=$(vault_json rabbitmq/config/lease); then
+  LIVE_LEASE=$(jq -c .data <<<"$LIVE_LEASE")
+else
+  LIVE_LEASE="none written ($( (vault read rabbitmq/config/lease 2>&1 </dev/null || true) | head -n 1))"
+fi
 LIVE_ROLE=$(vault_json rabbitmq/roles/app-consumer | jq -c '.data' || printf 'unreadable')
 ok "the live mount's tune: $LIVE_TUNE"
 ok "its rabbitmq/config/lease: $LIVE_LEASE"
@@ -282,7 +287,7 @@ vault policy delete $VAULT_NAME
 vault delete auth/kubernetes/role/$VAULT_NAME
 $KC -n data-system exec deploy/rabbitmq -c rabbitmq -- rabbitmqctl delete_vhost $VHOST"
 note "VAULT_ADDR is this drill's port-forward to Vault; it stays open while the drill runs."
-hand "Mount the drill engine, its role, policy and vhost" <<EOF
+change "Mount the drill engine, its role, policy and vhost" <<EOF
 $VAULT_LOGIN
 vault secrets enable -path=$MOUNT rabbitmq
 vault kv get -mount=secret -field=rabbitmq.password platform/rabbitmq | vault write $MOUNT/config/connection connection_uri=http://rabbitmq.data-system.svc.cluster.local:15672 username="\$(vault kv get -mount=secret -field=rabbitmq.user platform/rabbitmq)" password=- verify_connection=true
@@ -426,7 +431,7 @@ EOF
   "$KUBECTL" create configmap consumer -n "$NS" --from-file=consumer.py="$DRILLS/lib/rabbitmq-consumer.py" \
     --dry-run=client -o yaml
 } >"$RUN_DIR/setup.yaml"
-hand "Create the consumer and its dynamic secret" <<<"$KC apply -f $RUN_DIR/setup.yaml"
+change "Create the consumer and its dynamic secret" <<<"$KC apply -f $RUN_DIR/setup.yaml"
 need "VSO syncs the credential" 600 vds_ready || die "the VaultDynamicSecret is not Ready"
 SECRET_USER=$(secret_user)
 ALL_USERS+=("$SECRET_USER")
@@ -448,7 +453,7 @@ wait_until "a renewal, a replacement, the consumer on the new user, the old user
 stage "Teardown"
 kill "${BG_PIDS[@]}" 2>/dev/null || true
 BG_PIDS=()
-hand "Remove the namespace, the drill engine, its policy, role and vhost" <<<"$TEARDOWN"
+change "Remove the namespace, the drill engine, its policy, role and vhost" <<<"$TEARDOWN"
 LEFT=""
 need "namespace $NS gone" 600 absent namespace "$NS" || LEFT+=" namespace $NS;"
 need "Vault has no $MOUNT mount" 300 mount_absent || LEFT+=" mount $MOUNT;"
@@ -503,4 +508,4 @@ res "**Verdict:** $VERDICT" "" "### Done when" \
   "- [$([[ -z "$LEFT" ]] && printf x || printf ' ')] Nothing the drill created is left in Vault, RabbitMQ or the cluster.${LEFT:+ Left:$LEFT}"
 say "Verdict: $VERDICT"
 show_result
-finish
+drill_done
