@@ -122,8 +122,8 @@ acme:
   dnsProvider: cloudflare
   token: secret/data/platform/cloudflare
 
-# The addresses a client off the cluster reaches the edge on
-# (deploy-kit spec/v1/14-platform-intent.md#l4-addresses).
+# The addresses a client off the cluster reaches the edge and the mail server
+# on (deploy-kit spec/v1/14-platform-intent.md#l4-addresses).
 l4Addresses:
   # frankfurt-contabo-1's own address, 167.86.79.203: the public Traefik binds
   # 80 and 443 there as host ports.
@@ -137,6 +137,12 @@ l4Addresses:
     kind: pool
     site: enschede
     range: 192.168.0.99/32
+  # The same node address again, for mail: its eight listeners are host ports
+  # there, which mail.jorisjonkers.dev's non-proxied A record names (read
+  # 2026-10-29). No firewall of the substrate's drops them.
+  mail-node:
+    kind: node
+    node: frankfurt-contabo-1
 
 # One policy per Durability Class.
 durability:
@@ -187,17 +193,6 @@ libraries:
     gid: 1000
     grants:
       qbittorrent: write
-
-# The addresses a client off the cluster dials a raw TCP or UDP surface on
-# (deploy-kit spec/v1/14-platform-intent.md#l4-addresses). Frankfurt has no
-# pool, so mail's listeners are host ports on the node's own address,
-# 167.86.79.203, which mail.jorisjonkers.dev's non-proxied A record names
-# (read 2026-10-29). The entry asserts that address reaches the node and that
-# no firewall of the substrate's drops mail's ports.
-l4Addresses:
-  mail-node:
-    kind: node
-    node: frankfurt-contabo-1
 
 # What a Process that requires a GPU is handed, by the vendor of its card
 # (deploy-kit spec/v1/14-platform-intent.md#gpus): one time-sliced share of the
