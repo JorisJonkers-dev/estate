@@ -44,7 +44,8 @@ applications:
           http: 3000
           dns: 5353
         # The live pods request 50m and 128Mi, and are limited at 512Mi; the model sets the
-        # request to the limit.
+        # request to the limit. The working set is 80-92Mi live; the work directory held in
+        # memory below adds its own 128Mi to both.
         placement:
           memory: 128Mi
           cpu: 50m
@@ -53,13 +54,20 @@ applications:
           count: 2
           reason: the LAN keeps its resolver while one node is down
           across: node
-        writablePaths: [/opt/adguardhome/work, /opt/adguardhome/conf]
-        # AdGuard reads its configuration from here and rewrites it on every start, so a
-        # read-only mount stops it. It has to be a seeded Asset, copied onto the writable path
-        # before each start (JorisJonkers-dev/deploy-kit#693), before this file merges.
+        # Its work directory, the query log and statistics, holds 66MB on instance b (kubelet
+        # stats summary, 2026-10-29), past the platform's one 64Mi ephemeral size, so it is
+        # held in memory at its own size and counted toward the Process
+        # (deploy-kit spec/v1/10-project-intent.md#writable-paths-are-declared-not-exempted).
+        # It is lost with the pod, as the old path's emptyDir is.
+        writablePaths: [{ path: /opt/adguardhome/work, memory: 128Mi }, /opt/adguardhome/conf]
+        # AdGuard rewrites its configuration on every start and stops if it cannot, so it is
+        # seeded onto its conf directory before each start rather than mounted read-only
+        # (deploy-kit spec/v1/10-project-intent.md#seeded-assets), as the old path's
+        # seed-config init container copies it. The directory is the pod's own: each pod
+        # starts from this file.
         assets:
           - from: config/AdGuardHome.yaml
-            mountAt: /opt/adguardhome/conf/AdGuardHome.yaml
+            seedAt: /opt/adguardhome/conf/AdGuardHome.yaml
         # Its DNS-over-HTTPS upstream, and the filter lists it fetches, are on the internet.
         egress: { to: internet, reason: answers the LAN from a DNS-over-HTTPS upstream }
         # On the DNS port, as the old path probes: with the Local traffic policy, readiness is

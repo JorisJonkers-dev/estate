@@ -15,19 +15,24 @@ holds data.
 ### What this repository changes
 
 - **`platform/utility/`**: the project file, from deploy-kit's worked example;
-  AdGuard's configuration as an Asset (`config/AdGuardHome.yaml`, the old
-  path's ConfigMap with the web UI on 3000 and DNS on 5353); and headlamp's
-  env file (`env/headlamp/base.env`, the flags the old chart passed, as
-  `HEADLAMP_CONFIG_*`).
+  AdGuard's configuration as a seeded Asset (`config/AdGuardHome.yaml`, the
+  old path's ConfigMap with the web UI on 3000 and DNS on 5353), copied onto
+  its `conf` directory before each start, as the old path's `seed-config`
+  init container copies it; its `work` directory held in memory at 128Mi; and
+  headlamp's env file (`env/headlamp/base.env`, the flags the old chart
+  passed, as `HEADLAMP_CONFIG_*`).
 - **`platform.intent.yml`**:
   - `l4Addresses.lan-dns`, a pool of one address, 192.168.0.98, announced by
     the `l4-speaker` Node Agent the edge's `lan-edge` pool already declares.
   - `apiAccess.holders` gains `utility/headlamp`.
   - `humanGrants`: the `oidc:k8s-admin` grant to `cluster-admin`, which the old
     path holds as `headlamp-oidc-admin` beside headlamp.
+  - `seeder`: busybox, 16Mi and 10m, the image every seeded Asset is copied
+    with.
   - The ledger moves `utility` from `legacy` to `estate`.
 - **`images.lock.yml`**: adguard and headlamp, by the digests the live pods
-  run.
+  run, and the seeder's busybox 1.37.0, pinned as deploy-kit's worked example
+  pins it.
 - **`participants.yml`** and **`release.yml`**: utility publishes with the
   Platform document, on this repository's releases.
 
@@ -36,21 +41,9 @@ holds data.
 ### Before it merges
 
 - JorisJonkers-dev/deploy-kit#380: the estate path runs 1.0.
-- **AdGuard's configuration has to be a seeded Asset**
-  (JorisJonkers-dev/deploy-kit#693), and `toolkit.yml` has to pin a release
-  that has it. AdGuard rewrites its configuration on every start and exits
-  when it cannot, so the read-only mount deploy-kit 1.0.1 renders stops it.
-  Without any configuration it starts its setup wizard and answers no DNS.
-- **headlamp needs its in-cluster credentials.** Its in-cluster mode reads the
-  ServiceAccount token and CA from the mounted token, and the render mounts
-  none (`api` with no rules). The ServiceAccount holds no binding, so mounting
-  its token grants nothing; whether the model mounts it is deploy-kit's to
-  settle.
-- **AdGuard's query log fits in 64Mi only on a quiet day.** The `work`
-  directory holds 66MB on instance b today; the render's writable paths take
-  the platform's 64Mi `ephemeral.size`, and the pod is evicted past it. Either
-  the platform's size rises or the query log is kept in memory
-  (`querylog_file_enabled: false`).
+- **This repository's releases publish with deploy-kit 1.2.0.** The fragments
+  carry `seedAt` and `seeder`, which 1.1.0 added, so the Publish Fragment
+  release `release.yml` calls has to run 1.1.0 or later.
 - **fleet-infra, before the third change:**
   - MetalLB has an `IPAddressPool` named `lan-dns`, holding 192.168.0.98/32
     with `autoAssign: false`, and an `L2Advertisement` for it; `enschede-lan`

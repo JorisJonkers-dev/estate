@@ -353,6 +353,15 @@ policyJob:
   # failed the Job and every estate-path unit behind it.
   deadline: 5m
 
+# The image a Process's seeded Assets are copied onto its volumes with, before
+# every start (deploy-kit spec/v1/14-platform-intent.md#the-seeder): any image
+# with a shell and `cp` will do, so one small one serves the estate. adguard is
+# the first Process that seeds: it rewrites its configuration on every start.
+seeder:
+  image: busybox
+  memory: 16Mi
+  cpu: 10m
+
 # Which delivery path each Project is on while the estate moves off
 # fleet-infra's deploy/production branch, one Project at a time
 # (deploy-kit spec/v1/60-setup.md#handing-over-one-project-at-a-time).
