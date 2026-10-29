@@ -225,9 +225,12 @@ in this order and no other, because the render's namespace carries no mark
    reconcile `estate-pins`, and read the value back.
 2. Move `data` back to `legacy`, restore both `serving` statements, and delete
    `projects/data/`.
-3. Revert D2, then D1. Garage starts on the old `meta/` on `garage-data`; an
-   object written since cutover step 4 is lost from its listing, though its
-   blocks stay on disk.
+3. In fleet-infra, set `prune: false` on `apps-data-leftovers` and read it
+   back, then revert D2, then D1. Reverting D2 deletes `apps-data-leftovers`,
+   and while it prunes, its garbage collection would take Vault and MongoDB
+   before the returning `apps-data` relabels them. Garage starts on the old
+   `meta/` on `garage-data`; an object written since cutover step 4 is lost from
+   its listing, though its blocks stay on disk.
 
 No claim is touched: the render marks every backed-up claim `prune: disabled`,
 and every volume reclaims `Retain` since P0.
