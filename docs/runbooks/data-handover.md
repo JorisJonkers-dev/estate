@@ -2,7 +2,7 @@
 
 Moves the Project `data` (Postgres, RabbitMQ, Valkey and Garage, namespace
 `data-system`, on `frankfurt-contabo-1`) from fleet-infra's old path to its pin
-here, on deploy-kit 1.2.0, in the three changes of deploy-kit
+here, on deploy-kit 1.3.0, in the three changes of deploy-kit
 `docs/runbooks/handover.md`. Tracking: JorisJonkers-dev/deploy-kit#661, under
 the handover epic JorisJonkers-dev/deploy-kit#373.
 
@@ -47,13 +47,14 @@ D2's `apps-data` must be gone before B: the estate's unit is also
 
 ## The render against the old path
 
-Rendered with deploy-kit 1.2.0, and identically with 1.3.0, from A with B's
+Rendered with deploy-kit 1.3.0, the version `toolkit.yml` pins, from A with B's
 ledger change: `deploy-kit compose` over every participant's newest fragment,
 this branch's Platform and estate fragments, `participants.yml`,
 `cluster-state.yml` and the committed sources. Compared against `kubectl
 kustomize cluster/flux/apps/data` of fleet-infra `main` and the live objects,
 read 2026-10-29. Every image matches the live pod by digest, and every Asset is
-byte-identical to the ConfigMap it replaces.
+byte-identical to the ConfigMap it replaces. deploy-kit 1.2.0 renders the same
+tree less the one external-checks ConfigMap below.
 
 | object | difference | why |
 |---|---|---|
@@ -84,6 +85,7 @@ byte-identical to the ConfigMap it replaces.
 | backups | `postgres-data-backup` 02:45, 90 copies, off-cluster; `rabbitmq-data-backup` 03:15, 14 copies; `garage-data-backup` and `garage-snapshots-backup` 03:15, 14 copies | the durability classes. `observability/postgres-logical-backup` stays until the first derived run is read back; D3 retires the RabbitMQ definitions job |
 | ServiceMonitors | `postgres`, `rabbitmq`, `valkey`, `garage`, same names, adopted | Prometheus selects every ServiceMonitor (fleet-infra#536) |
 | new | the `vault-policy` CronJob, Job and ConfigMap; `VaultConnection secret-store`; the `flux-system` Alert and Provider for rollout events | how every estate Project reaches Vault and reports |
+| new | ConfigMap `platform-rabbitmq-external-checks`: one Gatus endpoint, `https://rabbitmq.jorisjonkers.dev/`, healthy below 500 | deploy-kit 1.3.0 derives an external check from each exposure |
 | rendered, not applied | the NetworkPolicies | render-only on this substrate |
 | not rendered | IngressRoutes `rabbitmq` and `garage-assets` | no Project carries routes while edge is `legacy`; both stay in `apps-data-leftovers` |
 | not rendered | Garage's `garage-bootstrap` Job, `garage-asset-sync` CronJob, their VaultStaticSecrets and `garage-config` | the bootstrap imports each consumer's key and makes its buckets, which a bucket catalog does only once a consumer names its buckets on an edge. The asset sync publishes agent-kit's latest release to the assets bucket every 15 minutes: a scheduled Process covers it, but its logic is a shell script, never an Asset, and no image carries it yet |
