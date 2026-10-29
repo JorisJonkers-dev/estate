@@ -2,7 +2,7 @@
 
 Moves the Project `mail` (Stalwart and its provisioner sidecar, namespace
 `mail-system`, on `frankfurt-contabo-1`) from fleet-infra's old path to its pin
-here, on deploy-kit 1.0.1, in the three changes of deploy-kit
+here, on deploy-kit 1.2.0, in the three changes of deploy-kit
 `spec/v1/60-setup.md#handing-over-one-project-at-a-time`. Tracking:
 JorisJonkers-dev/deploy-kit#656 and #205 here, under the handovers epic #204.
 
@@ -19,9 +19,8 @@ never an agent's.
 |---|---|---|
 | W1 | `delivery`, `_canary` and `_estate` republished on 1.0.0 | JorisJonkers-dev/deploy-kit#380 |
 | W2 | the handover runbook this file follows | JorisJonkers-dev/deploy-kit#381 |
-| W3 | **the sidecar's command.** The stalwart-provisioner image's entrypoint is `stalwart-provisioner validate --help`; the old path names `stalwart-provisioner-apply` as the container's command, and the model authors no command. Rendered as it is, the sidecar prints its help and exits, restarts forever, the pod never reports Ready and `apps-mail` never goes Ready. A provisioner release whose image runs the apply path by default, then its digest in `images.lock.yml`, fixes it | JorisJonkers-dev/stalwart-provisioner |
-| W4 | **the sidecar's manifest.** A sidecar mounts the Process's volumes it names and its writable paths, never its Assets, so `config/manifest.json` mounts in the server's container and not in `stalwart-apply`, which then fails validation at start. Either the model lets a sidecar mount an Asset, or the provisioner reads its manifest some other way | JorisJonkers-dev/deploy-kit |
-| W5 | `stalwart.recovery_admin` in `secret/platform/mail`: `bootstrap/secrets.sh --only mail` writes it from the admin login | this repository, a person |
+| W3 | this repository's releases publish with deploy-kit 1.2.0: the mail fragment names the sidecar's `command` (1.1.0) and the Asset it mounts (1.2.0), which an older toolkit refuses, so the Publish Fragment release `release.yml` calls runs 1.2.0 | this repository |
+| W4 | `stalwart.recovery_admin` in `secret/platform/mail`: `bootstrap/secrets.sh --only mail` writes it from the admin login | a person |
 
 ## The changes, in order
 
@@ -29,7 +28,7 @@ never an agent's.
 |---|---|---|---|
 | M1 | fleet-infra, PR "orphan the mail Project" | every object `cluster/flux/apps/mail/` applies gets `kustomize.toolkit.fluxcd.io/prune: disabled`, the namespace and the claim `stalwart-data` above all: the claim's volume reclaims `Delete`, so a prune would destroy every mailbox | none |
 | M2 | fleet-infra, PR "drop the mail Project's manifests" | the manifests and the Flux Kustomization `apps-mail` leave fleet-infra; `ingressroute-stalwart.yaml` moves unchanged to `apps-edge`, beside the redirect Middleware it already uses, since routes flip only with the edge's own handover | none |
-| P | a person | `bootstrap/secrets.sh --only mail` (W5); it also restarts `auth-api-primary` one pod at a time, since auth reads `secret/platform/mail` too | none |
+| P | a person | `bootstrap/secrets.sh --only mail` (W4); it also restarts `auth-api-primary` one pod at a time, since auth reads `secret/platform/mail` too | none |
 | B | this repository, this change, then its release | the ledger moves `mail` to `estate`, and the Platform document gains the L4 Address `mail-node` | the recreate |
 | C | fleet-infra | the drift check's entry for `stalwart-provisioner`, and the `mail-system` binding of the old `vso` role in `bootstrap-auth.sh` | none |
 
@@ -38,7 +37,7 @@ is also `flux-system/apps-mail`.
 
 ## The render against the old path
 
-Rendered with deploy-kit 1.0.1 from this change (`deploy-kit compose` over
+Rendered with deploy-kit 1.2.0 from this change (`deploy-kit compose` over
 every participant's newest fragment, this branch's Platform and mail
 fragments, `participants.yml` and `cluster-state.yml`), against `kubectl
 kustomize cluster/flux/apps/mail` of fleet-infra `main` and the live objects,
@@ -55,7 +54,7 @@ read 2026-10-29.
 | | probes: a startup probe (TCP 8080, 62 × 5s) holds the 310s budget; readiness `/admin/` and liveness TCP 8080 every 10s, no initial delay | `startupBudget` and the platform's probe cadence replace the hand-written delays |
 | | both containers receive all nine variables: the server held only `STALWART_RECOVERY_ADMIN`, the sidecar the rest | a Process's environment reaches every container of its pod |
 | | `STALWART_RECOVERY_ADMIN` reads `stalwart.recovery_admin`, one key | a value is one placeholder; the old path templated `user:password` from two keys |
-| | the sidecar has no command, and no manifest mounted | W3 and W4 |
+| | the sidecar runs `stalwart-provisioner-apply`, as the old path's command names it, and mounts the manifest at `/etc/stalwart-provisioner/manifest.json`, the path the script reads by default (the old path mounted the directory); the server's container mounts it too, and never reads it | the sidecar's `command` and `assets`; the manifest is the Process's Asset so the sidecar can name it |
 | | `revisionHistoryLimit` 3 becomes the default | fleet-infra's patch on `apps-mail`; the render sets none |
 | Service `stalwart` | selector `name` becomes `instance`; port `imaptls` named `imaps` | same ports and targets; Gatus probes the ports by number |
 | PVC `stalwart-data` | adopted: gains the label set and `prune: disabled` | `durability: irreplaceable` |
@@ -98,7 +97,7 @@ for p in platform/mail platform/edge auth-api platform/outline platform/overleaf
 #    missing key fails the pod at start. Nothing has read the off-cluster document yet: without
 #    it the backup's VaultStaticSecret never syncs and the 02:45 Job cannot start.
 
-# 4. W3 and W4 are in the render: the sidecar runs the apply path and mounts the manifest.
+# 4. The sidecar runs the apply script and mounts the manifest, in the render.
 yq 'select(.kind == "Deployment") | .spec.template.spec.containers[] | select(.name == "stalwart-apply") | [.command, .volumeMounts[].mountPath]' \
   <rendered>/apps/mail/stalwart/workload.yaml
 ```

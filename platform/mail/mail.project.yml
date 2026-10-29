@@ -77,19 +77,28 @@ applications:
           reason: Stalwart delivers outbound mail to other domains' MX hosts, fetches its web admin bundle and renews its certificate; the provisioner calls Cloudflare's DNS API.
 
         # Applies the provisioner manifest (accounts, domains, DNS records) against the admin API
-        # on localhost, for as long as the server runs.
+        # on localhost, then idles for as long as the server runs. The image's own entrypoint
+        # only prints the validator's help, so the sidecar names the apply script as its command,
+        # as the old path does (deploy-kit spec/v1/10-project-intent.md#command-and-arguments).
+        # It reads the manifest at the path the script defaults to, mounted from the Process's
+        # Asset below (deploy-kit spec/v1/10-project-intent.md#sidecars).
         sidecars:
           - name: stalwart-apply
             image: stalwart-provisioner
+            command: [stalwart-provisioner-apply]
             memory: 64Mi
             cpu: 10m
+            assets:
+              - { from: config/manifest.json, mountAt: /etc/stalwart-provisioner/manifest.json }
 
         # The root filesystem is read-only on the estate path, where the old path's was not: the
         # sidecar writes each reconcile's plan to a mktemp file.
         writablePaths: [/tmp]
 
         # v0.16 reads only the datastore from config.json; everything else is a JMAP object in
-        # the datastore, which the sidecar reconciles from the manifest.
+        # the datastore, which the sidecar reconciles from the manifest. The manifest is the
+        # Process's Asset so the sidecar can name it; the server's own container mounts it too,
+        # and never reads it.
         assets:
           - from: config/config.json
             mountAt: /etc/stalwart/config.json
