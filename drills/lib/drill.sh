@@ -72,6 +72,7 @@ ok() { _spin_clear; printf '  %s✓%s %s\n' "$GREEN" "$RESET" "$1" >&3; _log "OK
 bad() { _spin_clear; printf '  %s✗%s %s\n' "$RED" "$RESET" "$1" >&3; _log "FAIL $1"; }
 die() {
   _spin_clear
+  trap - ERR
   printf '\n  %s✗ %s%s\n\n' "$RED" "$1" "$RESET" >&2
   _log "STOP $1"
   exit 1
@@ -319,6 +320,7 @@ check_only() {
 
 drill_exit() {
   local code=$? pid
+  trap - ERR
   _spin_clear
   for pid in "${BG_PIDS[@]}"; do kill "$pid" 2>/dev/null || true; done
   if [[ -n "$TEARDOWN" && -z "$TEARDOWN_DONE" ]]; then
