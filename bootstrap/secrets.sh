@@ -1163,10 +1163,23 @@ section_overleaf() {
 # here from stalwart.admin_user and stalwart.admin_password: the two the
 # provisioner sidecar signs in with. Re-run it after either changes. The admin
 # login itself is Stalwart's own, so a Vault without it wants a restore, and
-# this section never mints one.
+# this section never mints one (JorisJonkers-dev/deploy-kit#656).
 MAIL_KV_PATH=platform/mail
+
+# vso_readers PATH prints, one a line, every VaultStaticSecret that projects
+# secret/PATH, with what VSO restarts when it changes and the version it is
+# pinned to, if any. Read-only; nothing in a dry run.
+vso_readers() {
+  [[ -z "$LOCAL_VAULT" ]] || return 0
+  $KUBECTL get vaultstaticsecrets.secrets.hashicorp.com -A -o json 2>/dev/null \
+    | jq -r --arg p "$1" '.items[] | select(.spec.mount == "secret" and .spec.path == $p)
+        | "\(.metadata.namespace)/\(.metadata.name): " + (if .spec.version then "pinned to version \(.spec.version), so it does not change"
+          else "restarts " + ([.spec.rolloutRestartTargets[]? | "\(.kind)/\(.name)"] | if length == 0 then "nothing" else join(", ") end)
+               + " within its refresh, \(.spec.refreshAfter // "?")" end)' || true
+}
+
 section_mail() {
-  local doc user password current wanted
+  local doc user password current wanted readers line
   doc=$(kv_load "$MAIL_KV_PATH")
   user=$(kv_field "$doc" stalwart.admin_user)
   password=$(kv_field "$doc" stalwart.admin_password)
@@ -1184,15 +1197,21 @@ section_mail() {
     return 0
   fi
   [[ -z "$current" ]] || note "stalwart.recovery_admin ($(fp "$current")) differs from the admin login ($(fp "$wanted"))"
-  confirm "Write stalwart.recovery_admin ($(fp "$wanted")) to secret/$MAIL_KV_PATH?" \
+  warn "Writing secret/$MAIL_KV_PATH makes a new version of it, and auth reads that path too"
+  warn "(account.password): the Vault Secrets Operator then restarts auth-api, one pod at a time."
+  readers=$(vso_readers "$MAIL_KV_PATH")
+  if [[ -n "$readers" ]]; then
+    say "What reads secret/$MAIL_KV_PATH now:"
+    while IFS= read -r line; do step "$line"; done <<<"$readers"
+  fi
+  confirm "Write stalwart.recovery_admin ($(fp "$wanted")) to secret/$MAIL_KV_PATH, restarting auth-api?" \
     || { later "secret/$MAIL_KV_PATH → stalwart.recovery_admin is not written"; result mail "not written"; return 0; }
   printf '%s' "$wanted" | kv_patch "$MAIL_KV_PATH" stalwart.recovery_admin
   doc=$(kv_load "$MAIL_KV_PATH")
   [[ "$(kv_field "$doc" stalwart.recovery_admin)" == "$wanted" ]] || die "secret/$MAIL_KV_PATH does not read back"
   ok "secret/$MAIL_KV_PATH → stalwart.recovery_admin = $(fp "$wanted")"
   result mail written
-  note "auth-api reads platform/mail too (account.password): VSO restarts auth-api-primary within ten minutes, one pod at a time."
-  note "VSO refreshes mail-system/stalwart-platform-mail within ten minutes and restarts Stalwart, once mail is on the estate path."
+  note "VSO restarts auth-api-primary within its ten-minute refresh. Stalwart reads the key once mail hands over to the estate path."
   unset wanted
 }
 

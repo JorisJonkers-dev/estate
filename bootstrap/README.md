@@ -2,15 +2,17 @@
 
 What the estate needs that git cannot hold: three GitHub Apps, their keys,
 every secret a person puts in Vault, and the credentials a cluster reads the
-estate with. Three scripts, split by what a cluster move repeats. Each walks
+estate with. Three scripts, split by what a cluster move repeats, and a fourth
+that removes from Vault what nothing uses any more. Each walks
 you through each step, asks before every write, reads back what it wrote, and
 is safe to re-run.
 
 | script | run | does |
 |---|---|---|
 | [`github-apps.sh`](github-apps.sh) | once per organization | creates the dispatch, Collector and Reporter GitHub Apps, puts the dispatch App's id and key in an org variable and secret every repository reads, hands the Collector's and the Reporter's new keys to `secrets.sh` for Vault, and puts the Collector key in the estate repository's `production` environment, which only `main` deploys to and no administrator bypasses, for composition's pin commit |
-| [`secrets.sh`](secrets.sh) | once per cluster, after a restore, and whenever a value is added or replaced | every secret a person writes to Vault, one section each: the roles fleet-infra's `vault-bootstrap-auth` Job and deploy-kit's Vault policy job log in as, the metrics token, the Discord webhook, the Collector and Reporter keys, the OIDC client secrets (estate-dashboard, tribelt, grimoire, findability-explorer) in both the copy auth-api reads and the app's own, and the keys of Overleaf, Hermes, Hindsight and Karakeep. It checks each, skips what is already right, and stops only where a value is missing or wrong; after a client secret changes it restarts auth-api once and proves every client at the token endpoint |
+| [`secrets.sh`](secrets.sh) | once per cluster, after a restore, and whenever a value is added or replaced | every secret a person writes to Vault, one section each: the roles fleet-infra's `vault-bootstrap-auth` Job and deploy-kit's Vault policy job log in as, the metrics token, the Discord webhook, the Collector and Reporter keys, the OIDC client secrets (estate-dashboard, tribelt, grimoire, findability-explorer) in both the copy auth-api reads and the app's own, the keys of Overleaf, Hermes, Hindsight and Karakeep, and Stalwart's recovery admin. It checks each, skips what is already right, and stops only where a value is missing or wrong; after a client secret changes it restarts auth-api once and proves every client at the token endpoint |
 | [`cluster.sh`](cluster.sh) | once per cluster, and after every move | writes Flux's read access to this repository and its pull access to the render packages, applies Flagger's CRDs, and proves Flux sees the estate |
+| [`retire.sh`](retire.sh) | once per retirement an issue decides | deletes what Vault still holds for something nothing uses: today the `downloads` role and policy (#227). It checks again, read-only and live, that nothing uses them, shows what it deletes, asks, and reads back that it is gone; a retirement already done is skipped |
 
 ## On a new cluster
 
@@ -77,6 +79,22 @@ VAULT_ADDR=http://localhost:18299 VAULT_TOKEN=root vault auth enable kubernetes
 printf x | VAULT_ADDR=http://localhost:18299 VAULT_TOKEN=root vault kv put -mount=secret auth-api placeholder=-
 ESTATE_VAULT_ADDR=http://localhost:18299 VAULT_TOKEN=root ESTATE_ENV_FILE=/tmp/estate.env ./bootstrap/secrets.sh
 ```
+
+## retire.sh
+
+```bash
+./bootstrap/retire.sh --list         # the retirements
+./bootstrap/retire.sh downloads      # one
+```
+
+Not a `secrets.sh` section: `secrets.sh` puts values in a Vault and reruns on
+every new cluster, and a fresh Vault never holds what is retired. A retirement
+deletes only what is still exactly what its issue found. It refuses a role that
+binds anything more, a policy that grants anything more, a policy anything
+else in Vault hands out (any auth role, token role, identity group or entity),
+and anything the cluster could still log in with. A read that fails stops the
+run and never passes for "absent". It signs in to Vault the way `secrets.sh`
+does, and `ESTATE_VAULT_ADDR` gives it the same dry run.
 
 ## What they need
 
