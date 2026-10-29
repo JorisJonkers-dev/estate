@@ -30,7 +30,7 @@ is a bridge, not a handover.
 | W2 | the Grafana instance the operator imports into | JorisJonkers-dev/deploy-kit#723 (**blocks**) |
 | W3 | the kubelet, cAdvisor, API server and CoreDNS scraped | JorisJonkers-dev/deploy-kit#724 (degrades: see [Alerts](#alerts-across-the-cut)) |
 | W4 | `node` handed over first, and its node-exporter taken out of `metrics-stack` | JorisJonkers-dev/deploy-kit#659: node-exporter is a DaemonSet of the kube-prometheus-stack release, so suspending `metrics-stack` (O2) also orphans node's agent |
-| W5 | the bootstrap set's CRDs | this repository's `feat/660-observability-bootstrap-crds` (`cluster.sh` and `bootstrap.crds`), merged and run before O2 |
+| W5 | the bootstrap set's CRDs | #259 (`cluster.sh` and `bootstrap.crds`), merged and run before O2 |
 
 Fixed in this file, not waiting: the worked example's Gatus cannot gather any
 check (JorisJonkers-dev/deploy-kit#725), and a blue-green Process's Services
@@ -40,13 +40,13 @@ carry only one port (JorisJonkers-dev/deploy-kit#728). See the diff.
 
 | # | where | what | when | outage |
 |---|---|---|---|---|
-| A | estate, `feat/660-observability-bootstrap-crds` | `cluster.sh` applies the monitoring stack's CRDs; `bootstrap.crds` lists `monitoring.coreos.com/v1alpha1` and `grafana.integreatly.org/v1beta1` | before the window | none |
-| O1 | fleet-infra, "mark the observability stores…" | prune marks on the namespace `observability`, `gatus-data`, `observability-backups` and the three routes; the loki chart keeps its claim, the grafana chart tells Helm to keep its | before the window | none |
+| A | estate, #259 | `cluster.sh` applies the monitoring stack's CRDs; `bootstrap.crds` lists `monitoring.coreos.com/v1alpha1` and `grafana.integreatly.org/v1beta1` | before the window | none |
+| O1 | JorisJonkers-dev/fleet-infra#563 | prune marks on the namespace `observability`, `gatus-data`, `observability-backups` and the three routes; the loki chart keeps its claim, the grafana chart tells Helm to keep its | before the window | none |
 | P | a person | PersistentVolumes to `Retain` (below) | before the window | none |
-| O2 | fleet-infra, "orphan the observability Project…" | every object of `apps-observability`, `apps-observability-rules` and `apps-grafana-dashboards` marked; the seven HelmReleases suspended; the three Kustomizations `prune: false` | window step 1 | none |
-| O3 | fleet-infra, "drop the observability Project's manifests…" | the manifests and the three Kustomizations go; the namespace, the backup CronJobs and dcgm-exporter stay under `apps-observability-namespace`; the grafana, gatus and faro routes move unchanged to `apps-edge` | window step 2 | none |
-| B | estate, this change, then its release | the ledger moves `observability` to `estate` and drops its `serving` statement; the Platform document gains `bootstrap.flux.metrics`, `telemetry.dashboards`, `monitoring` and the five API holders | window step 3 | auth-api rolls once |
-| O4 | fleet-infra, "point the observability routes…" | the routes serve `observability-system`; both Traefiks trace to the new collector; the old Grafana's and Alertmanager's VaultStaticSecrets go | after the flip, once the units are Ready | both Traefiks restart |
+| O2 | JorisJonkers-dev/fleet-infra#564 | every object of `apps-observability`, `apps-observability-rules` and `apps-grafana-dashboards` marked; the seven HelmReleases suspended; the three Kustomizations `prune: false` | window step 1 | none |
+| O3 | JorisJonkers-dev/fleet-infra#566 | the manifests and the three Kustomizations go; the namespace, the backup CronJobs and dcgm-exporter stay under `apps-observability-namespace`; the grafana, gatus and faro routes move unchanged to `apps-edge` | window step 2 | none |
+| B | estate, #260, then its release | the ledger moves `observability` to `estate` and drops its `serving` statement; the Platform document gains `bootstrap.flux.metrics`, `telemetry.dashboards`, `monitoring` and the five API holders | window step 3 | auth-api rolls once |
+| O4 | JorisJonkers-dev/fleet-infra#568 | the routes serve `observability-system`; both Traefiks trace to the new collector; the old Grafana's and Alertmanager's VaultStaticSecrets go | after the flip, once the units are Ready | both Traefiks restart |
 
 O3's `apps-observability` must be gone, not only emptied, before B: the
 estate's unit is also `flux-system/apps-observability`.
