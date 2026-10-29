@@ -503,4 +503,4 @@ res "**Verdict:** $VERDICT" "" "### Done when" \
   "- [$([[ -z "$LEFT" ]] && printf x || printf ' ')] Nothing the drill created is left in Vault, RabbitMQ or the cluster.${LEFT:+ Left:$LEFT}"
 say "Verdict: $VERDICT"
 show_result
-finish
+drill_done

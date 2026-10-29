@@ -575,4 +575,4 @@ res "" "### Done when" \
   "- [x] The result is posted here." \
   "- [$([[ -z "$LEFT" ]] && printf x || printf ' ')] Nothing the drill created is left in the cluster.${LEFT:+ Left:$LEFT}"
 show_result
-finish
+drill_done

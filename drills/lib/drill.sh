@@ -447,6 +447,11 @@ show_result() {
   wait_until "the result is on #$ISSUE" 300 result_posted || true
 }
 
+drill_done() {
+  printf '\n  %s%s✓ Drill #%s complete%s %s(%s)%s\n' "$BOLD" "$GREEN" "$ISSUE" "$RESET" "$DIM" "$(_dur $((EPOCHSECONDS - T0)))" "$RESET" >&3
+  _log "DONE"
+}
+
 result_posted() {
   gh api "repos/$ORG/deploy-kit/issues/$ISSUE/comments?per_page=100" --paginate --jq '.[].body' 2>/dev/null \
     | grep -qF "drill-run: $RUN_ID"
