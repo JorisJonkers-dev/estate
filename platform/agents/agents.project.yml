@@ -1,0 +1,229 @@
+# The agents Project, as it runs live in agents-system: hermes and
+# kubernetes-mcp-server, with agents-api and agents-ui parked. Copied from
+# deploy-kit's worked example (spec/v1/examples/agents/), with live values where
+# the estate differs from it. fleet-infra delivers it until its handover
+# (JorisJonkers-dev/deploy-kit#658, docs/runbooks/agents-handover.md).
+#
+#   hermes                 the agent gateway and its dashboard, which signs
+#                          people in itself against auth-api
+#   kubernetes-mcp-server  read-only cluster diagnostics hermes calls, through
+#                          a cluster-wide read of what it reports on
+#   agents-api, agents-ui  parked since 2026-09-01: no pod runs, and their
+#                          Services and policies stay, so unparking is
+#                          deleting a line
+#
+# What the live manifests do that this file cannot say yet is a row of
+# deploy-kit's spec/v1/examples/RENDER-GAPS.md agents section. The one still
+# open is A8 (JorisJonkers-dev/deploy-kit#706): the init step that clones
+# skill sources onto the volume is not rendered, and hermes runs with the
+# skills its image bundles.
+#
+# Two claims of the namespace are no Process's: claude-credentials and
+# codex-credentials, the retired runners' logins. Nothing here declares them,
+# so the estate path never applies, adopts or prunes them; they keep their
+# live names and their data, owned by nothing, until the maintainer decides.
+
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Project
+schemaVersion: 1.0.0
+
+project: agents # the namespace derives: agents-system, where it runs live
+owner: joris
+
+applications:
+  # The agent gateway. Its dashboard runs the OIDC flow itself, as a public
+  # PKCE client of auth-api (client id `hermes`, auth-api's
+  # buildHermesClient()). The Platform document names no sign-in provider, so
+  # this file declares no `client` block (E_NO_SIGN_IN_PROVIDER) and no
+  # `authenticated` audience, whose forward-auth would intercept the
+  # dashboard's own /auth/callback: auth-api grants the client per user at its
+  # authorize endpoint, as live. The host is on both edges, so the LAN reaches
+  # it without leaving the house.
+  - id: hermes
+    exposure:
+      - name: public
+        host: hermes.jorisjonkers.dev
+        audience: anonymous
+        # Not proxied: Cloudflare closes an idle WebSocket after about 100
+        # seconds, and the dashboard's chat tab runs over one, so the host
+        # resolves straight to the edge, grey-cloud, as it does live.
+        proxied: false
+        routes:
+          - { path: /, match: prefix, process: hermes, surface: dashboard }
+      - name: lan
+        host: hermes.jorisjonkers.dev
+        audience: lan
+        routes:
+          - { path: /, match: prefix, process: hermes, surface: dashboard }
+    processes:
+      - name: hermes
+        lifecycle: application
+        image: hermes
+        args: [gateway, run] # the gateway its dashboard belongs to
+        runtime: none # no telemetry to wire: hermes exports none
+        engine: files # its data is plain files, backed up as files
+        provides:
+          dashboard: 9119
+        # Its claim is bound to enschede-gtx-960m-1, so the ClusterState
+        # snapshot holds it there; no node is named here. Live it works at
+        # about 1.1Gi and peaked at 1.4Gi over two weeks (2026-10-29).
+        placement:
+          memory: 2Gi
+          cpu: 250m
+          site: enschede
+        # The memory, sessions and installed skills: hermes writes them and
+        # nothing rebuilds them. The live claim, adopted by name.
+        volumes:
+          - { claim: hermes-data, mountAt: /opt/data, size: 10Gi, durability: recoverable }
+        # Its config, copied onto the volume before every start, because hermes
+        # migrates it and edits it from its dashboard; the copy it replaces is
+        # kept beside it. The file holds no secret: hermes expands each
+        # ${VAR} from the env file. It is a stand-in, not the live file: see
+        # docs/runbooks/agents-handover.md, decision D1.
+        assets:
+          - { from: config/hermes/config.yaml, seedAt: /opt/data/config.yaml }
+        # Model providers, the GitHub MCP server, Hindsight's public host,
+        # auth-api's issuer: every call leaves the cluster on 443.
+        egress:
+          to: internet
+          reason: >-
+            Hermes calls its model providers and remote MCP servers, and signs people in against auth-api's public issuer.
+        dependsOn:
+          - { application: kubernetes-mcp-server, surface: mcp }
+        # Every key is optional, as live: a missing one disables only the tool
+        # it feeds, and the Process starts without it.
+        secrets:
+          - path: secret/data/agents/hermes
+            keys:
+              - { name: memory-api-key, optional: true }
+              - { name: overleaf-session, optional: true }
+              - { name: github-pat, optional: true }
+              - { name: hindsight-api-token, optional: true }
+              - { name: openrouter-api-key, optional: true }
+              - { name: anthropic-api-key, optional: true }
+              - { name: openai-api-key, optional: true }
+            access: read
+            delivery: env
+            rotation: { tolerates: restart }
+        # Its supervisor keeps its state under /run and hermes its own under
+        # /tmp; the browser its tools drive needs 1Gi of shared memory, held in
+        # memory and counted toward the Process. Started as its own uid with
+        # every capability dropped (JorisJonkers-dev/deploy-kit#692).
+        writablePaths: [/run, /tmp, { path: /dev/shm, memory: 1Gi }]
+        probes:
+          readiness: { path: /api/status, port: 9119 }
+          liveness: { path: /api/status, port: 9119 }
+        # Live allows 20s plus 6 x 10s before readiness fails; the image is
+        # about 950MiB, but a pull is not part of the budget.
+        startupBudget: 120s
+        cutover: interrupted
+
+  # Read-only cluster diagnostics for hermes. It reads what it reports on
+  # across the cluster and writes nothing.
+  - id: kubernetes-mcp-server
+    processes:
+      - name: kubernetes-mcp-server
+        lifecycle: application
+        image: kubernetes-mcp-server
+        # HTTP on its surface rather than stdio, and its write tools withheld.
+        args: [--port=8080, --read-only]
+        runtime: none
+        provides:
+          mcp: 8080
+        placement:
+          memory: 256Mi # it peaked at 216Mi over two weeks (2026-10-29)
+          cpu: 50m
+        probes:
+          readiness: { path: /healthz, port: 8080 }
+          liveness: { path: /healthz, port: 8080 }
+        startupBudget: 20s
+        cutover: continuous
+        api:
+          reason: >-
+            the MCP server answers an agent's questions about workloads, logs, routes and Flux, cluster-wide, and changes nothing
+          rules:
+            - group: core
+              objects: [pods, pods/log, events, services, endpoints, nodes, namespaces]
+              verbs: [get, list, watch]
+            - group: apps
+              objects: [deployments, statefulsets, daemonsets, replicasets]
+              verbs: [get, list, watch]
+            - group: batch
+              objects: [jobs, cronjobs]
+              verbs: [get, list, watch]
+            - group: networking.k8s.io
+              objects: [ingresses, networkpolicies]
+              verbs: [get, list, watch]
+            - group: traefik.io
+              objects: [ingressroutes, middlewares]
+              verbs: [get, list, watch]
+            - group: kustomize.toolkit.fluxcd.io
+              objects: [kustomizations]
+              verbs: [get, list, watch]
+            - group: helm.toolkit.fluxcd.io
+              objects: [helmreleases]
+              verbs: [get, list, watch]
+            - group: source.toolkit.fluxcd.io
+              objects: [gitrepositories, helmrepositories, ocirepositories]
+              verbs: [get, list, watch]
+
+  # The agent sessions' API, parked with the UI. Its routes are left out: live
+  # it shares the UI's host by path, and a host is one Application's
+  # (RENDER-GAPS A7). Retired on the old path by JorisJonkers-dev/fleet-infra#531;
+  # deleting this block and agents-ui's retires it here (decision D3).
+  - id: agents-api
+    processes:
+      - name: agents-api
+        lifecycle: application
+        parked: { reason: Agent sessions run through hermes since 2026-09-01. }
+        image: agents-api
+        runtime: jvm
+        provides:
+          http: 8082
+        placement:
+          memory: 512Mi
+          cpu: 100m
+        api:
+          reason: it reads the session settings it keeps beside itself
+          rules:
+            - { group: core, objects: [configmaps], verbs: [get, list, watch], scope: namespace }
+        spawns:
+          - name: runner
+            image: agent-runner
+            placement: { memory: 1Gi, cpu: 500m }
+            provides:
+              http: 8090 # agents-api drives the session over it
+            dependsOn:
+              - { application: agents-api, surface: http } # the runner reports back
+            egress: { to: internet, reason: an agent clones and pushes the repositories it works on }
+        probes:
+          readiness: { path: /actuator/health/readiness, port: 8082 }
+          liveness: { path: /actuator/health/liveness, port: 8082 }
+        startupBudget: 60s
+        cutover: continuous
+
+  # The sessions' UI, parked with its API: nginx serving a built bundle. Live,
+  # the edge asks nothing of its route.
+  - id: agents-ui
+    exposure:
+      - name: public
+        host: agents.jorisjonkers.dev
+        audience: anonymous
+        routes:
+          - { path: /, match: prefix, process: agents-ui, surface: http }
+    processes:
+      - name: agents-ui
+        lifecycle: application
+        parked: { reason: Agent sessions run through hermes since 2026-09-01. }
+        image: agents-ui
+        runtime: static
+        provides:
+          http: 80
+        placement:
+          memory: 96Mi
+          cpu: 100m
+        writablePaths: [/var/cache/nginx, /var/run]
+        probes:
+          readiness: { path: /, port: 80 }
+          liveness: { path: /, port: 80 }
+        cutover: continuous

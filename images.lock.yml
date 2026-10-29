@@ -165,6 +165,56 @@ images:
     uid: 0
     gid: 0
     version: "0.4.2"
+  # agents, the images fleet-infra runs today (read from the live pods and
+  # Deployments on 2026-10-29). hermes's image starts as root and drops to
+  # 10000, the user its data is owned by; the posture runs it as 10000 from the
+  # start, which JorisJonkers-dev/deploy-kit#692 showed it runs as. The MCP
+  # server's image names 65532; live runs it as 1000, and so does this.
+  hermes:
+    repository: docker.io/nousresearch/hermes-agent
+    digest: "sha256:64923faeae267792bf9bf87fe3b4c4869e35004e360c7df01730ad801b74d524"
+    uid: 10000
+    gid: 10000
+    version: "2026.8.31"
+  kubernetes-mcp-server:
+    repository: quay.io/containers/kubernetes_mcp_server
+    digest: "sha256:6d650f4bd6ac303ad82713c997e73a2d001602f9bf17392c9b9a0e30e29c6423"
+    uid: 1000
+    gid: 1000
+    version: "v0.0.66"
+  # The parked three, at the digests their last live Deployments and the
+  # auth-bootstrap pod name. None runs: the users are deploy-kit's worked
+  # example's, unproven against these images (agents-api's names `api`, the
+  # runner's `agent`, the UI's nginx none).
+  agents-api:
+    repository: ghcr.io/jorisjonkers-dev/agents-api/agents-api
+    digest: "sha256:31e4d50bde2faa04e1b84ef49ca8de0c8a7334252433313f716af418afe2afc6"
+    uid: 1000
+    gid: 1000
+    version: "v0.20.0"
+  agent-runner:
+    repository: ghcr.io/jorisjonkers-dev/agent-runtime/agent-runner
+    digest: "sha256:f687e196fd5225c9a12729f945638986a9e5037f61d94faf2c918bc7244a70cc"
+    uid: 1000
+    gid: 1000
+    version: "v0.19.2"
+  agents-ui:
+    repository: ghcr.io/jorisjonkers-dev/agents-ui
+    digest: "sha256:5b41e0ab23e60fbb3f14f42fe5138e6c266aa1bf1289967bfc8a7f9f820bcbc6"
+    uid: 101
+    gid: 101
+    version: "v0.19.1"
+  # The seeder (platform.intent.yml's seeder; deploy-kit
+  # spec/v1/14-platform-intent.md#the-seeder): Docker Hub's busybox 1.37.0, its
+  # multi-arch index, which runs as nobody. It copies adguard's seeded
+  # configuration onto its conf directory before each start, as the Process's
+  # own user. Pinned as deploy-kit's worked example pins it.
+  busybox:
+    repository: docker.io/library/busybox
+    digest: "sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec"
+    uid: 65534
+    gid: 65534
+    version: "1.37.0"
   # The Node Agents (platform.intent.yml's nodeAgents), the images fleet-infra
   # runs today. The device plugin, the card counters and the L4 speaker run as
   # root, as the catalog's privileges need; the host metrics and the speaker's

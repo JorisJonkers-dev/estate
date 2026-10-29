@@ -1,0 +1,55 @@
+# A stand-in for hermes's configuration, written for this repository: the live
+# file is fleet-infra's, which is private, and this repository is public, so it
+# is not copied here. Seeded onto /opt/data/config.yaml before every start, it
+# replaces the live file at the handover, which hermes keeps beside it as
+# config.yaml.superseded. Whether the live file ships instead is decision D1
+# in docs/runbooks/agents-handover.md.
+#
+# hermes expands each ${VAR} below from its own environment as it reads the
+# file, so the file holds no secret: the values reach hermes through
+# env/hermes/base.env, from secret/data/agents/hermes.
+model:
+  provider: openrouter
+  base_url: https://eu.openrouter.ai/api/v1
+  default: mistralai/mistral-small-2603
+
+# No provider that keeps prompts for training.
+provider_routing:
+  data_collection: deny
+
+# Long-term memory is the memory-api MCP server below, saved to on purpose;
+# hermes's own built-in memory stays off.
+memory:
+  memory_enabled: false
+  user_profile_enabled: false
+
+# The cluster's pod network: the edge proxies a request from there, so the
+# dashboard reads the client address they forward.
+dashboard:
+  trusted_proxies:
+    - 10.42.0.0/16
+
+# hermes runs shell commands. It may not read a projected token or its own
+# keys back off the volume.
+approvals:
+  mode: smart
+  deny:
+    - "*/var/run/secrets/kubernetes.io/*"
+    - "*/opt/data/.env*"
+
+mcp_servers:
+  # Read-only cluster diagnostics, through the edge this Project declares.
+  kubernetes:
+    url: http://kubernetes-mcp-server.agents-system.svc.cluster.local:8080/mcp
+    timeout: 60
+  github:
+    url: https://api.githubcopilot.com/mcp/
+    headers:
+      Authorization: Bearer ${GITHUB_PAT}
+    timeout: 120
+  # Long-term memory: Hindsight's public host, with hermes's own token.
+  memory-api:
+    url: https://hindsight-api.jorisjonkers.dev/mcp/default/
+    headers:
+      Authorization: Bearer ${HINDSIGHT_API_TOKEN}
+    timeout: 60

@@ -49,7 +49,8 @@ jobs:
   # the dashboard signs in through. `data` and `mail` are still delivered by
   # fleet-infra; their fragments are composed so a Project on the estate path
   # can depend on them. Validation reads only what it is handed, so
-  # `data` is handed the config its Assets mount and its env scope.
+  # `data` is handed the config its Assets mount and its env scope, and
+  # `agents` its seeded Asset and its env scope.
   fragment:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
@@ -69,6 +70,8 @@ jobs:
           - project-file: platform/outline/outline.project.yml
             validate-with: platform/outline/env
             validate-with-fragments: auth
+          - project-file: platform/agents/agents.project.yml
+            validate-with: platform/agents/config platform/agents/env
     permissions:
       contents: read
       packages: write

@@ -91,8 +91,10 @@ tiers:
     # CF-Connecting-IP itself.
     traefik: edge/traefik-public # declared in platform/edge.project.yml, placed on the public-ingress node
     ingressClass: traefik-public # the class the live public Traefik admits, and external-dns filters on
-    # Where the live public routes' records point, proxied by Cloudflare.
-    dns: {target: ingress.jorisjonkers.dev, proxied: true}
+    # Where the live public routes' records point, proxied by Cloudflare, and
+    # where a host taken out of the proxy points instead: frankfurt-contabo-1's
+    # own address, which hermes's grey-cloud record names live.
+    dns: {target: ingress.jorisjonkers.dev, proxied: true, direct: 167.86.79.203}
     # Host ports 80 and 443 on the Frankfurt node, which Cloudflare forwards to.
     address: edge-frankfurt
   - name: lan
@@ -312,10 +314,14 @@ delivery:
 # The Applications whose Processes may hold Kubernetes API access, and where
 # the API server answers. Each is in the delivery Project, save the
 # estate-dashboard, which reads Flux's sources and units and Flagger's Canaries
-# and writes nothing (JorisJonkers-dev/estate-dashboard). This document
-# validates only beside its fragment: alone it refuses E_UNKNOWN_API_HOLDER.
+# and writes nothing (JorisJonkers-dev/estate-dashboard), and agents'
+# kubernetes-mcp-server, which reads workloads, logs, routes and Flux
+# cluster-wide for hermes and writes nothing. agents-api, parked, reads
+# ConfigMaps in its own namespace alone. This document validates only beside
+# their fragments: alone it refuses E_UNKNOWN_API_HOLDER.
 apiAccess:
-  holders: [delivery/flagger, delivery/release-gate, delivery/collector, delivery/reporter, estate-dashboard/estate-dashboard]
+  holders: [delivery/flagger, delivery/release-gate, delivery/collector, delivery/reporter, estate-dashboard/estate-dashboard, agents/kubernetes-mcp-server]
+  namespaceHolders: [agents/agents-api]
   server:
     - { cidr: 10.43.0.1/32, port: 443 } # Service default/kubernetes, read 2026-10-07
 
@@ -334,6 +340,15 @@ policyJob:
   # failed the Job and every estate-path unit behind it.
   deadline: 5m
 
+# The image a Process's seeded Assets are copied onto its volumes with, before
+# every start (deploy-kit spec/v1/14-platform-intent.md#the-seeder): any image
+# with a shell and `cp` will do, so one small one serves the estate. adguard is
+# the first Process that seeds: it rewrites its configuration on every start.
+seeder:
+  image: busybox
+  memory: 16Mi
+  cpu: 10m
+
 # Which delivery path each Project is on while the estate moves off
 # fleet-infra's deploy/production branch, one Project at a time
 # (deploy-kit spec/v1/60-setup.md#handing-over-one-project-at-a-time).
@@ -351,7 +366,6 @@ handover:
     - secrets
     - observability
     - data
-    - agents
     - mail
     - utility
     - node
@@ -374,6 +388,7 @@ handover:
     - prowlarr
     - n8n
     - auth
+    - agents
   # Where the old path runs a legacy Application that the estate path
   # reaches, rather than where its declaration puts it
   # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). Live Vault is
