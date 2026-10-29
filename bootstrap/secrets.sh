@@ -69,6 +69,7 @@ SECTIONS=(
   "grimoire|grimoire's S3 and VAPID key pairs and OIDC client secret"
   "findability-explorer|the Findability Explorer's OIDC client secret and Anthropic API key"
   "overleaf|Overleaf's session and invite secrets and the latex@ mail password"
+  "mail|Stalwart's recovery admin, the user:password pair its server reads, from its admin login"
   "hermes|the Hermes Agent's provider keys and its Hindsight token"
   "mistral|the Mistral API keys Hindsight and Karakeep read"
   "garage-keys|optional: the Garage web and archive keys, pre-generated so a rebuild reproduces them"
@@ -1158,6 +1159,66 @@ section_overleaf() {
   fi
 }
 
+# ── mail ──────────────────────────────────────────────────────────────────
+# Stalwart seeds its admin from STALWART_RECOVERY_ADMIN, one variable in the
+# form user:password. An env file's value is one placeholder, never two
+# (deploy-kit spec/v1/10-project-intent.md#the-dotenv-subset-that-is-read), so
+# Vault holds the pair as a key of its own, stalwart.recovery_admin, derived
+# here from stalwart.admin_user and stalwart.admin_password: the two the
+# provisioner sidecar signs in with. Re-run it after either changes. The admin
+# login itself is Stalwart's own, so a Vault without it wants a restore, and
+# this section never mints one (JorisJonkers-dev/deploy-kit#656).
+MAIL_KV_PATH=platform/mail
+
+# vso_readers PATH prints, one a line, every VaultStaticSecret that projects
+# secret/PATH, with what VSO restarts when it changes and the version it is
+# pinned to, if any. Read-only; nothing in a dry run.
+vso_readers() {
+  [[ -z "$LOCAL_VAULT" ]] || return 0
+  $KUBECTL get vaultstaticsecrets.secrets.hashicorp.com -A -o json 2>/dev/null \
+    | jq -r --arg p "$1" '.items[] | select(.spec.mount == "secret" and .spec.path == $p)
+        | "\(.metadata.namespace)/\(.metadata.name): " + (if .spec.version then "pinned to version \(.spec.version), so it does not change"
+          else "restarts " + ([.spec.rolloutRestartTargets[]? | "\(.kind)/\(.name)"] | if length == 0 then "nothing" else join(", ") end)
+               + " within its refresh, \(.spec.refreshAfter // "?")" end)' || true
+}
+
+section_mail() {
+  local doc user password current wanted readers line
+  doc=$(kv_load "$MAIL_KV_PATH")
+  user=$(kv_field "$doc" stalwart.admin_user)
+  password=$(kv_field "$doc" stalwart.admin_password)
+  current=$(kv_field "$doc" stalwart.recovery_admin)
+  if [[ -z "$user" || -z "$password" ]]; then
+    later "secret/$MAIL_KV_PATH has no stalwart.admin_user or stalwart.admin_password: restore them, then re-run --only mail"
+    result mail "waiting for the admin login"
+    return 0
+  fi
+  wanted="$user:$password"
+  unset user password
+  if [[ "$current" == "$wanted" ]]; then
+    ok "secret/$MAIL_KV_PATH → stalwart.recovery_admin matches the admin login ($(fp "$wanted"))"
+    result mail "already right"
+    return 0
+  fi
+  [[ -z "$current" ]] || note "stalwart.recovery_admin ($(fp "$current")) differs from the admin login ($(fp "$wanted"))"
+  warn "Writing secret/$MAIL_KV_PATH makes a new version of it, and auth reads that path too"
+  warn "(account.password): the Vault Secrets Operator then restarts auth-api, one pod at a time."
+  readers=$(vso_readers "$MAIL_KV_PATH")
+  if [[ -n "$readers" ]]; then
+    say "What reads secret/$MAIL_KV_PATH now:"
+    while IFS= read -r line; do step "$line"; done <<<"$readers"
+  fi
+  confirm "Write stalwart.recovery_admin ($(fp "$wanted")) to secret/$MAIL_KV_PATH, restarting auth-api?" \
+    || { later "secret/$MAIL_KV_PATH → stalwart.recovery_admin is not written"; result mail "not written"; return 0; }
+  printf '%s' "$wanted" | kv_patch "$MAIL_KV_PATH" stalwart.recovery_admin
+  doc=$(kv_load "$MAIL_KV_PATH")
+  [[ "$(kv_field "$doc" stalwart.recovery_admin)" == "$wanted" ]] || die "secret/$MAIL_KV_PATH does not read back"
+  ok "secret/$MAIL_KV_PATH → stalwart.recovery_admin = $(fp "$wanted")"
+  result mail written
+  note "VSO restarts auth-api-primary within its ten-minute refresh. Stalwart reads the key once mail hands over to the estate path."
+  unset wanted
+}
+
 # ── hermes ────────────────────────────────────────────────────────────────
 # Was fleet-infra scripts/ops/set-hermes-secrets.sh and
 # provision-hermes-memory-token.sh. Every key the Deployment reads is optional,
@@ -1497,6 +1558,7 @@ for CURRENT_SECTION in "${SELECTED[@]}"; do
     grimoire) section_grimoire ;;
     findability-explorer) section_findability_explorer ;;
     overleaf) section_overleaf ;;
+    mail) section_mail ;;
     hermes) section_hermes ;;
     mistral) section_mistral ;;
     garage-keys) section_garage_keys ;;
