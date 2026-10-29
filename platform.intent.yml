@@ -31,6 +31,9 @@ substrate:
   cni: flannel
   networkPolicyController: embedded # no non-enforcing stage: default-deny stays render-only
   clusterDns: kube-system
+  # What a Process that serves DNS resolves through, so it never depends on the
+  # cluster DNS it may be keeping up: adguard's live nameservers.
+  upstreamNameservers: [9.9.9.10, 149.112.112.10]
   # The slowest image pull a pod may wait on, which every derived deadline
   # allows on top of its own start: the Pis boot from USB sticks, and pulling
   # the Release Gate's image on enschede-pi-1 took 94s on 2026-10-14
@@ -63,18 +66,73 @@ bootstrap:
     - flagger.app/v1beta1 # the Canary every blue-green Process renders; bootstrap/cluster.sh applies it, Flagger's binary never does
 
 # Where the edge terminates. A route's audience is the only way it reaches a tier.
+# Each fact states the edge fleet-infra runs today (read 2026-10-29), so a route
+# rendered later stands on it (JorisJonkers-dev/estate#200).
 tiers:
   - name: public-frankfurt
     audiences: [anonymous, authenticated]
+    # websecure on 443, with web on 80 beside it.
     listener: tls
+    # Its own resolver, once edge hands over: the Cloudflare token below only
+    # answers from frankfurt-contabo-1's address, and `address` holds this
+    # proxy there. Until then the wildcard comes from fleet-infra's
+    # cert-manager, through the same account.
     certificates: acme
-    forwardAuth: "http://auth-api.auth-system.svc.cluster.local:8081/api/auth/forward"
+    # auth-api's forward-auth endpoint (AuthVerificationController), and the
+    # headers the live forward-auth Middleware hands on to the route.
+    forwardAuth:
+      provider: auth/auth
+      surface: http
+      path: /api/v1/auth/verify
+      responseHeaders: [X-User-Id, X-User-Roles, X-Agents-Verified-Jwt]
+    # No `proxiedBy`: not every request comes through Cloudflare. hermes,
+    # agents-ws and jellyfin publish unproxied records, and the node's own
+    # address answers on 443 directly, so a client could write
+    # CF-Connecting-IP itself.
     traefik: edge/traefik-public # declared in platform/edge.project.yml, placed on the public-ingress node
+    ingressClass: traefik-public # the class the live public Traefik admits, and external-dns filters on
+    # Where the live public routes' records point, proxied by Cloudflare.
+    dns: {target: ingress.jorisjonkers.dev, proxied: true}
+    # Host ports 80 and 443 on the Frankfurt node, which Cloudflare forwards to.
+    address: edge-frankfurt
   - name: lan
     audiences: [lan]
-    listener: plain
+    # The live LAN Traefik serves every route on websecure.
+    listener: tls
+    # It serves the wildcard the proxy already holds: the default TLSStore's,
+    # which fleet-infra's cert-manager issues. It cannot issue its own: it runs
+    # in Enschede, and the Cloudflare token only answers from Frankfurt.
     certificates: none
     traefik: edge/traefik-lan # placed on a LAN node
+    ingressClass: traefik-lan # the class the live LAN Traefik admits
+    # No `dns`: AdGuard answers the LAN's names, and external-dns writes no
+    # record for this class.
+    address: lan-edge
+
+# How the public tier's proxy registers with Let's Encrypt and proves its names
+# (deploy-kit spec/v1/14-platform-intent.md#tiers). The account is the live
+# ClusterIssuer's. The token's document holds `CF_DNS_API_TOKEN`; it is written
+# before edge hands over, and nothing reads it while edge is legacy.
+acme:
+  email: postmaster@jorisjonkers.dev
+  dnsProvider: cloudflare
+  token: secret/data/platform/cloudflare
+
+# The addresses a client off the cluster reaches the edge on
+# (deploy-kit spec/v1/14-platform-intent.md#l4-addresses).
+l4Addresses:
+  # frankfurt-contabo-1's own address, 167.86.79.203: the public Traefik binds
+  # 80 and 443 there as host ports.
+  edge-frankfurt:
+    kind: node
+    node: frankfurt-contabo-1
+  # The LAN Traefik's load-balancer address. Live, it is the one free address
+  # of MetalLB's enschede-lan pool (192.168.0.97-192.168.0.99, shared with
+  # AdGuard's two); this pool is that one address alone.
+  lan-edge:
+    kind: pool
+    site: enschede
+    range: 192.168.0.99/32
 
 # One policy per Durability Class.
 durability:
@@ -91,6 +149,9 @@ durability:
     offCluster:
       destination: "s3://jorisjonkers-dev-backups"
       credential: secret/data/platform/backup/off-cluster
+      # The age public key each copy is encrypted to on the pod; the private
+      # key is kept off the cluster, and only a restore holds it.
+      recipient: age1h8ma007nkcxcrph9cmrf7hqsqcppzu9keyvyzct255z8k925asms9g95wg
       # eu2.contabostorage.com resolved on 2026-10-07; a policy admits an
       # address range, never a hostname, so a move of the endpoint is a change
       # here.
@@ -110,7 +171,9 @@ libraries:
     grants:
       immich: write
       arr: write
-      jellyfin: read
+      # Writes each item's .nfo metadata beside the media
+      # (JorisJonkers-dev/jellyfin#19).
+      jellyfin: write
       qbittorrent: write
   # Torrents still downloading, and seeding once done: a directory of its own on
   # the same node, which only the download client writes.
@@ -130,6 +193,22 @@ gpus:
   nvidia:
     resource: nvidia.com/gpu
     runtimeClass: nvidia-cdi
+
+# The Node Agents the node facts derive (deploy-kit
+# spec/v1/14-platform-intent.md#node-agents), at the images fleet-infra runs
+# today. They are the `node` Project, legacy until its handover: fleet-infra
+# still delivers them, and composition delivers none.
+nodeAgents:
+  gpu-device: { image: nvidia-device-plugin, memory: 64Mi, cpu: 10m }
+  gpu-metrics: { image: dcgm-exporter, memory: 256Mi, cpu: 50m }
+  node-metrics: { image: node-exporter, memory: 64Mi, cpu: 20m }
+  # MetalLB, which announces `lan-edge` from the Enschede nodes. Live, it
+  # requests nothing; these are the worked example's requests.
+  l4-speaker:
+    image: metallb-speaker
+    memory: 64Mi
+    cpu: 20m
+    controller: { image: metallb-controller, memory: 64Mi, cpu: 10m }
 
 # The VPN every attached Process's traffic leaves through (deploy-kit
 # spec/v1/14-platform-intent.md#vpn): gluetun on ProtonVPN WireGuard, on
@@ -226,7 +305,9 @@ delivery:
     # A check fails when more than this share of the Canary's requests errors,
     # or when one is slower than this. Every release is held to both.
     errorRate: 1%
-    latency: 500ms
+    # 1s, not 500ms: on the Raspberry Pis a new copy reading Postgres in Frankfurt
+    # measured 532ms and 567ms at p95 on 2026-10-27, and the edge alerts above 1s.
+    latency: 1000ms
 
 # The Applications whose Processes may hold Kubernetes API access, and where
 # the API server answers. Each is in the delivery Project, save the
@@ -270,10 +351,10 @@ handover:
     - secrets
     - observability
     - data
-    - auth
     - agents
     - mail
     - utility
+    - node
   estate:
     - delivery
     - estate-dashboard
@@ -292,6 +373,7 @@ handover:
     - qbittorrent
     - prowlarr
     - n8n
+    - auth
   # Where the old path runs a legacy Application that the estate path
   # reaches, rather than where its declaration puts it
   # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). Live Vault is
@@ -306,6 +388,13 @@ handover:
     - application: platform-postgres
       namespace: data-system
       admin: { path: secret/data/platform/postgres, user: postgres.user, password: postgres.password }
+    # The old path's collector: Grafana Alloy, whose Service and pods carry the
+    # instance alloy, with an OTLP gRPC receiver on 4317. Without this every
+    # exporting Runtime Profile (auth-api's jvm, the first on the estate path)
+    # is handed otel-collector.observability-system, which does not exist.
+    - application: otel-collector
+      namespace: observability
+      instance: alloy
 
 # No `providers`: everything an Application depends on today runs in the
 # cluster and is declared by some Project. The worked example's `stalwart`

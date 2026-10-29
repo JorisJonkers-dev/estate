@@ -221,6 +221,8 @@ jobs:
       - name: Pull every participant, the previous lock and the pins
         id: pull
         run: |
+          # COMPOSED and the signer are the job's env, not this script's.
+          # shellcheck disable=SC2153
           # No pin yet is an empty projects/, not a literal pattern.
           shopt -s nullglob
 
@@ -302,9 +304,11 @@ jobs:
             || { echo "::error::the Platform document's fragment is not this repository's"; exit 1; }
           # Flux verifies against the signer the Platform document states; this
           # workflow signs as itself, so the two must be one identity.
-          [ "$(yq '.bootstrap.flux.artifacts.signer.issuer' platform-fragment/platform.intent.yml)" = "$SIGNER_ISSUER" ] \
-            && [ "$(yq '.bootstrap.flux.artifacts.signer.subject' platform-fragment/platform.intent.yml)" = "$SIGNER_SUBJECT" ] \
-            || { echo "::error::the Platform document's signer is not this workflow on main"; exit 1; }
+          if [ "$(yq '.bootstrap.flux.artifacts.signer.issuer' platform-fragment/platform.intent.yml)" != "$SIGNER_ISSUER" ] \
+            || [ "$(yq '.bootstrap.flux.artifacts.signer.subject' platform-fragment/platform.intent.yml)" != "$SIGNER_SUBJECT" ]; then
+            echo "::error::the Platform document's signer is not this workflow on main"
+            exit 1
+          fi
 
           mkdir -p fragments held
           for project in $(yq '.participants | keys | .[]' participants.yml); do

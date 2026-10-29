@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/immich
   ref:
-    digest: sha256:9b3c3c85f5a67b7744249097a7eba0ca13fb96776ea0e9b01d71ef529cc575b6
+    digest: sha256:85583dad0d37dc315e66d27edb7c0cb18e709e23b528d0489f724e5a782e7496
   secretRef:
     name: render-pull
   verify:

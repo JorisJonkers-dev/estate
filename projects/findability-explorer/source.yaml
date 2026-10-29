@@ -7,11 +7,17 @@ metadata:
   namespace: flux-system
   labels:
     app.kubernetes.io/managed-by: deploy-kit
+  annotations:
+    estate.jorisjonkers.dev/paused-by: ExtraToast
+    estate.jorisjonkers.dev/paused-at: "2026-10-28T11:48:03Z"
+    estate.jorisjonkers.dev/paused-reason: Bad design
+    estate.jorisjonkers.dev/rollback-version: 1.11.1
+    estate.jorisjonkers.dev/rollback-fragment: ghcr.io/jorisjonkers-dev/intent-findability-explorer@sha256:fa70be6c358b3a83e46df8090946b11a154264146f6b2f9cd6a84ab6f2c00d88
 spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/findability-explorer
   ref:
-    digest: sha256:87ed578e5eb71f8fce6a1d0bc2441604ab32d14f16532fdd724c82f09003d501
+    digest: sha256:8450d9bf408a07a35f6e8b45bd625cdd5a6487307d9d08199792ddad853dc7c8
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +35,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/findability-explorer
-    event.toolkit.fluxcd.io/sha: 5dba23d88617350e430f9b574e96be9d06f8786e
+    event.toolkit.fluxcd.io/sha: f19a0a85c93f0d91478e7d3bbda5975a05b8d99c
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 1.0.0
+    event.toolkit.fluxcd.io/version: 1.11.1
     event.toolkit.fluxcd.io/url: https://digital-strategy.jorisjonkers.dev
 spec:
   interval: 10m
@@ -45,13 +51,3 @@ spec:
     kind: OCIRepository
     name: project-findability-explorer
   path: ./apps/findability-explorer
-  patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-          annotations:
-            kustomize.toolkit.fluxcd.io/force: Enabled
-      target:
-        kind: Deployment

@@ -70,18 +70,18 @@ images:
 
   # Built by JorisJonkers-dev/delivery 0.2.0. Each runs as 65532:65532 by
   # number; the backup CronJob runs a method as its plan's uid and gid.
-  vault-policy: # delivery 0.9.1, which also writes a catalog method's own policy
+  vault-policy: # delivery 0.15.2, which accepts read on a transit key
     repository: ghcr.io/jorisjonkers-dev/delivery/vault-policy
-    digest: "sha256:24132a8159172495a2dc8573b50fdff1dd8242e680f08a5b294e58f42b4f5e26"
+    digest: "sha256:d834c4c8734f9d0a5d81494d097837550c7ce19ae3d269719c2e115c86022a19"
     uid: 65532
     gid: 65532
-    version: "0.9.1"
-  postgres-catalog: # delivery 0.9.0, which applies the database catalog
+    version: "0.15.2"
+  postgres-catalog: # delivery 0.15.0, which applies the database catalog
     repository: ghcr.io/jorisjonkers-dev/delivery/postgres-catalog
-    digest: "sha256:2d6322f91c2191ab0a64c31ecdc6d074d6bcb89d2a208ee8ef84aa2c8a0ad28a"
+    digest: "sha256:378f721245ba80ffe79fe43c9cdbbd29c76ebb865bbbccfe8561e91ef280e70c"
     uid: 65532
     gid: 65532
-    version: "0.9.0"
+    version: "0.15.0"
   # The platform's VPN, run as root beside each attached Process.
   gluetun:
     repository: docker.io/qmcgaw/gluetun
@@ -91,22 +91,22 @@ images:
     version: "v3.41.3"
   file-backup:
     repository: ghcr.io/jorisjonkers-dev/delivery/file-backup
-    digest: "sha256:3780da3df24d102076648f048a1c4fe2452f7d7cea9cbafdd2dda064b897fa91"
+    digest: "sha256:ea816e11b0b78689ad5d00a2438d6d5ec4cddf08ceb2be67c45eb4688cbe774f"
     uid: 65532
     gid: 65532
-    version: "0.9.2"
+    version: "0.15.0"
   postgres-backup:
     repository: ghcr.io/jorisjonkers-dev/delivery/postgres-backup
-    digest: "sha256:cc087aa9184fbed7aa4cd0ee9a435429af32f96f04fca336a6b0ee43985bcae0"
+    digest: "sha256:6d8370f988bda1b17b3b35cc7d455ea7ecb8ec8f828a90af987492dda5704793"
     uid: 65532
     gid: 65532
-    version: "0.9.2"
+    version: "0.15.0"
   rabbitmq-backup:
     repository: ghcr.io/jorisjonkers-dev/delivery/rabbitmq-backup
-    digest: "sha256:63755a6895b8a4f0e7ed8986419169c415267929f414728502fb716f27472a93"
+    digest: "sha256:1f940b83fa4d3d3e18ee08dfd09a76c60e249cee97ca31718aac981bcdf3b562"
     uid: 65532
     gid: 65532
-    version: "0.9.2"
+    version: "0.15.0"
 
   # The data and mail projects' images, resolved on 2026-10-15 as the digest
   # each live pod runs. fleet-infra still delivers both projects; these pin
@@ -165,3 +165,39 @@ images:
     uid: 0
     gid: 0
     version: "0.4.2"
+  # The Node Agents (platform.intent.yml's nodeAgents), the images fleet-infra
+  # runs today. The device plugin, the card counters and the L4 speaker run as
+  # root, as the catalog's privileges need; the host metrics and the speaker's
+  # controller as the image's own user.
+  nvidia-device-plugin:
+    repository: nvcr.io/nvidia/k8s-device-plugin
+    digest: "sha256:a61ba9fd8efb82f3a79f877f7580e02c1e8e7593f62473644bc9c79e315c3312"
+    uid: 0
+    gid: 0
+    version: "v0.20.0"
+  dcgm-exporter:
+    repository: nvcr.io/nvidia/k8s/dcgm-exporter
+    digest: "sha256:613ab03c11d442fd960ff515f547e9921537454a712d08160bc8f677f89f1c35"
+    uid: 0
+    gid: 0
+    version: "4.6.0-4.8.3"
+  node-exporter:
+    repository: quay.io/prometheus/node-exporter
+    digest: "sha256:8c9bac11973b94b59be88d6e11fee4429aa743c8846cdc75d65b18db33f6a106"
+    uid: 65532
+    gid: 65532
+    version: "v1.12.1"
+  # MetalLB, which announces the LAN edge's pool, resolved on 2026-10-29 from
+  # the tags fleet-infra runs.
+  metallb-speaker:
+    repository: quay.io/metallb/speaker
+    digest: "sha256:c6a5b25b2e1fba610a57b2db4bb8141d7c133569d561a8cc29e38ca5113efbc4"
+    uid: 0
+    gid: 0
+    version: "v0.15.3"
+  metallb-controller:
+    repository: quay.io/metallb/controller
+    digest: "sha256:6698ccc54c380913816ed1fd0758637ec87dd79da419c4ab170a2c26c158ab89"
+    uid: 65534
+    gid: 65534
+    version: "v0.15.3"
