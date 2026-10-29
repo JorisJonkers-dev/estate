@@ -69,6 +69,7 @@ SECTIONS=(
   "grimoire|grimoire's S3 and VAPID key pairs and OIDC client secret"
   "findability-explorer|the Findability Explorer's OIDC client secret and Anthropic API key"
   "overleaf|Overleaf's session and invite secrets and the latex@ mail password"
+  "mail|Stalwart's recovery admin, the user:password pair its server reads, from its admin login"
   "hermes|the Hermes Agent's provider keys and its Hindsight token"
   "mistral|the Mistral API keys Hindsight and Karakeep read"
   "garage-keys|optional: the Garage web and archive keys, pre-generated so a rebuild reproduces them"
@@ -1133,7 +1134,6 @@ kv_rollback() {
 # fatal and takes the whole stalwart Pod, mail included, down with it. Its
 # Garage keys (secret/overleaf-system/garage) are deploy-kit generated keys.
 section_overleaf() {
-  local version
   WROTE_FIELDS=""
   CHANGED_KEYS=""
   if [[ -n "$ROLLBACK" ]]; then
@@ -1148,14 +1148,52 @@ section_overleaf() {
   fi
   [[ -n "$WROTE_FIELDS" ]] || return 0
   note "Overleaf reads platform/overleaf through its deploy-kit grant; VSO refreshes it and restarts Overleaf."
-  # Stalwart's copy is pinned to one KV version (fleet-infra
-  # cluster/flux/apps/mail/stalwart/vault-static-secrets.yaml, stalwart-latex-mail),
-  # because an unpinned refresh rolls stalwart and takes mail down. So a new
-  # latex@ password reaches Overleaf on its own and stalwart only when the pin moves.
-  if [[ "$CHANGED_KEYS" == *" smtp.password"* ]]; then
-    version=$(vault kv metadata get -mount=secret -format=json platform/overleaf </dev/null | jq -r .data.current_version)
-    later "smtp.password changed: in fleet-infra, set stalwart-latex-mail's version: to $version (cluster/flux/apps/mail/stalwart/vault-static-secrets.yaml). Until it merges, stalwart keeps latex@'s old password while Overleaf gets the new one, and Overleaf cannot send mail"
+  # Stalwart reads the same key through its own grant (platform/mail), so a new
+  # latex@ password reaches both within VSO's ten-minute refresh, each restarted
+  # by it: Stalwart's restart takes mail down for about a minute.
+  [[ "$CHANGED_KEYS" != *" smtp.password"* ]] \
+    || note "smtp.password changed: Stalwart sets latex@ to it on its restart, within ten minutes; mail is down for about a minute then."
+}
+
+# ── mail ──────────────────────────────────────────────────────────────────
+# Stalwart seeds its admin from STALWART_RECOVERY_ADMIN, one variable in the
+# form user:password. An env file's value is one placeholder, never two
+# (deploy-kit spec/v1/10-project-intent.md#the-dotenv-subset-that-is-read), so
+# Vault holds the pair as a key of its own, stalwart.recovery_admin, derived
+# here from stalwart.admin_user and stalwart.admin_password: the two the
+# provisioner sidecar signs in with. Re-run it after either changes. The admin
+# login itself is Stalwart's own, so a Vault without it wants a restore, and
+# this section never mints one.
+MAIL_KV_PATH=platform/mail
+section_mail() {
+  local doc user password current wanted
+  doc=$(kv_load "$MAIL_KV_PATH")
+  user=$(kv_field "$doc" stalwart.admin_user)
+  password=$(kv_field "$doc" stalwart.admin_password)
+  current=$(kv_field "$doc" stalwart.recovery_admin)
+  if [[ -z "$user" || -z "$password" ]]; then
+    later "secret/$MAIL_KV_PATH has no stalwart.admin_user or stalwart.admin_password: restore them, then re-run --only mail"
+    result mail "waiting for the admin login"
+    return 0
   fi
+  wanted="$user:$password"
+  unset user password
+  if [[ "$current" == "$wanted" ]]; then
+    ok "secret/$MAIL_KV_PATH → stalwart.recovery_admin matches the admin login ($(fp "$wanted"))"
+    result mail "already right"
+    return 0
+  fi
+  [[ -z "$current" ]] || note "stalwart.recovery_admin ($(fp "$current")) differs from the admin login ($(fp "$wanted"))"
+  confirm "Write stalwart.recovery_admin ($(fp "$wanted")) to secret/$MAIL_KV_PATH?" \
+    || { later "secret/$MAIL_KV_PATH → stalwart.recovery_admin is not written"; result mail "not written"; return 0; }
+  printf '%s' "$wanted" | kv_patch "$MAIL_KV_PATH" stalwart.recovery_admin
+  doc=$(kv_load "$MAIL_KV_PATH")
+  [[ "$(kv_field "$doc" stalwart.recovery_admin)" == "$wanted" ]] || die "secret/$MAIL_KV_PATH does not read back"
+  ok "secret/$MAIL_KV_PATH → stalwart.recovery_admin = $(fp "$wanted")"
+  result mail written
+  note "auth-api reads platform/mail too (account.password): VSO restarts auth-api-primary within ten minutes, one pod at a time."
+  note "VSO refreshes mail-system/stalwart-platform-mail within ten minutes and restarts Stalwart, once mail is on the estate path."
+  unset wanted
 }
 
 # ── hermes ────────────────────────────────────────────────────────────────
@@ -1497,6 +1535,7 @@ for CURRENT_SECTION in "${SELECTED[@]}"; do
     grimoire) section_grimoire ;;
     findability-explorer) section_findability_explorer ;;
     overleaf) section_overleaf ;;
+    mail) section_mail ;;
     hermes) section_hermes ;;
     mistral) section_mistral ;;
     garage-keys) section_garage_keys ;;

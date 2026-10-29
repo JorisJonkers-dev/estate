@@ -140,6 +140,17 @@ libraries:
     grants:
       qbittorrent: write
 
+# The addresses a client off the cluster dials a raw TCP or UDP surface on
+# (deploy-kit spec/v1/14-platform-intent.md#l4-addresses). Frankfurt has no
+# pool, so mail's listeners are host ports on the node's own address,
+# 167.86.79.203, which mail.jorisjonkers.dev's non-proxied A record names
+# (read 2026-10-29). The entry asserts that address reaches the node and that
+# no firewall of the substrate's drops mail's ports.
+l4Addresses:
+  mail-node:
+    kind: node
+    node: frankfurt-contabo-1
+
 # What a Process that requires a GPU is handed, by the vendor of its card
 # (deploy-kit spec/v1/14-platform-intent.md#gpus): one time-sliced share of the
 # resource nvidia's device plugin advertises, under the `nvidia-cdi` runtime
@@ -289,10 +300,12 @@ policyJob:
 # Every Project fleet-infra still delivers is named under `legacy`, so its
 # project file is read rather than refused as E_HANDOVER_UNLISTED. `delivery`
 # was never on the old path: its Applications (the Release Gate, Flagger, the
-# Collector) are born on the estate path, and so is `estate-dashboard`. A
-# Project that retires leaves the ledger: `knowledge` was retired with the old
-# knowledge stack (fleet-infra#495), and `knowledge-platform` and `media` were
-# split into the Projects that now run their apps under `estate`.
+# Collector) are born on the estate path, and so is `estate-dashboard`.
+# `mail` moved in JorisJonkers-dev/deploy-kit#656, adopted in place on its
+# live claim. A Project that retires leaves the ledger: `knowledge` was
+# retired with the old knowledge stack (fleet-infra#495), and
+# `knowledge-platform` and `media` were split into the Projects that now run
+# their apps under `estate`.
 handover:
   retireBy: 2027-03-31
   legacy:
@@ -301,7 +314,6 @@ handover:
     - observability
     - data
     - agents
-    - mail
     - utility
     - node
   estate:
@@ -323,6 +335,7 @@ handover:
     - prowlarr
     - n8n
     - auth
+    - mail
   # Where the old path runs a legacy Application that the estate path
   # reaches, rather than where its declaration puts it
   # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). Live Vault is

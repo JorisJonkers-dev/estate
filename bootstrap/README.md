@@ -39,6 +39,7 @@ client secrets.
 ./bootstrap/secrets.sh --only tribelt --rotate           # a new client secret; restarts auth-api
 ./bootstrap/secrets.sh --only hermes --replace           # rewrite the document, dropping what is not offered
 ./bootstrap/secrets.sh --only overleaf --rollback        # back to an earlier KV version
+./bootstrap/secrets.sh --only mail                       # Stalwart's user:password pair, from its admin login
 ./bootstrap/secrets.sh --only grimoire --rerun-garage-bootstrap
 ./bootstrap/secrets.sh --only discord-webhook --rotate --test-alert
 ```
