@@ -38,10 +38,10 @@ Bridged rather than waited on:
 
 | # | where | when | what | outage |
 |---|---|---|---|---|
-| F0 | fleet-infra, "keep traefik-lan's address by the address alone" | any time before the window | traefik-lan's Service stops naming the pool `enschede-lan` and asks for its address alone. Otherwise the estate path's controller clears it: the render's pool is named `lan-edge` | none |
-| F1 | fleet-infra, "orphan the node Project" | before the window, after utility's | every object fleet-infra applies for the agents and both pools is marked `prune: disabled`; the three HelmReleases are suspended; `apps-metallb-config` and `apps-metallb-lan-dns` are set to `prune: false`; node-exporter's four kube-prometheus-stack objects get `helm.sh/resource-policy: keep` | none |
-| F2 | fleet-infra, "drop the node Project's manifests" | window, step 2 | the manifests and both pool Kustomizations go; kube-prometheus-stack turns node-exporter off; the RuntimeClass moves under the same name; two PodMonitors scrape `node-system` | none: every object stays |
-| B | this repository, this change, then its release | window, step 6 | `metallb.io/v1beta1` joins `bootstrap.crds`, and `cluster.sh` adopts MetalLB's CRDs; `nodeAgents` memory sized to live use; `node` moves to `estate` | the swap below |
+| F0 | JorisJonkers-dev/fleet-infra#565 | any time before the window | traefik-lan's Service stops naming the pool `enschede-lan` and asks for its address alone. Otherwise the estate path's controller clears it: the render's pool is named `lan-edge` | none |
+| F1 | JorisJonkers-dev/fleet-infra#567 | before the window, after utility's | every object fleet-infra applies for the agents and both pools is marked `prune: disabled`; the three HelmReleases are suspended; `apps-metallb-config` and `apps-metallb-lan-dns` are set to `prune: false`; node-exporter's four kube-prometheus-stack objects get `helm.sh/resource-policy: keep` | none |
+| F2 | JorisJonkers-dev/fleet-infra#569 | window, step 2 | the manifests and both pool Kustomizations go; kube-prometheus-stack turns node-exporter off; the RuntimeClass moves under the same name; two PodMonitors scrape `node-system` | none: every object stays |
+| B | JorisJonkers-dev/estate#261, then its release | window, step 6 | `metallb.io/v1beta1` joins `bootstrap.crds`, and `cluster.sh` adopts MetalLB's CRDs; `nodeAgents` memory sized to live use; `node` moves to `estate` | the swap below |
 
 ## The render against the old path
 
