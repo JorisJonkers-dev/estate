@@ -304,6 +304,8 @@ drill_start() {
 }
 
 _failed() {
+  # A command substitution inherits the trap; only the drill itself reports.
+  [[ "$BASHPID" == "$$" ]] || return 0
   trap - ERR
   _spin_clear
   printf '\n  %s✗ %s, line %s: "%s" exited %s%s\n' "$RED" "$(basename "$0")" "$1" "$2" "$3" "$RESET" >&2

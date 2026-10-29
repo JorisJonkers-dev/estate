@@ -76,7 +76,7 @@ lease_set() {
   local lease
   lease=$(vault_json "$MOUNT/config/lease") || return 1
   HINT=$(jq -r '"ttl \(.data.ttl), max_ttl \(.data.max_ttl)"' <<<"$lease")
-  jq -e --argjson t "$TTL" --argjson m "$MAX_TTL" '(.data.ttl | tonumber) == $t and (.data.max_ttl | tonumber) == $m' <<<"$lease" >/dev/null
+  jq -e --argjson t "$TTL" --argjson m "$MAX_TTL" 'def secs: if type == "number" then . elif test("^[0-9]+$") then tonumber else capture("^(?<n>[0-9]+)(?<u>[smh])$") | (.n | tonumber) * {"s": 1, "m": 60, "h": 3600}[.u] end; (.data.ttl | secs) == $t and (.data.max_ttl | secs) == $m' <<<"$lease" >/dev/null
 }
 vhost_present() { rmq list_vhosts | jq -e --arg v "$VHOST" 'any(.[]; .name == $v)' >/dev/null; }
 vhost_absent() {
@@ -251,8 +251,13 @@ stage "Vault: what the live mount leases, read only"
 vault_connect
 LIVE_TUNE=$(vault_json sys/mounts/rabbitmq/tune | jq -c '.data | {default_lease_ttl, max_lease_ttl}') \
   || die "cannot read sys/mounts/rabbitmq/tune"
-LIVE_LEASE=$(vault read -format=json rabbitmq/config/lease 2>&1 </dev/null | jq -c '.data // .' 2>/dev/null \
-  || vault read rabbitmq/config/lease 2>&1 </dev/null | head -n 1)
+# Vault answers "No value found" where nothing was ever written to config/lease:
+# that is the finding, not a failure.
+if LIVE_LEASE=$(vault_json rabbitmq/config/lease); then
+  LIVE_LEASE=$(jq -c .data <<<"$LIVE_LEASE")
+else
+  LIVE_LEASE="none written ($( (vault read rabbitmq/config/lease 2>&1 </dev/null || true) | head -n 1))"
+fi
 LIVE_ROLE=$(vault_json rabbitmq/roles/app-consumer | jq -c '.data' || printf 'unreadable')
 ok "the live mount's tune: $LIVE_TUNE"
 ok "its rabbitmq/config/lease: $LIVE_LEASE"
