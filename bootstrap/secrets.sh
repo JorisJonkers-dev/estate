@@ -674,11 +674,7 @@ section_cloudflare() {
     [[ "$token" != "$cur" ]] || die "that is the token already in use: a rotation that changes nothing is worse than none"
   fi
   if [[ -z "$LOCAL_VAULT" ]]; then
-    printf 'Authorization: Bearer %s\n' "$token" \
-      | curl -fsS --max-time 20 -H @- "https://api.cloudflare.com/client/v4/zones?name=$CF_ZONE" \
-      | jq -e --arg z "$CF_ZONE" 'any(.result[]; .name == $z)' >/dev/null \
-      || die "Cloudflare rejects $from ($(fp "$token")), or it cannot see $CF_ZONE"
-    ok "Cloudflare accepts $(fp "$token") and it sees $CF_ZONE"
+    cf_token_check "$token" "$from"
   fi
   confirm "Write $from ($(fp "$token")) to secret/$CF_KV_PATH → $CF_KEY?" \
     || { later "secret/$CF_KV_PATH → $CF_KEY is not written"; result cloudflare "not written"; return 0; }
@@ -690,6 +686,24 @@ section_cloudflare() {
   [[ -z "$ROTATE" || -z "$edge" ]] \
     || later "secret/$CF_EDGE_PATH → $CF_EDGE_KEY still holds $(fp "$edge"): fleet-infra reads that one until edge hands over"
   unset token
+}
+
+# cf_token_check TOKEN FROM asks Cloudflare whether the token sees the zone. The
+# live token is limited to the cluster's addresses, so from anywhere else
+# Cloudflare refuses it by location (9109): that says nothing about the token,
+# and is reported rather than stopped on. Any other refusal stops.
+cf_token_check() {
+  local reply
+  reply=$(printf 'Authorization: Bearer %s\n' "$1" \
+    | curl -sS --max-time 20 -H @- "https://api.cloudflare.com/client/v4/zones?name=$CF_ZONE") \
+    || die "Cloudflare does not answer: $(head -n 1 <<<"$reply")"
+  if jq -e --arg z "$CF_ZONE" 'any(.result[]?; .name == $z)' >/dev/null <<<"$reply"; then
+    ok "Cloudflare accepts $(fp "$1") and it sees $CF_ZONE"
+  elif jq -e 'any(.errors[]?; .code == 9109)' >/dev/null <<<"$reply"; then
+    note "Cloudflare refuses $(fp "$1") from this machine's address: the token is limited to certain client IPs, so it is not checked here"
+  else
+    die "Cloudflare rejects $2 ($(fp "$1")): $(jq -r '[.errors[]?.message] | join("; ")' <<<"$reply")"
+  fi
 }
 
 # ── collector-key, reporter-key ───────────────────────────────────────────
