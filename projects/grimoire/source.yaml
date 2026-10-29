@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/grimoire
   ref:
-    digest: sha256:7baf9cad13fd904e85521748fd1e7ddf8b8d1924061482b38e81ea967800bd83
+    digest: sha256:0b84f9ae0a6a78de75007e26e0f32373c8c82e117d2b2e06bce402a9db540dc9
   secretRef:
     name: render-pull
   verify:
@@ -45,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-grimoire
   path: ./apps/grimoire
+  dependsOn:
+    - name: apps-auth

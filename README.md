@@ -17,6 +17,8 @@ this repository's shape is deploy-kit's `spec/v1/60-setup.md#the-estate-reposito
 | the composition lock | the inputs the last composition rendered from | the composition workflow, from its first run |
 | [`projects/<project>/source.yaml`](projects/) | one pin per Project on the estate path | the composition workflow |
 | [`bootstrap/`](bootstrap/) | the scripts that create the GitHub Apps, put every secret a person writes in Vault, and write a cluster's credentials: what git cannot hold | a human, by pull request |
+| [`drills/`](drills/) | the live drills that settle a claim deploy-kit's decisions rest on: each makes and checks its own changes in a throwaway namespace, removes them, and posts its result on its issue | a human, by pull request |
+| [`docs/runbooks/`](docs/runbooks/) | the steps of a live change a person runs, such as handing a Project over | a human, by pull request |
 
 **A rendered tree is never committed here.** Each Project's render is a signed
 OCI artifact at `ghcr.io/jorisjonkers-dev/render/<project>`, and a deploy is a

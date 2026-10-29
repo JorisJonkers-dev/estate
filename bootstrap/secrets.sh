@@ -18,9 +18,9 @@
 #   --only S[,S]           run these sections (and the auth-api stage, when one is a client)
 #   --rotate               with --only: replace values that are present instead of skipping
 #                          them: an OIDC client secret, an API key, the Discord webhook, the
-#                          metrics token. Never a key whose rotation breaks stored state
-#                          (a session key, a VAPID or S3 pair): those are only ever minted
-#                          where missing. --rotate-client-secret is the same flag.
+#                          metrics token, the Cloudflare DNS token. Never a key whose rotation
+#                          breaks stored state (a session key, a VAPID or S3 pair): those are
+#                          only ever minted where missing. --rotate-client-secret is the same flag.
 #   --replace              with --only hermes|overleaf: write a new version holding only the
 #                          fields offered; names every field it drops and waits for "yes"
 #   --rollback             with --only hermes|overleaf: roll the document back to a version
@@ -61,6 +61,7 @@ SECTIONS=(
   "policy-admin|the role deploy-kit's Vault policy job logs in as, confined to its namespace's names"
   "metrics-token|the token Prometheus scrapes Vault's metrics with; re-minted only when invalid"
   "discord-webhook|the Discord webhook Alertmanager posts alerts to"
+  "cloudflare|the Cloudflare DNS token the public tier's Traefik issues certificates with"
   "collector-key|the delivery Collector GitHub App's id, installation id and key"
   "reporter-key|the delivery Reporter GitHub App's id, installation id and key"
   "estate-dashboard|the dashboard's OIDC client secret, session key and GitHub token"
@@ -68,6 +69,7 @@ SECTIONS=(
   "grimoire|grimoire's S3 and VAPID key pairs and OIDC client secret"
   "findability-explorer|the Findability Explorer's OIDC client secret and Anthropic API key"
   "overleaf|Overleaf's session and invite secrets and the latex@ mail password"
+  "mail|Stalwart's recovery admin, the user:password pair its server reads, from its admin login"
   "hermes|the Hermes Agent's provider keys and its Hindsight token"
   "mistral|the Mistral API keys Hindsight and Karakeep read"
   "garage-keys|optional: the Garage web and archive keys, pre-generated so a rebuild reproduces them"
@@ -628,6 +630,83 @@ discord_test_alert() {
   fi
 }
 
+# ── cloudflare ────────────────────────────────────────────────────────────
+# On deploy-kit 1.0 the public tier's own Traefik issues its certificates: its
+# ACME resolver reads CF_DNS_API_TOKEN from the document platform.intent.yml's
+# acme.token names (deploy-kit src/model/tier-proxy.ts, DNS_TOKEN_KEYS). Until
+# edge hands over (JorisJonkers-dev/deploy-kit#662) fleet-infra's cert-manager
+# and external-dns read the same token from secret/platform/edge, so the first
+# write copies it from there and both keep working.
+CF_KV_PATH=platform/cloudflare
+CF_KEY=CF_DNS_API_TOKEN
+CF_EDGE_PATH=platform/edge
+CF_EDGE_KEY=cloudflare.dns_api_token
+CF_ZONE=jorisjonkers.dev
+section_cloudflare() {
+  local doc cur edge token from
+  doc=$(kv_load "$CF_KV_PATH")
+  cur=$(kv_field "$doc" "$CF_KEY")
+  doc=$(kv_load "$CF_EDGE_PATH")
+  edge=$(kv_field "$doc" "$CF_EDGE_KEY")
+  if [[ -n "$cur" && -z "$ROTATE" ]]; then
+    ok "secret/$CF_KV_PATH → $CF_KEY exists ($(fp "$cur"))"
+    [[ -z "$edge" || "$edge" == "$cur" ]] \
+      || note "it differs from secret/$CF_EDGE_PATH → $CF_EDGE_KEY ($(fp "$edge")), which fleet-infra still reads"
+    result cloudflare "already right"
+    return 0
+  fi
+  if [[ -n "$edge" && -z "$ROTATE" ]]; then
+    token=$edge
+    from="secret/$CF_EDGE_PATH → $CF_EDGE_KEY"
+  else
+    say "Creating the token is Cloudflare's side:"
+    step "dash.cloudflare.com → My Profile → API Tokens → Create Token → Edit zone DNS"
+    step "Zone Resources: Include, Specific zone, $CF_ZONE."
+    CF_TOKEN=""
+    ask_secret CF_TOKEN "Paste the new token (Enter skips):"
+    token=$(printf '%s' "${CF_TOKEN:-}" | tr -d '[:space:]')
+    unset CF_TOKEN
+    from="the token pasted"
+    if [[ -z "$token" ]]; then
+      later "secret/$CF_KV_PATH has no $CF_KEY: the public tier cannot issue certificates once edge hands over"
+      result cloudflare "not written"
+      return 0
+    fi
+    [[ "$token" != "$cur" ]] || die "that is the token already in use: a rotation that changes nothing is worse than none"
+  fi
+  if [[ -z "$LOCAL_VAULT" ]]; then
+    cf_token_check "$token" "$from"
+  fi
+  confirm "Write $from ($(fp "$token")) to secret/$CF_KV_PATH → $CF_KEY?" \
+    || { later "secret/$CF_KV_PATH → $CF_KEY is not written"; result cloudflare "not written"; return 0; }
+  printf '%s' "$token" | kv_set "$CF_KV_PATH" "$CF_KEY"
+  doc=$(kv_load "$CF_KV_PATH")
+  [[ "$(kv_field "$doc" "$CF_KEY")" == "$token" ]] || die "secret/$CF_KV_PATH does not read back"
+  ok "secret/$CF_KV_PATH → $CF_KEY = $(fp "$token")"
+  result cloudflare written
+  [[ -z "$ROTATE" || -z "$edge" ]] \
+    || later "secret/$CF_EDGE_PATH → $CF_EDGE_KEY still holds $(fp "$edge"): fleet-infra reads that one until edge hands over"
+  unset token
+}
+
+# cf_token_check TOKEN FROM asks Cloudflare whether the token sees the zone. The
+# live token is limited to the cluster's addresses, so from anywhere else
+# Cloudflare refuses it by location (9109): that says nothing about the token,
+# and is reported rather than stopped on. Any other refusal stops.
+cf_token_check() {
+  local reply
+  reply=$(printf 'Authorization: Bearer %s\n' "$1" \
+    | curl -sS --max-time 20 -H @- "https://api.cloudflare.com/client/v4/zones?name=$CF_ZONE") \
+    || die "Cloudflare does not answer: $(head -n 1 <<<"$reply")"
+  if jq -e --arg z "$CF_ZONE" 'any(.result[]?; .name == $z)' >/dev/null <<<"$reply"; then
+    ok "Cloudflare accepts $(fp "$1") and it sees $CF_ZONE"
+  elif jq -e 'any(.errors[]?; .code == 9109)' >/dev/null <<<"$reply"; then
+    note "Cloudflare refuses $(fp "$1") from this machine's address: the token is limited to certain client IPs, so it is not checked here"
+  else
+    die "Cloudflare rejects $2 ($(fp "$1")): $(jq -r '[.errors[]?.message] | join("; ")' <<<"$reply")"
+  fi
+}
+
 # ── collector-key, reporter-key ───────────────────────────────────────────
 # Were cluster.sh's stages 4 and 5. github-apps.sh hands a newly created App's
 # key over in ESTATE_COLLECTOR_PEM or ESTATE_REPORTER_PEM; otherwise GitHub
@@ -1080,6 +1159,66 @@ section_overleaf() {
   fi
 }
 
+# ── mail ──────────────────────────────────────────────────────────────────
+# Stalwart seeds its admin from STALWART_RECOVERY_ADMIN, one variable in the
+# form user:password. An env file's value is one placeholder, never two
+# (deploy-kit spec/v1/10-project-intent.md#the-dotenv-subset-that-is-read), so
+# Vault holds the pair as a key of its own, stalwart.recovery_admin, derived
+# here from stalwart.admin_user and stalwart.admin_password: the two the
+# provisioner sidecar signs in with. Re-run it after either changes. The admin
+# login itself is Stalwart's own, so a Vault without it wants a restore, and
+# this section never mints one (JorisJonkers-dev/deploy-kit#656).
+MAIL_KV_PATH=platform/mail
+
+# vso_readers PATH prints, one a line, every VaultStaticSecret that projects
+# secret/PATH, with what VSO restarts when it changes and the version it is
+# pinned to, if any. Read-only; nothing in a dry run.
+vso_readers() {
+  [[ -z "$LOCAL_VAULT" ]] || return 0
+  $KUBECTL get vaultstaticsecrets.secrets.hashicorp.com -A -o json 2>/dev/null \
+    | jq -r --arg p "$1" '.items[] | select(.spec.mount == "secret" and .spec.path == $p)
+        | "\(.metadata.namespace)/\(.metadata.name): " + (if .spec.version then "pinned to version \(.spec.version), so it does not change"
+          else "restarts " + ([.spec.rolloutRestartTargets[]? | "\(.kind)/\(.name)"] | if length == 0 then "nothing" else join(", ") end)
+               + " within its refresh, \(.spec.refreshAfter // "?")" end)' || true
+}
+
+section_mail() {
+  local doc user password current wanted readers line
+  doc=$(kv_load "$MAIL_KV_PATH")
+  user=$(kv_field "$doc" stalwart.admin_user)
+  password=$(kv_field "$doc" stalwart.admin_password)
+  current=$(kv_field "$doc" stalwart.recovery_admin)
+  if [[ -z "$user" || -z "$password" ]]; then
+    later "secret/$MAIL_KV_PATH has no stalwart.admin_user or stalwart.admin_password: restore them, then re-run --only mail"
+    result mail "waiting for the admin login"
+    return 0
+  fi
+  wanted="$user:$password"
+  unset user password
+  if [[ "$current" == "$wanted" ]]; then
+    ok "secret/$MAIL_KV_PATH → stalwart.recovery_admin matches the admin login ($(fp "$wanted"))"
+    result mail "already right"
+    return 0
+  fi
+  [[ -z "$current" ]] || note "stalwart.recovery_admin ($(fp "$current")) differs from the admin login ($(fp "$wanted"))"
+  warn "Writing secret/$MAIL_KV_PATH makes a new version of it, and auth reads that path too"
+  warn "(account.password): the Vault Secrets Operator then restarts auth-api, one pod at a time."
+  readers=$(vso_readers "$MAIL_KV_PATH")
+  if [[ -n "$readers" ]]; then
+    say "What reads secret/$MAIL_KV_PATH now:"
+    while IFS= read -r line; do step "$line"; done <<<"$readers"
+  fi
+  confirm "Write stalwart.recovery_admin ($(fp "$wanted")) to secret/$MAIL_KV_PATH, restarting auth-api?" \
+    || { later "secret/$MAIL_KV_PATH → stalwart.recovery_admin is not written"; result mail "not written"; return 0; }
+  printf '%s' "$wanted" | kv_patch "$MAIL_KV_PATH" stalwart.recovery_admin
+  doc=$(kv_load "$MAIL_KV_PATH")
+  [[ "$(kv_field "$doc" stalwart.recovery_admin)" == "$wanted" ]] || die "secret/$MAIL_KV_PATH does not read back"
+  ok "secret/$MAIL_KV_PATH → stalwart.recovery_admin = $(fp "$wanted")"
+  result mail written
+  note "VSO restarts auth-api-primary within its ten-minute refresh. Stalwart reads the key once mail hands over to the estate path."
+  unset wanted
+}
+
 # ── hermes ────────────────────────────────────────────────────────────────
 # Was fleet-infra scripts/ops/set-hermes-secrets.sh and
 # provision-hermes-memory-token.sh. Every key the Deployment reads is optional,
@@ -1411,6 +1550,7 @@ for CURRENT_SECTION in "${SELECTED[@]}"; do
     policy-admin) section_policy_admin ;;
     metrics-token) section_metrics_token ;;
     discord-webhook) section_discord_webhook ;;
+    cloudflare) section_cloudflare ;;
     collector-key) section_app_key collector-key ESTATE_COLLECTOR "$COLLECTOR_KV_PATH" Collector "${ESTATE_COLLECTOR_PEM:-}" ;;
     reporter-key) section_app_key reporter-key ESTATE_REPORTER "$REPORTER_KV_PATH" Reporter "${ESTATE_REPORTER_PEM:-}" ;;
     estate-dashboard) section_estate_dashboard ;;
@@ -1418,6 +1558,7 @@ for CURRENT_SECTION in "${SELECTED[@]}"; do
     grimoire) section_grimoire ;;
     findability-explorer) section_findability_explorer ;;
     overleaf) section_overleaf ;;
+    mail) section_mail ;;
     hermes) section_hermes ;;
     mistral) section_mistral ;;
     garage-keys) section_garage_keys ;;

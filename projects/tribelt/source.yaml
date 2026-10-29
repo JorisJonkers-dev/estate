@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/tribelt
   ref:
-    digest: sha256:ad6f075bdb84a96061479e6976836fb851479ed61dd5cf3fc01f406b8daeafad
+    digest: sha256:3828fd05f101970cdb21fb8e8f28420d9f5d917352884db8c532312c82f8edd5
   secretRef:
     name: render-pull
   verify:
@@ -45,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-tribelt
   path: ./apps/tribelt
+  dependsOn:
+    - name: apps-auth

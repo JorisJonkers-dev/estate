@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.31.2](https://github.com/JorisJonkers-dev/estate/compare/v0.31.1...v0.31.2) (2026-10-27)
+
+
+### Bug Fixes
+
+* run delivery 0.15.2's policy job, and allow 1s p95 in a release's analysis ([#238](https://github.com/JorisJonkers-dev/estate/issues/238)) ([812ad27](https://github.com/JorisJonkers-dev/estate/commit/812ad27eee222f03be465de89446ec836ac72a9f))
+
+## [0.31.1](https://github.com/JorisJonkers-dev/estate/compare/v0.31.0...v0.31.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* drop reviewBy from the participants list, which deploy-kit 1.0 removed ([#234](https://github.com/JorisJonkers-dev/estate/issues/234)) ([8b88933](https://github.com/JorisJonkers-dev/estate/commit/8b889338815c9224191f24b200e5263442e6cb96))
+* name the Node Agents' images, and list node on the old path ([#236](https://github.com/JorisJonkers-dev/estate/issues/236)) ([7eea80e](https://github.com/JorisJonkers-dev/estate/commit/7eea80e02e1e4c444d90a11c12bb3baf132d1dfe))
+
+## [0.31.0](https://github.com/JorisJonkers-dev/estate/compare/v0.30.1...v0.31.0) (2026-10-27)
+
+
+### Features
+
+* compose the estate on deploy-kit 1.0.1 ([#233](https://github.com/JorisJonkers-dev/estate/issues/233)) ([5af9e29](https://github.com/JorisJonkers-dev/estate/commit/5af9e298127b383973bdc6564c9e7b5265f6d152))
+
+
+### Bug Fixes
+
+* **rollback:** read only the fragment annotation in the in-progress guard ([#220](https://github.com/JorisJonkers-dev/estate/issues/220)) ([779c765](https://github.com/JorisJonkers-dev/estate/commit/779c765d222d6d91f7f8167c15ceb6c665f15eed))
+
+## [0.30.1](https://github.com/JorisJonkers-dev/estate/compare/v0.30.0...v0.30.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **platform:** grant jellyfin write on the media library ([#218](https://github.com/JorisJonkers-dev/estate/issues/218)) ([3ec6529](https://github.com/JorisJonkers-dev/estate/commit/3ec65290a24a6ae744bf33363ab5b0ed02f375b5))
+
+## [0.30.0](https://github.com/JorisJonkers-dev/estate/compare/v0.29.0...v0.30.0) (2026-10-23)
+
+
+### Features
+
+* hand auth over to the estate path ([#214](https://github.com/JorisJonkers-dev/estate/issues/214)) ([e4eec38](https://github.com/JorisJonkers-dev/estate/commit/e4eec38a442e02ff9614e22cc2fc1ce9a147cea1))
+
 ## [0.29.0](https://github.com/JorisJonkers-dev/estate/compare/v0.28.0...v0.29.0) (2026-10-23)
 
 

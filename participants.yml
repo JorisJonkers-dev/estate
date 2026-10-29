@@ -17,146 +17,122 @@ participants:
     dormant: true
     owner: joris
     reason: publishes on this repository's releases, which follow the platform rather than a weekly cadence
-    reviewBy: 2027-03-31
   edge:
     dormant: true
     owner: joris
     reason: publishes with the Platform document, on this repository's releases
-    reviewBy: 2027-03-31
   observability:
     dormant: true
     owner: joris
     reason: publishes with the Platform document, on this repository's releases
-    reviewBy: 2027-03-31
   secrets:
     dormant: true
     owner: joris
     reason: publishes with the Platform document, on this repository's releases
-    reviewBy: 2027-03-31
-  # The datastores, delivered by their pin, and the mail server, still
-  # delivered by fleet-infra. Both fragments publish from this repository,
-  # with the Platform document; composition delivers nothing for mail while
-  # the handover ledger keeps it `legacy`.
+  # The datastores and the mail server, still delivered by fleet-infra. Their
+  # fragments publish from this repository too, so a Project on the estate
+  # path can depend on them; composition delivers nothing for either while
+  # the handover ledger keeps them `legacy`.
   data:
     dormant: true
     owner: joris
     reason: publishes with the Platform document, on this repository's releases
-    reviewBy: 2027-03-31
   mail:
     dormant: true
     owner: joris
     reason: publishes with the Platform document, on this repository's releases
-    reviewBy: 2027-03-31
   # JorisJonkers-dev/delivery: the Release Gate, the Collector and the Vault
   # policy job. Its releases follow the delivery machinery's own changes.
   delivery:
     dormant: true
     owner: joris
     reason: releases when the delivery machinery changes, not on a weekly cadence
-    reviewBy: 2027-03-31
   # JorisJonkers-dev/auth-api, the Project `auth`: auth-api and the auth-ui of
-  # JorisJonkers-dev/auth-ui's latest release, still delivered by fleet-infra.
-  # Composed so the dashboard can sign in through it and name it in `dependsOn`.
+  # JorisJonkers-dev/auth-ui's latest release, moved from fleet-infra in place,
+  # in auth-system.
   auth:
     dormant: true
     owner: joris
     reason: releases when auth-api changes, not on a weekly cadence
-    reviewBy: 2027-03-31
   # JorisJonkers-dev/estate-dashboard: born on the estate path, delivered by its pin.
   estate-dashboard:
     dormant: true
     owner: joris
     reason: releases when the dashboard changes, not on a weekly cadence
-    reviewBy: 2027-03-31
   # JorisJonkers-dev/home-portal: the landing page, moved from fleet-infra's app-system.
   home-portal:
     dormant: true
     owner: joris
     reason: releases when the site changes, not on a weekly cadence
-    reviewBy: 2027-03-31
   # JorisJonkers-dev/tribelt, moved from fleet-infra's tribelt namespace.
   tribelt:
     dormant: true
     owner: joris
     reason: releases when the site changes, not on a weekly cadence
-    reviewBy: 2027-03-31
   # JorisJonkers-dev/findability-explorer, the Tribelt digital strategy deliverable at
   # digital-strategy.jorisjonkers.dev, born on the estate path.
   findability-explorer:
     dormant: true
     owner: joris
     reason: releases when the app changes, not on a weekly cadence
-    reviewBy: 2027-03-31
   # JorisJonkers-dev/grimoire, moved from fleet-infra's grimoire namespace.
   grimoire:
     dormant: true
     owner: joris
     reason: releases when the app changes, not on a weekly cadence
-    reviewBy: 2027-03-31
   # outline, moved from fleet-infra's notes-system. It runs a third-party image, so
   # it publishes from this repository, on this repository's releases.
   outline:
     dormant: true
     owner: joris
     reason: publishes with the Platform document, on this repository's releases
-    reviewBy: 2027-03-31
   # JorisJonkers-dev/overleaf, moved from fleet-infra's latex-system.
   overleaf:
     dormant: true
     owner: joris
     reason: releases when Overleaf or its image changes, not on a weekly cadence
-    reviewBy: 2027-03-31
   # JorisJonkers-dev/hindsight, moved from fleet-infra's knowledge-platform-system.
   hindsight:
     dormant: true
     owner: joris
     reason: releases when Hindsight or its images change, not on a weekly cadence
-    reviewBy: 2027-03-31
   # JorisJonkers-dev/karakeep, moved from fleet-infra's knowledge-platform-system.
   karakeep:
     dormant: true
     owner: joris
     reason: releases when Karakeep or its images change, not on a weekly cadence
-    reviewBy: 2027-03-31
   # JorisJonkers-dev/immich, moved from fleet-infra's media-system.
   immich:
     dormant: true
     owner: joris
     reason: releases when Immich or its images change, not on a weekly cadence
-    reviewBy: 2027-03-31
   # JorisJonkers-dev/arr, moved from fleet-infra's media-system.
   arr:
     dormant: true
     owner: joris
     reason: releases when the arr images change, not on a weekly cadence
-    reviewBy: 2027-03-31
   # JorisJonkers-dev/jellyfin, moved from fleet-infra's media-system.
   jellyfin:
     dormant: true
     owner: joris
     reason: releases when jellyfin releases, not on a weekly cadence
-    reviewBy: 2027-03-31
   # JorisJonkers-dev/jellyseerr, moved from fleet-infra's media-system.
   jellyseerr:
     dormant: true
     owner: joris
     reason: releases when seerr releases, not on a weekly cadence
-    reviewBy: 2027-03-31
   # JorisJonkers-dev/qbittorrent, moved from fleet-infra's media-system downloads.
   qbittorrent:
     dormant: true
     owner: joris
     reason: releases when qBittorrent releases, not on a weekly cadence
-    reviewBy: 2027-03-31
   # JorisJonkers-dev/prowlarr, with flaresolverr beside it, moved from media-system downloads.
   prowlarr:
     dormant: true
     owner: joris
     reason: releases when Prowlarr releases, not on a weekly cadence
-    reviewBy: 2027-03-31
   # JorisJonkers-dev/n8n, moved from fleet-infra's automation-system.
   n8n:
     dormant: true
     owner: joris
     reason: releases when n8n or its sign-in hooks change, not on a weekly cadence
-    reviewBy: 2027-03-31
