@@ -87,18 +87,28 @@ credential a cluster needs to read this repository, are created by
 
 ## Holding a Project
 
-Three workflows, run by hand from the Actions tab on `main`, hold one Project
-still, or take it back to an earlier release, without touching its repository
+Four workflows, run by hand from the Actions tab on `main`, hold one Project
+still, take it back to an earlier release, or try a failed release again,
+without touching its repository
 ([deploy-kit chapter 55](https://github.com/JorisJonkers-dev/deploy-kit/blob/main/spec/v1/55-delivery.md#pause-and-rollback)).
-Pause and resume are one commit each to `projects/<project>/source.yaml`; a
-rollback is two.
+Pause, resume and retry are one commit each to
+`projects/<project>/source.yaml`; a rollback is two.
 
 - [`pause.yml`](.github/workflows/pause.yml) records who paused the Project,
   when and why. Composition still checks its newest fragment and reports what
   it finds, and moves no pin for it.
 - [`resume.yml`](.github/workflows/resume.yml) removes the record, a
   Rollback's with it, and starts a delivery, which moves the pin to the
-  Project's newest fragment.
+  Project's newest fragment. It keeps a Retry's time: removing it would be one
+  more release for Flagger to analyse.
+- [`retry.yml`](.github/workflows/retry.yml) records when it ran, and starts a
+  delivery. Composition renders that time onto the pod template of every
+  Deployment a Canary targets, so Flagger analyses the pinned release once
+  more, and Flux, applying it as desired state, never reverts it. It is the way
+  to try a failed release again once what failed it is fixed outside the
+  release; `kubectl rollout restart` is not, since Flux reverts what it writes
+  and Flagger analyses that as a second release. It refuses a Project that is
+  paused and not rolled back, whose pin would not move.
 - [`rollback.yml`](.github/workflows/rollback.yml) takes a version, and
   refuses it before anything runs unless it is earlier than the pinned release
   and, where that release carries a Migration Proof, the one the proof names
