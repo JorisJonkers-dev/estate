@@ -10,7 +10,7 @@ apiVersion: state.jorisjonkers.dev/v1
 kind: ClusterState
 schemaVersion: 1.0.0
 cluster: "production"
-capturedAt: "2026-10-29T22:03:49Z"
+capturedAt: "2026-10-30T07:23:48Z"
 bindings:
   - { claim: "alertmanager-metrics-stack-alertmanager-db-alertmanager-metrics-stack-alertmanager-0", node: "frankfurt-contabo-1" }
   - { claim: "audit-vault-0", node: "frankfurt-contabo-1" }
@@ -71,7 +71,7 @@ placements:
   - { process: "grimoire", node: "enschede-pi-2" }
   - { process: "hindsight-api-primary", node: "enschede-gtx-960m-1" }
   - { process: "hindsight-control-plane-primary", node: "enschede-pi-3" }
-  - { process: "hindsight-worker-primary", node: "enschede-t1000-1" }
+  - { process: "hindsight-worker-primary", node: "frankfurt-contabo-1" }
   - { process: "home-portal-primary", node: "enschede-pi-2" }
   - { process: "immich-ml", node: "enschede-t1000-1" }
   - { process: "immich-postgres", node: "frankfurt-contabo-1" }
@@ -92,6 +92,7 @@ placements:
   - { process: "release-gate", node: "enschede-pi-2" }
   - { process: "reporter", node: "enschede-pi-2" }
   - { process: "sonarr", node: "enschede-t1000-1" }
+  - { process: "stalwart", node: "frankfurt-contabo-1" }
   - { process: "tei-embedding", node: "enschede-gtx-960m-1" }
   - { process: "tei-reranker", node: "enschede-t1000-1" }
   - { process: "tribelt-primary", node: "enschede-pi-2" }
