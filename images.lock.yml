@@ -170,8 +170,8 @@ images:
     uid: 2000
     gid: 2000
     version: "v0.16.20"
-  # 0.4.2. Its image names no user, so it runs as root today; the handover
-  # gives it one.
+  # 0.4.2. Its image names no user, so it ran as root on the old path; on the
+  # estate path it runs as stalwart's 2000, the pod's user.
   stalwart-provisioner:
     repository: ghcr.io/jorisjonkers-dev/stalwart-provisioner
     digest: "sha256:124a9d73c246c1af9e52620b3ad337f28fb08c0faee0834450f6b572383b1b77"

@@ -118,8 +118,8 @@ acme:
   dnsProvider: cloudflare
   token: secret/data/platform/cloudflare
 
-# The addresses a client off the cluster reaches the edge on
-# (deploy-kit spec/v1/14-platform-intent.md#l4-addresses).
+# The addresses a client off the cluster reaches the edge and the mail server
+# on (deploy-kit spec/v1/14-platform-intent.md#l4-addresses).
 l4Addresses:
   # frankfurt-contabo-1's own address, 167.86.79.203: the public Traefik binds
   # 80 and 443 there as host ports.
@@ -133,6 +133,12 @@ l4Addresses:
     kind: pool
     site: enschede
     range: 192.168.0.99/32
+  # The same node address again, for mail: its eight listeners are host ports
+  # there, which mail.jorisjonkers.dev's non-proxied A record names (read
+  # 2026-10-29). No firewall of the substrate's drops them.
+  mail-node:
+    kind: node
+    node: frankfurt-contabo-1
 
 # One policy per Durability Class.
 durability:
@@ -145,7 +151,11 @@ durability:
     retain: 90
     # Contabo Object Storage, EU: an S3-compatible bucket off every node the
     # estate runs on. The credential holds the endpoint
-    # (https://eu2.contabostorage.com), the bucket and the key pair.
+    # (https://eu2.contabostorage.com) and the key pair, under the variable
+    # names the backup method reads (AWS_ENDPOINT_URL, AWS_ACCESS_KEY_ID,
+    # AWS_SECRET_ACCESS_KEY, optionally AWS_REGION); the bucket is the
+    # destination below, never the credential's (bootstrap/secrets.sh
+    # --only backup-off-cluster writes it).
     offCluster:
       destination: "s3://jorisjonkers-dev-backups"
       credential: secret/data/platform/backup/off-cluster
@@ -346,18 +356,19 @@ policyJob:
 # Every Project fleet-infra still delivers is named under `legacy`, so its
 # project file is read rather than refused as E_HANDOVER_UNLISTED. `delivery`
 # was never on the old path: its Applications (the Release Gate, Flagger, the
-# Collector) are born on the estate path, and so is `estate-dashboard`. A
-# Project that retires leaves the ledger: `knowledge` was retired with the old
-# knowledge stack (fleet-infra#495), and `knowledge-platform` and `media` were
-# split into the Projects that now run their apps under `estate`.
+# Collector) are born on the estate path, and so is `estate-dashboard`.
+# `mail` moved in JorisJonkers-dev/deploy-kit#656, adopted in place on its
+# live claim. A Project that retires leaves the ledger: `knowledge` was
+# retired with the old knowledge stack (fleet-infra#495), `knowledge-platform`
+# and `media` were split into the Projects that now run their apps under
+# `estate`, and `agents` is deprecated and never ported: it stays on the old
+# path until it is retired there (JorisJonkers-dev/deploy-kit#658).
 handover:
   retireBy: 2027-03-31
   legacy:
     - edge
     - observability
     - data
-    - agents
-    - mail
     - utility
     - node
   estate:
@@ -379,6 +390,7 @@ handover:
     - prowlarr
     - n8n
     - auth
+    - mail
     # The last handover (JorisJonkers-dev/deploy-kit#663): Vault restored
     # from a raft snapshot into secrets-system, and VSO with it.
     - secrets
