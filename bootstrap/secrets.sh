@@ -1136,7 +1136,6 @@ kv_rollback() {
 # fatal and takes the whole stalwart Pod, mail included, down with it. Its
 # Garage keys (secret/overleaf-system/garage) are deploy-kit generated keys.
 section_overleaf() {
-  local version
   WROTE_FIELDS=""
   CHANGED_KEYS=""
   if [[ -n "$ROLLBACK" ]]; then
@@ -1151,14 +1150,11 @@ section_overleaf() {
   fi
   [[ -n "$WROTE_FIELDS" ]] || return 0
   note "Overleaf reads platform/overleaf through its deploy-kit grant; VSO refreshes it and restarts Overleaf."
-  # Stalwart's copy is pinned to one KV version (fleet-infra
-  # cluster/flux/apps/mail/stalwart/vault-static-secrets.yaml, stalwart-latex-mail),
-  # because an unpinned refresh rolls stalwart and takes mail down. So a new
-  # latex@ password reaches Overleaf on its own and stalwart only when the pin moves.
-  if [[ "$CHANGED_KEYS" == *" smtp.password"* ]]; then
-    version=$(vault kv metadata get -mount=secret -format=json platform/overleaf </dev/null | jq -r .data.current_version)
-    later "smtp.password changed: in fleet-infra, set stalwart-latex-mail's version: to $version (cluster/flux/apps/mail/stalwart/vault-static-secrets.yaml). Until it merges, stalwart keeps latex@'s old password while Overleaf gets the new one, and Overleaf cannot send mail"
-  fi
+  # Stalwart reads the same key through its own grant (platform/mail), so a new
+  # latex@ password reaches both within VSO's ten-minute refresh, each restarted
+  # by it: Stalwart's restart takes mail down for about a minute.
+  [[ "$CHANGED_KEYS" != *" smtp.password"* ]] \
+    || note "smtp.password changed: Stalwart sets latex@ to it on its restart, within ten minutes; mail is down for about a minute then."
 }
 
 # ── mail ──────────────────────────────────────────────────────────────────
