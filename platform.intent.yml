@@ -42,6 +42,16 @@ substrate:
 
 # What must exist before the first rendered object can apply.
 bootstrap:
+  # Where k3s serves its own metrics, as its install sets them: the metrics
+  # stack scrapes the kubelet (with cAdvisor and probes), the API server and
+  # CoreDNS there, replacing kube-prometheus-stack's kubelet, apiserver and
+  # coredns monitors (deploy-kit spec/v1/14-platform-intent.md#k3ss-metrics).
+  # etcd is not recorded: this k3s runs on sqlite, so there is none.
+  k3s:
+    metrics:
+      kubelet: {port: 10250}
+      apiServer: {service: default/kubernetes, port: https}
+      coreDns: {port: 9153}
   flux:
     # The GitRepository that reads this repository, declared in fleet-infra's
     # flux-system while fleet-infra still owns the Flux controllers.
@@ -311,6 +321,12 @@ monitoring:
   grafana: observability/grafana
   prometheus: observability/prometheus
   alertmanager: observability/alertmanager
+  # The stores Grafana reads beside them: each is a data source, derived from
+  # Grafana's edge to it (deploy-kit spec/v1/14-platform-intent.md#grafanas-instance-and-data-sources).
+  stores:
+    loki: observability/loki
+    tempo: observability/tempo
+    pyroscope: observability/pyroscope
   receivers:
     - name: discord
       discord:

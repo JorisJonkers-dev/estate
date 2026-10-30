@@ -43,6 +43,7 @@ applications:
           otlp-http: 4318 # HTTP: the edge proxies' tracing and the Faro receiver
           health: 13133
         placement:
+          site: enschede # capacity: Frankfurt holds the stateful four (see the runbook)
           memory: 256Mi
           cpu: 50m
         # The image's own arguments read this path.
@@ -82,16 +83,20 @@ applications:
           site: frankfurt # live: the metrics stack runs on Frankfurt
           memory: 3Gi # live working set 2.2Gi, read 2026-10-29
           cpu: 200m
-        # The image's own arguments, and what kube-prometheus-stack's values
-        # set: 15 days kept, Tempo's metrics generator remote-writes span and
-        # service-graph metrics here, and exemplars are kept for the latency
-        # dashboards.
+        # What kube-prometheus-stack's values set: 15 days kept, Tempo's
+        # metrics generator remote-writes span and service-graph metrics
+        # here, and exemplars are kept for the latency dashboards. The
+        # Prometheus operator runs this Process and sets its configuration
+        # file and data path itself; these three become its object's fields
+        # (deploy-kit spec/v1/14-platform-intent.md#the-operators-objects).
         args:
-          - --config.file=/etc/prometheus/prometheus.yml
-          - --storage.tsdb.path=/prometheus
           - --storage.tsdb.retention.time=15d
           - --web.enable-remote-write-receiver
           - --enable-feature=exemplar-storage
+        # The Alertmanager the Prometheus notifies, which the Platform
+        # document names; the edge is what admits it.
+        dependsOn:
+          - { application: alertmanager, surface: http }
         volumes:
           # Live: 20Gi (the chart's 50Gi never reached the existing claim).
           - { claim: prometheus-data, mountAt: /prometheus, size: 20Gi, durability: reconstructible }
@@ -99,7 +104,17 @@ applications:
           readiness: { path: /-/ready, port: 9090 }
           liveness: { path: /-/healthy, port: 9090 }
         startupBudget: 300s # replaying the write-ahead log of a full store
-        cutover: interrupted # one pod on a ReadWriteOnce claim
+        cutover: interrupted # the operator replaces its one pod in place
+        api:
+          reason: >-
+            Prometheus discovers every monitor's targets through the API, cluster-wide
+          rules:
+            - group: core
+              objects: [services, endpoints, pods]
+              verbs: [get, list, watch]
+            - group: discovery.k8s.io
+              objects: [endpointslices]
+              verbs: [get, list, watch]
 
   # The Prometheus operator: Prometheus, Alertmanager and every monitor and
   # rule are objects the render emits, and it reconciles them cluster-wide.
@@ -114,7 +129,7 @@ applications:
         provides:
           http: 8080
         placement:
-          site: frankfurt # live: beside the Prometheus and Alertmanager it manages
+          site: enschede # capacity: Frankfurt holds the stateful four (see the runbook)
           memory: 128Mi
           cpu: 50m
         probes:
@@ -149,6 +164,7 @@ applications:
           http: 8080
           telemetry: 8081
         placement:
+          site: enschede # capacity: Frankfurt holds the stateful four (see the runbook)
           memory: 128Mi
           cpu: 20m
         # The image's entrypoint names both ports. These arguments list only
@@ -208,6 +224,7 @@ applications:
           metrics: 8080
           health: 8081
         placement:
+          site: enschede # capacity: Frankfurt holds the stateful four (see the runbook)
           memory: 128Mi # live requests 96Mi
           cpu: 20m
         probes:
@@ -293,10 +310,9 @@ applications:
         egress:
           to: internet
           reason: Grafana installs its four app plugins from grafana.com at start, as the chart's plugin list does live.
-        # The data sources, as fleet-infra's grafana-datasources ConfigMap
-        # declares them, at the stores' new addresses.
-        assets:
-          - { from: config/grafana-datasources.yaml, mountAt: /etc/grafana/provisioning/datasources/datasources.yaml }
+        # Each store Grafana reads. Its data sources derive from these edges
+        # (deploy-kit spec/v1/14-platform-intent.md#grafanas-instance-and-data-sources),
+        # and so does the admin credential the Grafana operator signs in with.
         dependsOn:
           - { application: prometheus, surface: http }
           - { application: loki, surface: http }
@@ -332,7 +348,7 @@ applications:
         provides:
           http: 3100
         placement:
-          site: frankfurt # live
+          site: enschede # capacity: Frankfurt holds the stateful four (see the runbook)
           memory: 1Gi # live working set 476Mi
           cpu: 100m
         args: [-config.file=/etc/loki/config.yaml, -target=all]
@@ -362,7 +378,7 @@ applications:
           otlp: 4317
           otlp-http: 4318
         placement:
-          site: frankfurt # live
+          site: enschede # capacity: Frankfurt holds the stateful four (see the runbook)
           memory: 1Gi # live working set 745Mi
           cpu: 100m
         args: [-config.file=/etc/tempo/tempo.yaml]
@@ -391,7 +407,7 @@ applications:
         provides:
           http: 4040
         placement:
-          site: frankfurt # live
+          site: enschede # capacity: Frankfurt holds the stateful four (see the runbook)
           memory: 512Mi # live requests 512Mi, working set 118Mi
           cpu: 100m
         # Single binary, without profiling itself into itself.
@@ -475,6 +491,7 @@ applications:
           http: 12345
           faro: 12347
         placement:
+          site: enschede # capacity: Frankfurt holds the stateful four (see the runbook)
           memory: 1Gi # six live copies hold 160 to 490Mi each; this one reads every pod
           cpu: 100m
         args: [run, /etc/alloy/config.alloy, --storage.path=/var/lib/alloy/data, --server.http.listen-addr=0.0.0.0:12345]
