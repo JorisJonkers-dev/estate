@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/mail
   ref:
-    digest: sha256:8b774b11bf15c166ed5cd8e9ffc4e04ed4effef82b970e33189acb205c501c26
+    digest: sha256:d70fbb102adca4b7ea393d79a64f9ec1f91421d2186217e3021ec88a1d0b0c25
   secretRef:
     name: render-pull
   verify:
@@ -45,13 +45,3 @@ spec:
     kind: OCIRepository
     name: project-mail
   path: ./apps/mail
-  patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-          annotations:
-            kustomize.toolkit.fluxcd.io/force: Enabled
-      target:
-        kind: Deployment
