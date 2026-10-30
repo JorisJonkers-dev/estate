@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/hindsight
   ref:
-    digest: sha256:9bd6b6aaab4f3b93594bd674be60dad56aad328c89b490aa4a0a57ca61feb101
+    digest: sha256:85193a9b6a3e9b7ca71f558b655636ae698ae8b54d45d060e12ba69c573e100d
   secretRef:
     name: render-pull
   verify:

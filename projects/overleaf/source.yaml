@@ -45,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-overleaf
   path: ./apps/overleaf
+  dependsOn:
+    - name: apps-mail

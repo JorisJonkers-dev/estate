@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/auth
   ref:
-    digest: sha256:997aecc4636c825c646dc0e588bb67e1d0b8bc1116754a0a6500d806283d3615
+    digest: sha256:affbf415c5e62dab185c20be5d5023ba74987a739e302fce3076b3950b3ca08f
   secretRef:
     name: render-pull
   verify:
@@ -45,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-auth
   path: ./apps/auth
+  dependsOn:
+    - name: apps-mail
