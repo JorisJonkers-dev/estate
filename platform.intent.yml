@@ -356,11 +356,14 @@ humanGrants:
 # The names and values are the live classes fleet-infra's apps-data created
 # (read 2026-10-30): a class's value cannot change once it exists, so the
 # render takes them over as they are. It lands ahead of the secrets handover,
-# since Vault on the estate path comes back sealed from an eviction.
+# since Vault on the estate path comes back sealed from an eviction. Valkey
+# runs at the data class live, but is a cache with no engine, so the data
+# class cannot reach it; it is named here instead, so it ranks with auth,
+# which reads it.
 priority:
   data: {name: platform-data, value: 1000000}
   critical: {name: platform-critical-app, value: 100000}
-  criticalApplications: [auth/auth]
+  criticalApplications: [auth/auth, data/platform-valkey]
 
 # The job that writes every rendered Vault policy and role into the Secret
 # Store. Its role, and the role's binding to the job's ServiceAccount
