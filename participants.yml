@@ -29,15 +29,20 @@ participants:
     dormant: true
     owner: joris
     reason: publishes with the Platform document, on this repository's releases
-  # The datastores, delivered by their pin, and the mail server, still
-  # delivered by fleet-infra. Both fragments publish from this repository,
-  # with the Platform document; composition delivers nothing for mail while
-  # the handover ledger keeps it `legacy`.
+  # The datastores and the mail server, each delivered by its pin. Both
+  # fragments publish from this repository, with the Platform document.
   data:
     dormant: true
     owner: joris
     reason: publishes with the Platform document, on this repository's releases
   mail:
+    dormant: true
+    owner: joris
+    reason: publishes with the Platform document, on this repository's releases
+  # utility: adguard and headlamp, moved from fleet-infra in place, in
+  # utility-system. Both run third-party images, so it publishes from this
+  # repository, on this repository's releases.
+  utility:
     dormant: true
     owner: joris
     reason: publishes with the Platform document, on this repository's releases

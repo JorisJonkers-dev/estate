@@ -1,0 +1,47 @@
+# GENERATED. Never hand-edit.
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: project-mail
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/managed-by: deploy-kit
+spec:
+  interval: 10m
+  url: oci://ghcr.io/jorisjonkers-dev/render/mail
+  ref:
+    digest: sha256:d70fbb102adca4b7ea393d79a64f9ec1f91421d2186217e3021ec88a1d0b0c25
+  secretRef:
+    name: render-pull
+  verify:
+    provider: cosign
+    matchOIDCIdentity:
+      - issuer: ^https://token\.actions\.githubusercontent\.com$
+        subject: ^https://github\.com/JorisJonkers-dev/estate/\.github/workflows/compose\.yml@refs/heads/main$
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: apps-mail
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/managed-by: deploy-kit
+  annotations:
+    event.toolkit.fluxcd.io/repository: JorisJonkers-dev/estate
+    event.toolkit.fluxcd.io/sha: c501f4fe48acfd3c4eae2aefb2968c4665d26965
+    event.toolkit.fluxcd.io/environment: production
+    event.toolkit.fluxcd.io/version: 0.32.0
+    event.toolkit.fluxcd.io/url: https://stalwart.jorisjonkers.dev
+spec:
+  interval: 10m
+  prune: true
+  wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
+  sourceRef:
+    kind: OCIRepository
+    name: project-mail
+  path: ./apps/mail
