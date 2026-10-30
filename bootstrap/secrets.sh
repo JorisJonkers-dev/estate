@@ -13,14 +13,16 @@
 #   bootstrap/secrets.sh --only tribelt --rotate          a new OIDC client secret
 #   bootstrap/secrets.sh --only hermes --replace          rewrite secret/agents/hermes whole
 #   bootstrap/secrets.sh --only overleaf --rollback       restore an earlier version
+#   bootstrap/secrets.sh --only data                      the data Project's copied logins
 #
 # Flags:
 #   --only S[,S]           run these sections (and the auth-api stage, when one is a client)
 #   --rotate               with --only: replace values that are present instead of skipping
 #                          them: an OIDC client secret, an API key, the Discord webhook, the
-#                          metrics token, the Cloudflare DNS token. Never a key whose rotation
-#                          breaks stored state (a session key, a VAPID or S3 pair): those are
-#                          only ever minted where missing. --rotate-client-secret is the same flag.
+#                          metrics token, the Cloudflare DNS token, the off-cluster backup
+#                          credential. Never a key whose rotation breaks stored state (a session
+#                          key, a VAPID or grimoire's S3 pair): those are only ever minted where
+#                          missing. --rotate-client-secret is the same flag.
 #   --replace              with --only hermes|overleaf: write a new version holding only the
 #                          fields offered; names every field it drops and waits for "yes"
 #   --rollback             with --only hermes|overleaf: roll the document back to a version
@@ -62,6 +64,7 @@ SECTIONS=(
   "metrics-token|the token Prometheus scrapes Vault's metrics with; re-minted only when invalid"
   "discord-webhook|the Discord webhook Alertmanager posts alerts to"
   "cloudflare|the Cloudflare DNS token the public tier's Traefik issues certificates with"
+  "tls-wildcard|the wildcard the LAN tier serves, copied once from cert-manager's last issue"
   "collector-key|the delivery Collector GitHub App's id, installation id and key"
   "reporter-key|the delivery Reporter GitHub App's id, installation id and key"
   "estate-dashboard|the dashboard's OIDC client secret, session key and GitHub token"
@@ -72,6 +75,8 @@ SECTIONS=(
   "mail|Stalwart's recovery admin, the user:password pair its server reads, from its admin login"
   "hermes|the Hermes Agent's provider keys and its Hindsight token"
   "mistral|the Mistral API keys Hindsight and Karakeep read"
+  "backup-off-cluster|the S3 credential irreplaceable volumes' backups copy off-cluster with"
+  "data|the Postgres catalog and backup logins and the RabbitMQ backup login, copied from their admin logins"
   "garage-keys|optional: the Garage web and archive keys, pre-generated so a rebuild reproduces them"
   "agents-github-app|optional: the agents GitHub App's id, key and runner bearer"
   "agents-deploy-key|optional: the shared read-only deploy key agent workspaces fall back to"
@@ -707,6 +712,62 @@ cf_token_check() {
   fi
 }
 
+# ── tls-wildcard ──────────────────────────────────────────────────────────
+# The LAN tier serves the wildcard read from secret/platform/tls/jorisjonkers-dev
+# (platform.intent.yml's certificateFrom, JorisJonkers-dev/deploy-kit#726), and
+# every proxy serves it from the default TLS store. Until an issuer writes that
+# path, it is seeded once from the Secret fleet-infra's cert-manager renews, so
+# the edge's proxies serve a valid certificate from their first start.
+TLS_KV_PATH=platform/tls/jorisjonkers-dev
+TLS_FROM_NS="edge-system"
+TLS_FROM_SECRET=jorisjonkers-dev-tls
+section_tls_wildcard() {
+  local doc cur_crt crt key cas end
+  doc=$(kv_load "$TLS_KV_PATH")
+  cur_crt=$(kv_field "$doc" tls.crt)
+  if [[ -n "$LOCAL_VAULT" ]]; then
+    later "secret/$TLS_KV_PATH is copied from the cluster, which a local Vault run skips"
+    result tls-wildcard skipped
+    return 0
+  fi
+  crt=$($KUBECTL -n "$TLS_FROM_NS" get secret "$TLS_FROM_SECRET" -o 'jsonpath={.data.tls\.crt}' 2>/dev/null | base64 -d 2>/dev/null || true)
+  key=$($KUBECTL -n "$TLS_FROM_NS" get secret "$TLS_FROM_SECRET" -o 'jsonpath={.data.tls\.key}' 2>/dev/null | base64 -d 2>/dev/null || true)
+  if [[ -z "$crt" || -z "$key" ]]; then
+    if [[ -n "$cur_crt" ]]; then
+      ok "secret/$TLS_KV_PATH → tls.crt exists ($(fp "$cur_crt")); $TLS_FROM_NS/$TLS_FROM_SECRET is gone, so its issuer keeps it"
+      result tls-wildcard "already right"
+    else
+      later "$TLS_FROM_NS/$TLS_FROM_SECRET is not readable and secret/$TLS_KV_PATH is empty: the LAN tier has no certificate"
+      result tls-wildcard "not written"
+    fi
+    return 0
+  fi
+  end=$(printf '%s' "$crt" | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
+  if [[ "$cur_crt" == "$crt" && -z "$ROTATE" ]]; then
+    ok "secret/$TLS_KV_PATH holds $TLS_FROM_SECRET's certificate ($(fp "$crt")), valid to $end"
+    result tls-wildcard "already right"
+    return 0
+  fi
+  [[ -z "$cur_crt" ]] || note "secret/$TLS_KV_PATH holds another certificate ($(fp "$cur_crt"))"
+  confirm "Copy $TLS_FROM_NS/$TLS_FROM_SECRET (tls.crt $(fp "$crt"), tls.key $(fp "$key"), valid to $end) to secret/$TLS_KV_PATH?" \
+    || { later "secret/$TLS_KV_PATH is not written"; result tls-wildcard "not written"; return 0; }
+  # One whole version, checked against the one read. The values reach jq and
+  # vault on stdin.
+  cas=$(vault kv metadata get -mount=secret -format=json "$TLS_KV_PATH" 2>/dev/null </dev/null \
+    | jq -r '.data.current_version // 0' || true)
+  printf '%s\0%s' "$crt" "$key" \
+    | jq -Rs 'split("\u0000") as $v | {"tls.crt": $v[0], "tls.key": $v[1]}' \
+    | vault kv put -mount=secret -cas="${cas:-0}" "$TLS_KV_PATH" - >/dev/null \
+    || die "writing secret/$TLS_KV_PATH failed"
+  doc=$(kv_load "$TLS_KV_PATH")
+  [[ "$(kv_field "$doc" tls.crt)" == "$crt" && "$(kv_field "$doc" tls.key)" == "$key" ]] \
+    || die "secret/$TLS_KV_PATH does not read back"
+  ok "secret/$TLS_KV_PATH → tls.crt $(fp "$crt"), tls.key $(fp "$key"), valid to $end"
+  later "nothing renews secret/$TLS_KV_PATH until its issuer is declared: renew before $end"
+  result tls-wildcard written
+  unset crt key
+}
+
 # ── collector-key, reporter-key ───────────────────────────────────────────
 # Were cluster.sh's stages 4 and 5. github-apps.sh hands a newly created App's
 # key over in ESTATE_COLLECTOR_PEM or ESTATE_REPORTER_PEM; otherwise GitHub
@@ -1134,7 +1195,6 @@ kv_rollback() {
 # fatal and takes the whole stalwart Pod, mail included, down with it. Its
 # Garage keys (secret/overleaf-system/garage) are deploy-kit generated keys.
 section_overleaf() {
-  local version
   WROTE_FIELDS=""
   CHANGED_KEYS=""
   if [[ -n "$ROLLBACK" ]]; then
@@ -1149,14 +1209,11 @@ section_overleaf() {
   fi
   [[ -n "$WROTE_FIELDS" ]] || return 0
   note "Overleaf reads platform/overleaf through its deploy-kit grant; VSO refreshes it and restarts Overleaf."
-  # Stalwart's copy is pinned to one KV version (fleet-infra
-  # cluster/flux/apps/mail/stalwart/vault-static-secrets.yaml, stalwart-latex-mail),
-  # because an unpinned refresh rolls stalwart and takes mail down. So a new
-  # latex@ password reaches Overleaf on its own and stalwart only when the pin moves.
-  if [[ "$CHANGED_KEYS" == *" smtp.password"* ]]; then
-    version=$(vault kv metadata get -mount=secret -format=json platform/overleaf </dev/null | jq -r .data.current_version)
-    later "smtp.password changed: in fleet-infra, set stalwart-latex-mail's version: to $version (cluster/flux/apps/mail/stalwart/vault-static-secrets.yaml). Until it merges, stalwart keeps latex@'s old password while Overleaf gets the new one, and Overleaf cannot send mail"
-  fi
+  # Stalwart reads the same key through its own grant (platform/mail), so a new
+  # latex@ password reaches both within VSO's ten-minute refresh, each restarted
+  # by it: Stalwart's restart takes mail down for about a minute.
+  [[ "$CHANGED_KEYS" != *" smtp.password"* ]] \
+    || note "smtp.password changed: Stalwart sets latex@ to it on its restart, within ten minutes; mail is down for about a minute then."
 }
 
 # ── mail ──────────────────────────────────────────────────────────────────
@@ -1354,6 +1411,190 @@ section_mistral() {
   done
   if [[ -n "$any" ]]; then result mistral written; else result mistral checked; fi
   [[ -z "$any" ]] || note "VSO re-renders both Secrets on its next refresh and restarts the workloads."
+}
+
+# ── backup-off-cluster ────────────────────────────────────────────────────
+# The credential an irreplaceable volume's backup copies off-cluster with
+# (estate#228). platform.intent.yml's durability.irreplaceable.offCluster
+# names its path; the render grants it to each backup identity alone and hands
+# the whole document to the method as variables (envFrom), so its keys are the
+# variable names JorisJonkers-dev/delivery's backup method reads
+# (internal/offcluster): AWS_ENDPOINT_URL, AWS_ACCESS_KEY_ID,
+# AWS_SECRET_ACCESS_KEY, and AWS_REGION where the provider wants one (it
+# defaults to us-east-1). The bucket is not here: it is offCluster.destination.
+# Until the document exists, a backup's VaultStaticSecret cannot sync, and a
+# Project with an irreplaceable volume never goes Ready.
+BACKUP_KV_PATH=platform/backup/off-cluster
+BACKUP_ENDPOINT_DEFAULT=https://eu2.contabostorage.com
+
+# backup_destination prints offCluster.destination from platform.intent.yml.
+backup_destination() {
+  sed -n '/^ *offCluster:/,/^ *egress:/s/^ *destination: *"\{0,1\}\([^" ]*\)"\{0,1\}.*/\1/p' \
+    "$here/../platform.intent.yml" | head -n 1
+}
+
+# backup_s3_check ENDPOINT BUCKET REGION ID SECRET asks the provider, signed with
+# the key pair, whether it sees the bucket (path-style, as the method writes).
+# Prints the HTTP status. The pair travels on stdin, never as an argument.
+backup_s3_check() {
+  printf 'user = "%s:%s"\n' "$4" "$5" \
+    | curl -sS --max-time 20 --config - -o /dev/null -w '%{http_code}' -I \
+        --aws-sigv4 "aws:amz:$3:s3" "${1%/}/$2" 2>/dev/null || printf 'unreachable'
+}
+
+section_backup_off_cluster() {
+  local doc endpoint id secret region dest bucket code cas
+  doc=$(kv_load "$BACKUP_KV_PATH")
+  dest=$(backup_destination)
+  [[ "$dest" == s3://* ]] || die "platform.intent.yml names no s3:// offCluster.destination (read: '${dest}')"
+  bucket=${dest#s3://}
+  bucket=${bucket%%/*}
+  endpoint=$(kv_field "$doc" AWS_ENDPOINT_URL)
+  id=$(kv_field "$doc" AWS_ACCESS_KEY_ID)
+  secret=$(kv_field "$doc" AWS_SECRET_ACCESS_KEY)
+  region=$(kv_field "$doc" AWS_REGION)
+  if [[ "$endpoint" =~ ^https?://[^/]+/?$ && -n "$id" && -n "$secret" && -z "$ROTATE" ]]; then
+    ok "secret/$BACKUP_KV_PATH holds AWS_ENDPOINT_URL $endpoint, AWS_ACCESS_KEY_ID $(fp "$id"), AWS_SECRET_ACCESS_KEY $(fp "$secret")${region:+, AWS_REGION $region}"
+    note "the bucket, $bucket, is platform.intent.yml's offCluster.destination, not the credential's"
+    result backup-off-cluster "already right"
+    return 0
+  fi
+  if [[ "$doc" == "{}" ]]; then
+    say "secret/$BACKUP_KV_PATH does not exist: every irreplaceable volume's backup reads it,"
+    say "and a Project with one (mail) never goes Ready without it."
+  else
+    say "secret/$BACKUP_KV_PATH is incomplete or --rotate asked for a new pair:"
+    note "  AWS_ENDPOINT_URL ${endpoint:-none}, AWS_ACCESS_KEY_ID $(fp_or "$id"), AWS_SECRET_ACCESS_KEY $(fp_or "$secret"), AWS_REGION ${region:-none}"
+  fi
+  say "The key pair is Contabo's: my.contabo.com → Object Storage → S3 credentials, for the"
+  say "bucket $bucket ($dest, from platform.intent.yml; the credential does not hold it)."
+  BACKUP_ENDPOINT=""
+  ask BACKUP_ENDPOINT "S3 endpoint [Enter: ${endpoint:-$BACKUP_ENDPOINT_DEFAULT}]:"
+  endpoint=${BACKUP_ENDPOINT:-${endpoint:-$BACKUP_ENDPOINT_DEFAULT}}
+  unset BACKUP_ENDPOINT
+  [[ "$endpoint" =~ ^https://[^/[:space:]]+/?$ ]] || die "the endpoint is https://host, nothing more: '$endpoint'"
+  endpoint=${endpoint%/}
+  BACKUP_ID="" BACKUP_SECRET="" BACKUP_REGION=""
+  ask_secret BACKUP_ID "Access key id (hidden; Enter skips):"
+  ask_secret BACKUP_SECRET "Secret access key (hidden; Enter skips):"
+  id=$(printf '%s' "$BACKUP_ID" | tr -d '[:space:]')
+  secret=$(printf '%s' "$BACKUP_SECRET" | tr -d '[:space:]')
+  unset BACKUP_ID BACKUP_SECRET
+  if [[ -z "$id" || -z "$secret" ]]; then
+    later "secret/$BACKUP_KV_PATH is not written: an access key id and its secret are both needed"
+    result backup-off-cluster "not written"
+    return 0
+  fi
+  ask BACKUP_REGION "Region (optional; Enter leaves it out, and the method signs for us-east-1):"
+  region=$(printf '%s' "$BACKUP_REGION" | tr -d '[:space:]')
+  unset BACKUP_REGION
+  if [[ -z "$LOCAL_VAULT" ]]; then
+    code=$(backup_s3_check "$endpoint" "$bucket" "${region:-us-east-1}" "$id" "$secret")
+    case "$code" in
+      200) ok "$endpoint accepts the pair and it sees bucket $bucket" ;;
+      401|403) warn "$endpoint refuses the pair for bucket $bucket ($code): a wrong key, or one without access to it" ;;
+      404) warn "$endpoint has no bucket $bucket (404): create it, or fix offCluster.destination" ;;
+      *) warn "could not check the pair against $endpoint ($code); the backup's first run will" ;;
+    esac
+    [[ "$code" == 200 ]] || confirm "Write it anyway?" \
+      || { later "secret/$BACKUP_KV_PATH is not written"; result backup-off-cluster "not written"; return 0; }
+  fi
+  confirm "Write AWS_ENDPOINT_URL $endpoint, AWS_ACCESS_KEY_ID $(fp "$id"), AWS_SECRET_ACCESS_KEY $(fp "$secret")${region:+, AWS_REGION $region} to secret/$BACKUP_KV_PATH?" \
+    || { later "secret/$BACKUP_KV_PATH is not written"; result backup-off-cluster "not written"; return 0; }
+  # One whole version, checked against the one read, so no stale key survives
+  # and a racing write is refused. The values reach jq and vault on stdin.
+  cas=$(vault kv metadata get -mount=secret -format=json "$BACKUP_KV_PATH" 2>/dev/null </dev/null \
+    | jq -r '.data.current_version // 0' || true)
+  printf '%s\0%s\0%s\0%s' "$endpoint" "$id" "$secret" "$region" \
+    | jq -Rs 'split("\u0000") as $v
+        | {AWS_ENDPOINT_URL: $v[0], AWS_ACCESS_KEY_ID: $v[1], AWS_SECRET_ACCESS_KEY: $v[2]}
+          + (if ($v[3] // "") == "" then {} else {AWS_REGION: $v[3]} end)' \
+    | vault kv put -mount=secret -cas="${cas:-0}" "$BACKUP_KV_PATH" - >/dev/null \
+    || die "writing secret/$BACKUP_KV_PATH failed"
+  doc=$(kv_load "$BACKUP_KV_PATH")
+  [[ "$(kv_field "$doc" AWS_ENDPOINT_URL)" == "$endpoint" \
+    && "$(kv_field "$doc" AWS_ACCESS_KEY_ID)" == "$id" \
+    && "$(kv_field "$doc" AWS_SECRET_ACCESS_KEY)" == "$secret" \
+    && "$(kv_field "$doc" AWS_REGION)" == "$region" ]] || die "secret/$BACKUP_KV_PATH does not read back"
+  ok "secret/$BACKUP_KV_PATH → AWS_ENDPOINT_URL $endpoint, AWS_ACCESS_KEY_ID $(fp "$id"), AWS_SECRET_ACCESS_KEY $(fp "$secret")${region:+, AWS_REGION $region}"
+  note "Each backup's VaultStaticSecret syncs it within its refresh; nothing else reads it, so nothing restarts."
+  result backup-off-cluster written
+  unset id secret
+}
+
+# ── data ──────────────────────────────────────────────────────────────────
+# The data Project's render reads three logins nobody else writes, each a copy
+# of an admin login the old path's datastores already run with: the Postgres
+# catalog Job's, and the two backup methods' (deploy-kit
+# spec/v1/14-platform-intent.md#engines: the operator writes a backup's
+# credential at secret/<project>/<process>/backup, in the method's own keys).
+# Each is written as one whole version holding just its two keys, so a re-run
+# finds it right and skips it; a source that changed is copied again.
+#   destination|its user key|its password key|source|its user key|its password key
+DATA_COPIES=(
+  "data/postgres/catalog|user|password|platform/postgres|postgres.user|postgres.password"
+  "data/postgres/backup|PGUSER|PGPASSWORD|platform/postgres|postgres.user|postgres.password"
+  "data/rabbitmq/backup|RABBITMQ_USERNAME|RABBITMQ_PASSWORD|platform/rabbitmq|rabbitmq.user|rabbitmq.password"
+)
+
+# data_copy DEST DEST_USER DEST_PASS SRC SRC_USER SRC_PASS: copy one login,
+# where it is missing or differs. Prints nothing secret: fingerprints only.
+data_copy() {
+  local dest="$1" duser="$2" dpass="$3" src="$4" suser="$5" spass="$6"
+  local doc user password have_user have_password cas readers line
+  doc=$(kv_load "$src")
+  user=$(kv_field "$doc" "$suser")
+  password=$(kv_field "$doc" "$spass")
+  if [[ -z "$user" || -z "$password" ]]; then
+    later "secret/$src has no $suser or $spass: restore them, then re-run --only data"
+    DATA_STATE="waiting for secret/$src"
+    return 0
+  fi
+  doc=$(kv_load "$dest")
+  have_user=$(kv_field "$doc" "$duser")
+  have_password=$(kv_field "$doc" "$dpass")
+  if [[ "$have_user" == "$user" && "$have_password" == "$password" && "$(jq 'length' <<<"$doc")" == 2 ]]; then
+    ok "secret/$dest → $duser $(fp "$user"), $dpass $(fp "$password"): matches secret/$src"
+    return 0
+  fi
+  if [[ "$doc" == "{}" ]]; then
+    say "secret/$dest does not exist: the data Project's render reads it."
+  else
+    note "secret/$dest holds $duser $(fp_or "$have_user"), $dpass $(fp_or "$have_password"), keys $(jq -c 'keys' <<<"$doc");"
+    note "secret/$src's login is $suser $(fp "$user"), $spass $(fp "$password")"
+  fi
+  readers=$(vso_readers "$dest")
+  if [[ -n "$readers" ]]; then
+    say "What reads secret/$dest now:"
+    while IFS= read -r line; do step "$line"; done <<<"$readers"
+  fi
+  confirm "Write $duser $(fp "$user") and $dpass $(fp "$password"), copied from secret/$src, to secret/$dest?" \
+    || { later "secret/$dest is not written"; DATA_STATE="not all written"; return 0; }
+  # One whole version, checked against the one read, so no stale key survives
+  # and a racing write is refused. The values reach jq and vault on stdin.
+  cas=$(vault kv metadata get -mount=secret -format=json "$dest" 2>/dev/null </dev/null \
+    | jq -r '.data.current_version // 0' || true)
+  printf '%s\0%s' "$user" "$password" \
+    | jq -Rs --arg u "$duser" --arg p "$dpass" 'split("\u0000") as $v | {($u): $v[0], ($p): $v[1]}' \
+    | vault kv put -mount=secret -cas="${cas:-0}" "$dest" - >/dev/null \
+    || die "writing secret/$dest failed"
+  doc=$(kv_load "$dest")
+  [[ "$(kv_field "$doc" "$duser")" == "$user" && "$(kv_field "$doc" "$dpass")" == "$password" ]] \
+    || die "secret/$dest does not read back"
+  ok "secret/$dest → $duser $(fp "$user"), $dpass $(fp "$password")"
+  [[ "$DATA_STATE" != "already right" ]] || DATA_STATE=written
+}
+
+section_data() {
+  local entry fields
+  DATA_STATE="already right"
+  for entry in "${DATA_COPIES[@]}"; do
+    IFS='|' read -r -a fields <<<"$entry"
+    data_copy "${fields[@]}"
+  done
+  [[ "$DATA_STATE" != written ]] \
+    || note "Each VaultStaticSecret syncs its copy within its refresh. Nothing on the old path reads these paths."
+  result data "$DATA_STATE"
 }
 
 # ── garage-keys (optional) ────────────────────────────────────────────────
@@ -1561,6 +1802,9 @@ for CURRENT_SECTION in "${SELECTED[@]}"; do
     mail) section_mail ;;
     hermes) section_hermes ;;
     mistral) section_mistral ;;
+    backup-off-cluster) section_backup_off_cluster ;;
+    data) section_data ;;
+    tls-wildcard) section_tls_wildcard ;;
     garage-keys) section_garage_keys ;;
     agents-github-app) section_agents_github_app ;;
     agents-deploy-key) section_agents_deploy_key ;;

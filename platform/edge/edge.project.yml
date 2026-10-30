@@ -46,38 +46,6 @@ applications:
           liveness: { path: /ping, port: 8080 }
         startupBudget: 20s
         cutover: continuous
-        # Traefik's Kubernetes provider watches every route, middleware and TLS
-        # object, and the Services, endpoints and Secrets they name, in every
-        # namespace: the live chart's ClusterRole, less the Ingress provider,
-        # which the render does not enable. Nothing derives it for a tier's
-        # proxy, so it is declared (JorisJonkers-dev/deploy-kit#727).
-        api:
-          reason: >-
-            Traefik reads every route and what it names, cluster-wide, to
-            serve its tier
-          rules:
-            - group: core
-              objects: [services, secrets, nodes, configmaps, namespaces]
-              verbs: [get, list, watch]
-            - group: core
-              objects: [pods]
-              verbs: [get]
-            - group: discovery.k8s.io
-              objects: [endpointslices]
-              verbs: [get, list, watch]
-            - group: traefik.io
-              objects:
-                - ingressroutes
-                - ingressroutetcps
-                - ingressrouteudps
-                - middlewares
-                - middlewaretcps
-                - serverstransports
-                - serverstransporttcps
-                - tlsoptions
-                - tlsstores
-                - traefikservices
-              verbs: [get, list, watch]
 
   - id: traefik-lan
     # Its request metrics, as the old path's PodMonitor scraped them; Traefik
@@ -105,38 +73,6 @@ applications:
           liveness: { path: /ping, port: 8080 }
         startupBudget: 20s
         cutover: continuous
-        # Traefik's Kubernetes provider watches every route, middleware and TLS
-        # object, and the Services, endpoints and Secrets they name, in every
-        # namespace: the live chart's ClusterRole, less the Ingress provider,
-        # which the render does not enable. Nothing derives it for a tier's
-        # proxy, so it is declared (JorisJonkers-dev/deploy-kit#727).
-        api:
-          reason: >-
-            Traefik reads every route and what it names, cluster-wide, to
-            serve its tier
-          rules:
-            - group: core
-              objects: [services, secrets, nodes, configmaps, namespaces]
-              verbs: [get, list, watch]
-            - group: core
-              objects: [pods]
-              verbs: [get]
-            - group: discovery.k8s.io
-              objects: [endpointslices]
-              verbs: [get, list, watch]
-            - group: traefik.io
-              objects:
-                - ingressroutes
-                - ingressroutetcps
-                - ingressrouteudps
-                - middlewares
-                - middlewaretcps
-                - serverstransports
-                - serverstransporttcps
-                - tlsoptions
-                - tlsstores
-                - traefikservices
-              verbs: [get, list, watch]
 
   # The DNS controller: it publishes each public route's host in Cloudflare
   # from the annotations the tier puts on it, so the records follow the routes.

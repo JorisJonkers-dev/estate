@@ -10,7 +10,7 @@ is safe to re-run.
 | script | run | does |
 |---|---|---|
 | [`github-apps.sh`](github-apps.sh) | once per organization | creates the dispatch, Collector and Reporter GitHub Apps, puts the dispatch App's id and key in an org variable and secret every repository reads, hands the Collector's and the Reporter's new keys to `secrets.sh` for Vault, and puts the Collector key in the estate repository's `production` environment, which only `main` deploys to and no administrator bypasses, for composition's pin commit |
-| [`secrets.sh`](secrets.sh) | once per cluster, after a restore, and whenever a value is added or replaced | every secret a person writes to Vault, one section each: the roles fleet-infra's `vault-bootstrap-auth` Job and deploy-kit's Vault policy job log in as, the metrics token, the Discord webhook, the Collector and Reporter keys, the OIDC client secrets (estate-dashboard, tribelt, grimoire, findability-explorer) in both the copy auth-api reads and the app's own, the keys of Overleaf, Hermes, Hindsight and Karakeep, and Stalwart's recovery admin. It checks each, skips what is already right, and stops only where a value is missing or wrong; after a client secret changes it restarts auth-api once and proves every client at the token endpoint |
+| [`secrets.sh`](secrets.sh) | once per cluster, after a restore, and whenever a value is added or replaced | every secret a person writes to Vault, one section each: the roles fleet-infra's `vault-bootstrap-auth` Job and deploy-kit's Vault policy job log in as, the metrics token, the Discord webhook, the Collector and Reporter keys, the OIDC client secrets (estate-dashboard, tribelt, grimoire, findability-explorer) in both the copy auth-api reads and the app's own, the keys of Overleaf, Hermes, Hindsight and Karakeep, Stalwart's recovery admin, and the off-cluster backup credential. It checks each, skips what is already right, and stops only where a value is missing or wrong; after a client secret changes it restarts auth-api once and proves every client at the token endpoint |
 | [`cluster.sh`](cluster.sh) | once per cluster, and after every move | writes Flux's read access to this repository and its pull access to the render packages, applies Flagger's CRDs, and proves Flux sees the estate |
 | [`retire.sh`](retire.sh) | once per retirement an issue decides | deletes what Vault still holds for something nothing uses: today the `downloads` role and policy (#227). It checks again, read-only and live, that nothing uses them, shows what it deletes, asks, and reads back that it is gone; a retirement already done is skipped |
 
@@ -42,6 +42,8 @@ client secrets.
 ./bootstrap/secrets.sh --only hermes --replace           # rewrite the document, dropping what is not offered
 ./bootstrap/secrets.sh --only overleaf --rollback        # back to an earlier KV version
 ./bootstrap/secrets.sh --only mail                       # Stalwart's user:password pair, from its admin login
+./bootstrap/secrets.sh --only data                       # the data Project's catalog and backup logins, copied
+./bootstrap/secrets.sh --only backup-off-cluster         # the S3 key pair irreplaceable backups copy off-cluster with
 ./bootstrap/secrets.sh --only grimoire --rerun-garage-bootstrap
 ./bootstrap/secrets.sh --only discord-webhook --rotate --test-alert
 ```
