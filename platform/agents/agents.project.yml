@@ -78,8 +78,8 @@ applications:
         # Its config, copied onto the volume before every start, because hermes
         # migrates it and edits it from its dashboard; the copy it replaces is
         # kept beside it. The file holds no secret: hermes expands each
-        # ${VAR} from the env file. It is a stand-in, not the live file: see
-        # docs/runbooks/agents-handover.md, decision D1.
+        # ${VAR} from the env file. It is the live file, its markers written as
+        # ${VAR} (docs/runbooks/agents-handover.md, decision D1).
         assets:
           - { from: config/hermes/config.yaml, seedAt: /opt/data/config.yaml }
         # Model providers, the GitHub MCP server, Hindsight's public host,

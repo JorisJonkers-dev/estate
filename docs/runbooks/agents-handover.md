@@ -2,7 +2,7 @@
 
 Moves the Project `agents` (hermes and kubernetes-mcp-server, with agents-api
 and agents-ui parked, namespace `agents-system`) from fleet-infra's old path to
-its pin here, on deploy-kit 1.2.0, in the three changes of deploy-kit
+its pin here, on deploy-kit 1.3.0, in the three changes of deploy-kit
 `spec/v1/60-setup.md#handing-over-one-project-at-a-time`. Tracking:
 JorisJonkers-dev/deploy-kit#658.
 
@@ -18,7 +18,7 @@ live step is the maintainer's go-ahead, never an agent's.
 
 | | decision | recommendation |
 |---|---|---|
-| D1 | **Which `config.yaml` hermes runs with.** The seeded Asset replaces `/opt/data/config.yaml` before every start, so whatever this repository ships is what hermes runs. This repository is public and fleet-infra is private, so `platform/agents/config/hermes/config.yaml` is a stand-in written here: OpenRouter's EU endpoint, the live default model, no data-collecting providers, built-in memory off, and three MCP servers (kubernetes, github, memory-api). The live file also sets the model aliases, the auxiliary and compression models, `provider_routing.only`, the system prompt, the approvals' cron and single-query modes, the model catalog, the skills directory, and four more MCP servers (playwright, drawio, overleaf, vuetify). None of it is secret: every token is a placeholder | Ship the live file: copy it over the stand-in, rewriting its `@VAR@` placeholders as `${VAR}`, after reading it once for anything you would not publish. Otherwise accept the stand-in's narrower hermes and edit it here |
+| D1 | **Which `config.yaml` hermes runs with: decided 2026-10-30, the live file.** The seeded Asset replaces `/opt/data/config.yaml` before every start, so what this repository ships is what hermes runs. `platform/agents/config/hermes/config.yaml` is fleet-infra's live `config.yaml` (the `hermes-config` ConfigMap on its `main`, identical to the cluster's), with its three `@VAR@` markers rewritten as `${GITHUB_PAT}`, `${HINDSIGHT_API_TOKEN}` and `${OVERLEAF_SESSION}` and nothing else changed. It holds no secret value; each of the three reaches hermes through `env/hermes/base.env`. Its comments still describe the old path's seed step and `.env` | decided |
 | D2 | **The old `/opt/data/.env`.** The old path's seed step writes the provider keys and `GITHUB_PERSONAL_ACCESS_TOKEN` into `/opt/data/.env` on every start. Nothing writes it on the estate path, where the same values are the process's own environment; the stale file stays on the volume, and whether hermes lets it override its environment was not checked | Move it aside once hermes runs on the estate path (cutover step 5), so a key rotated in Vault is the one hermes uses |
 | D3 | **agents-api and agents-ui stay declared, parked.** The worked example keeps them so unparking is deleting a line; fleet-infra#531 retires them on the old path (2026-10-23). Parked, they render two zero-replica Deployments, their Services, ServiceAccounts, agents-api's Role and their NetworkPolicies | Keep them for this handover, which copies the example; delete both blocks in a later change if the retirement is final |
 | D4 | **hermes's memory request rises from 1Gi to 3Gi** (2Gi for the Process plus its 1Gi in-memory `/dev/shm`; request equals limit). `enschede-gtx-960m-1` has 2096Mi unrequested today, so the new pod fits by 48Mi once the old one is gone. Live, hermes works at 1069Mi and peaked at 1.4Gi | Delete the orphaned `auth-bootstrap` pod (128Mi, retired by fleet-infra#531) before the flip, and read the margin again at pre-check 5 |
@@ -28,7 +28,7 @@ live step is the maintainer's go-ahead, never an agent's.
 | | what | where |
 |---|---|---|
 | W1 | the utility handover, before this one in the order | JorisJonkers-dev/deploy-kit#657, JorisJonkers-dev/estate#248 |
-| W2 | D1 to D4 decided | above |
+| W2 | D2 to D4 decided | above |
 | W3 | fleet-infra#531, if it goes first: these changes were checked to merge after it | JorisJonkers-dev/fleet-infra#531 |
 
 Nothing needs a Vault write. `secret/data/agents/hermes` holds `github-pat`,
@@ -51,12 +51,12 @@ C must land before D: the estate's unit is also `flux-system/apps-agents`.
 
 ## The render against the old path
 
-Rendered with deploy-kit 1.2.0 (`deploy-kit compose` over every participant's
+Rendered with deploy-kit 1.3.0, which the estate's `toolkit.yml` pins (`deploy-kit compose` over every participant's
 newest fragment, this branch's Platform and Project fragments,
 `participants.yml` and `cluster-state.yml`), against `kubectl kustomize` of
 fleet-infra `main` (72a449c) `cluster/flux/apps/agents` and
-`cluster/flux/apps/stateless`, and the live objects, read 2026-10-29. deploy-kit
-1.3.0 renders the same objects plus two ConfigMaps, `hermes-external-checks` and
+`cluster/flux/apps/stateless`, and the live objects, read 2026-10-29. 1.3.0
+adds two ConfigMaps to what 1.2.0 rendered, `hermes-external-checks` and
 `agents-ui-external-checks`, for Gatus.
 
 ### hermes
@@ -66,8 +66,8 @@ fleet-infra `main` (72a449c) `cluster/flux/apps/agents` and
 | Deployment selector `name` | `name` + `instance` | the fixed label set; a selector is immutable, so the first pin recreates the Deployment (`force: Enabled`) |
 | `nodeSelector` node-id `enschede-gtx-960m-1` | node affinity on `enschede-gtx-960m-1` | derived from the claim's node in the ClusterState snapshot; the same node |
 | starts as root with `CHOWN`, `DAC_OVERRIDE`, `FOWNER`, `SETUID`, `SETGID`, writable root filesystem; s6 drops hermes to 10000 | pod and every container run as 10000:10000, `fsGroup` 10000, every capability dropped, read-only root, seccomp `RuntimeDefault`; `/run` and `/tmp` emptyDirs of 64Mi; `S6_YES_I_WANT_A_WORLD_WRITABLE_RUN_BECAUSE_KUBERNETES=1` | `hardening: restricted`; shown to run in JorisJonkers-dev/deploy-kit#692. Pre-check 6 reads the volume's ownership, because local-path applies no `fsGroup` |
-| init `seed-config` (alpine, sed of `@VAR@`, writes `config.yaml` and `.env`, warns on missing keys) | init `seed` (busybox, 16Mi), copies the content-hashed ConfigMap `hermes-config-yaml-9a65be821b` onto `/opt/data/config.yaml` with mode 0600, keeping `config.yaml.superseded` | a seeded Asset ([0124](https://github.com/JorisJonkers-dev/deploy-kit/blob/main/docs/adr/model/0124-a-seeded-asset-is-copied-onto-a-volume-before-each-start.md)); hermes expands `${VAR}` itself. The contents are D1's; `.env` is D2's |
-| init `sync-skills` (alpine as root, git clones from `sources.conf`) | none | RENDER-GAPS A8, JorisJonkers-dev/deploy-kit#706, open: hermes runs with the skills its image bundles, the maintainer's decision. The last sync's copy stays in `/opt/data/skills-vendored`, unreferenced by the stand-in |
+| init `seed-config` (alpine, sed of `@VAR@`, writes `config.yaml` and `.env`, warns on missing keys) | init `seed` (busybox, 16Mi), copies the content-hashed ConfigMap `hermes-config-yaml-868e18008f` onto `/opt/data/config.yaml` with mode 0600, keeping `config.yaml.superseded` | a seeded Asset ([0124](https://github.com/JorisJonkers-dev/deploy-kit/blob/main/docs/adr/model/0124-a-seeded-asset-is-copied-onto-a-volume-before-each-start.md)); hermes expands `${VAR}` itself. The contents are the live file's (D1); `.env` is D2's |
+| init `sync-skills` (alpine as root, git clones from `sources.conf`) | none | RENDER-GAPS A8, JorisJonkers-dev/deploy-kit#706, open: hermes runs with the skills its image bundles, the maintainer's decision. The last sync's copy stays in `/opt/data/skills-vendored`, which the live config still names in `skills.external_dirs`, so hermes keeps reading that frozen copy |
 | env from Secret `hermes-credentials` (VSO, `vso-system/default`, 1h refresh) | env from `hermes-agents-hermes` (own `VaultAuth` as `agents-system-hermes`, 10m refresh, `hmacSecretData`), every key optional; `GITHUB_PERSONAL_ACCESS_TOKEN` from `github-pat`, as the old `.env` carried it | identity per Process; the policy job writes the role and its read policy on `secret/data/agents/hermes` and its metadata |
 | issuer `https://auth.jorisjonkers.dev`, client `hermes`, public URL `https://hermes.jorisjonkers.dev` | the same values, from `${exposure:auth.public#url}` and `${exposure:hermes.public#url}` | the Platform document names no sign-in provider, so no `client` block (`E_NO_SIGN_IN_PROVIDER`); hermes keeps signing in against auth-api, whose registered redirect URI is unchanged |
 | requests 250m/1Gi, limits 2 CPU/4Gi | 250m/3Gi, limit 3Gi, no CPU limit | request equals limit, and the in-memory `/dev/shm` counts toward it: D4 |
@@ -205,6 +205,11 @@ while sleep 5; do printf '%s ' "$(date +%T)"; curl -s -o /dev/null -w '%{http_co
 3. hermes lists the cluster's pods through the `kubernetes` MCP server: the
    request crosses the old NetworkPolicy to `kubernetes-mcp-server-primary`.
 4. hermes answers one chat turn, so its model key reached it.
+5. hermes's log shows the playwright, drawio and overleaf MCP servers started.
+   Each runs through `npx`, which writes its package cache under the home
+   directory: under the read-only root it works only if that is on the
+   volume or `/tmp`. If one fails, the rest of hermes runs without it; declare
+   the path it needs as a writable path in a follow-up.
 
 Then change E, and the deletions above.
 

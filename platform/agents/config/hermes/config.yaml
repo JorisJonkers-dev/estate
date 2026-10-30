@@ -1,55 +1,346 @@
-# A stand-in for hermes's configuration, written for this repository: the live
-# file is fleet-infra's, which is private, and this repository is public, so it
-# is not copied here. Seeded onto /opt/data/config.yaml before every start, it
-# replaces the live file at the handover, which hermes keeps beside it as
-# config.yaml.superseded. Whether the live file ships instead is decision D1
-# in docs/runbooks/agents-handover.md.
+# ---------------------------------------------------------------
+# Model / provider. Bring-your-own-key: Hermes holds no weights.
+# Keys come from /opt/data/.env, seeded from Vault — never here.
 #
-# hermes expands each ${VAR} below from its own environment as it reads the
-# file, so the file holds no secret: the values reach hermes through
-# env/hermes/base.env, from secret/data/agents/hermes.
+# OpenRouter is a native Hermes provider (not an OpenAI-compatible
+# base_url override), so no `base_url` is needed — only
+# OPENROUTER_API_KEY, which the seed container writes to .env.
+#
+# OpenRouter model IDs are `<vendor>/<model>`. Switching model is a
+# one-line change here; switching provider means also putting that
+# provider's key in secret/agents/hermes.
+#
+# Model selection uses the nested `model:` block (model.default /
+# model.provider / model.aliases), which is what `hermes config get`
+# and `hermes model` read and write. The scalar top-level
+# `provider:` / `model:` form is NOT parsed by Hermes, so keep these
+# nested under `model:`.
+#
+# Aliases are user-defined names usable via `/model <name>` in the
+# CLI/TUI and on gateway platforms. `free` points at a no-cost
+# OpenRouter model for budget-sensitive runs; the speed/quality
+# tradeoff is intentional.
+# ---------------------------------------------------------------
 model:
-  provider: openrouter
-  base_url: https://eu.openrouter.ai/api/v1
+  # A NAMED model, never a router: a router picks the model per request and
+  # bills whatever it picks, which is invisible from here.
   default: mistralai/mistral-small-2603
+  provider: openrouter
+  # The key is scoped to the EU data region; the global host answers 403.
+  # Hermes infers the provider from the host, so this stays OpenRouter.
+  base_url: https://eu.openrouter.ai/api/v1
+# ---------------------------------------------------------------
+# Model aliases, in the DICT form on purpose.
+#
+# `model.aliases` (the string form) is parsed as
+# `val.split("/", 1)` -- provider before the first slash, model
+# after it. So `sonnet: anthropic/claude-sonnet-4.6` asked the
+# ANTHROPIC provider for `claude-sonnet-4.6`, and this gateway
+# holds no Anthropic key, so `/model sonnet` died on
+# `No Anthropic credentials found`. Eleven aliases were broken
+# that way while every model was reachable through OpenRouter.
+#
+# `model_aliases:` takes an explicit provider and does NOT split
+# the id, which is what these need. Verified from the pinned
+# release's own `_load_direct_aliases`, and its entries take
+# precedence over `model.aliases`, so the old table is removed
+# rather than left to shadow.
+# ---------------------------------------------------------------
+model_aliases:
+  # Only models served from the mistral/eu endpoint: provider_routing.only
+  # makes anything else fail rather than fall back, so an alias that cannot
+  # run is worse than no alias.
+  small:
+    model: mistralai/mistral-small-2603
+    provider: openrouter
+  medium:
+    model: mistralai/mistral-medium-3.1
+    provider: openrouter
+  large:
+    model: mistralai/mistral-large-2407
+    provider: openrouter
+  codestral:
+    model: mistralai/codestral-2508
+    provider: openrouter
+  tiny:
+    model: mistralai/ministral-3b-2512
+    provider: openrouter
+  ministral-8b:
+    model: mistralai/ministral-8b-2512
+    provider: openrouter
+  ministral-14b:
+    model: mistralai/ministral-14b-2512
+    provider: openrouter
 
-# No provider that keeps prompts for training.
+# ---------------------------------------------------------------
+# Provider routing — decides which provider executes once model is chosen.
+# sort: price = cheapest provider for the chosen model.
+# ---------------------------------------------------------------
 provider_routing:
+  sort: price
+  # Refuse providers that retain prompts for training.
   data_collection: deny
+  # EU residency, enforced rather than hoped for: a non-Mistral provider is
+  # a hard failure, not a silent fallback. mistral/eu is the only endpoint
+  # serving this model.
+  only:
+    - mistral
 
-# Long-term memory is the memory-api MCP server below, saved to on purpose;
-# hermes's own built-in memory stays off.
+# ---------------------------------------------------------------
+# Auxiliary models — offload side tasks to cheap/fast models.
+# Keeps main model tokens for reasoning; saves 10-50x on aux calls.
+# ---------------------------------------------------------------
+# Auxiliary lane: the same named, paid model as the main path.
+# NOT free_only -- a :free SKU is free because the provider may train on
+# the traffic, and this lane carries knowledge-base content.
+auxiliary:
+  free_only: false
+  title:
+    provider: openrouter
+    model: mistralai/mistral-small-2603
+  vision:
+    provider: openrouter
+    model: mistralai/mistral-small-2603
+  compression:
+    provider: openrouter
+    model: mistralai/mistral-small-2603
+  web_extract:
+    provider: openrouter
+    model: mistralai/mistral-small-2603
+  approval:
+    provider: openrouter
+    model: mistralai/mistral-small-2603
+  skill_search:
+    provider: openrouter
+    model: mistralai/mistral-small-2603
+  mcp_routing:
+    provider: openrouter
+    model: mistralai/mistral-small-2603
+
+# ---------------------------------------------------------------
+# Context compression — reduce token usage on long sessions.
+# threshold: 0.5 = compress when context > 50% of model window.
+# target_ratio: 0.2 = compress down to 20% of original.
+# ---------------------------------------------------------------
+compression:
+  enabled: true
+  threshold: 0.50
+  target_ratio: 0.20
+
+# ---------------------------------------------------------------
+# Memory provider — persistent cross-session memory.
+#
+# DISABLED ON PURPOSE, and this is the fix for the dashboard reporting
+# honcho as "unavailable — install provider dependencies".
+#
+# Every provider plugin Hermes offers needs its own Python client in the
+# image. The image is pinned by tag AND digest and has none of them, so
+# naming a provider here only produces a provider that cannot load.
+#
+# Long-term memory is Hindsight, reached through the `memory-api` MCP
+# server in mcp_servers: below. The MCP path needs no dependency in this
+# image, which is why no provider is named here.
+# ---------------------------------------------------------------
 memory:
   memory_enabled: false
   user_profile_enabled: false
+  write_approval: false
 
-# The cluster's pod network: the edge proxies a request from there, so the
-# dashboard reads the client address they forward.
-dashboard:
-  trusted_proxies:
-    - 10.42.0.0/16
+# ---------------------------------------------------------------
+# Standing instructions, added to every session's system prompt.
+#
+# The memory policy is the one the workstation agents get through
+# agent-kit's toolGuideExtra: save deliberately, through memory-api,
+# to Hindsight's shared `default` bank.
+# ---------------------------------------------------------------
+agent:
+  system_prompt: >-
+    Long-term memory is the memory-api MCP server (Hindsight's shared
+    default bank). Conversations are not captured automatically:
+    nothing is saved unless you save it. Save to memory only what is
+    worth keeping long-term: decisions and their reasons, conventions,
+    facts about people and the user, durable project context that the
+    code and git history do not already record, and anything the user
+    asks you to remember. Not small talk, not passing task details or
+    progress, never secrets. Update an existing memory rather than
+    adding a near-duplicate.
 
-# hermes runs shell commands. It may not read a projected token or its own
-# keys back off the volume.
+# ---------------------------------------------------------------
+# Model catalog override.
+#
+# Hermes by default shows a *curated* subset of OpenRouter models
+# (upstream OPENROUTER_MODELS / docs-hosted manifest). The estate
+# wants the FULL catalog so every usable model is selectable. Point
+# the openrouter provider at a full manifest (published to
+# JorisJonkers-dev/openrouter-model-catalog, all tool-capable models).
+#
+# The fetch is an unauthenticated GET over public HTTPS (the Hermes
+# NetworkPolicy blocks RFC1918/private IPs), so the manifest must sit
+# on a public, auth-free URL — this raw.githubusercontent path is one.
+#
+# Hermes re-filters the manifest against the live OpenRouter catalog
+# on every picker open, so a model that leaves OpenRouter disappears
+# automatically even though the manifest lists it.
+#
+# `excluded_providers` is left empty so every authenticated provider
+# stays visible in the picker.
+# ---------------------------------------------------------------
+model_catalog:
+  providers:
+    openrouter:
+      url: https://raw.githubusercontent.com/JorisJonkers-dev/openrouter-model-catalog/main/model-catalog.json
+
+# ---------------------------------------------------------------
+# Config schema version. Hermes warns at boot when this key is
+# missing or stale ("config predates version 12..."). It must match
+# the version shipped in this Hermes release (see
+# hermes_cli/config_defaults.py, DEFAULT_CONFIG["_config_version"]).
+# The seed init container rewrites /opt/data/config.yaml from this
+# ConfigMap on every pod start, so without this line the key would be
+# dropped and the warning would appear on the next boot.
+# Bump together with the hermes image when upstream bumps it.
+# ---------------------------------------------------------------
+_config_version: 39
+
+# ---------------------------------------------------------------
+# Command approval. Hermes runs arbitrary shell commands through
+# its `terminal` tool. `smart` is upstream's default: risk-assessed
+# prompts. There is no human at a terminal in a gateway
+# deployment, so an approval prompt with nobody to answer it will
+# sit until `timeout` expires and then fail the call.
+#
+# cron_mode/single_query_mode are set to `deny` so an unattended
+# scheduled run can never self-approve something dangerous. Raise
+# to `approve` only if you accept that.
+#
+# The upstream hardline blocklist (filesystem wipes, fork bombs,
+# raw disk writes) is NOT overridable by anything here.
+# ---------------------------------------------------------------
 approvals:
   mode: smart
+  timeout: 300
+  cron_mode: deny
+  single_query_mode: deny
   deny:
+    # This Pod has a Vault-backed .env and a kubeconfig-free SA
+    # token. Keep the agent out of both regardless of risk score.
     - "*/var/run/secrets/kubernetes.io/*"
     - "*/opt/data/.env*"
 
+# ---------------------------------------------------------------
+# Terminal backend. `local` runs commands inside this Pod, which
+# IS the isolation boundary — the container has no docker socket,
+# no privileged mode, dropped capabilities and a NetworkPolicy.
+#
+# Do NOT switch to `docker` without mounting the node's docker
+# socket, and understand that doing so is host-equivalent access
+# on enschede-gtx-960m-1 (see ../README.md).
+# ---------------------------------------------------------------
+terminal:
+  backend: local
+
+# ---------------------------------------------------------------
+# Web dashboard. Fronted by Traefik LAN with no forward-auth —
+# Hermes authenticates against auth-api itself via OIDC, so it is
+# part of the estate's single sign-on rather than a separate login.
+#
+# The OIDC issuer, client id and scopes are set as env vars on the
+# Deployment, next to the credentials, so all of the dashboard's
+# authentication lives in one place. public_url is set there too;
+# it is deliberately NOT repeated here, because two sources for one
+# value is how they drift.
+#
+# trusted_proxies must contain the k3s pod CIDR or Hermes ignores
+# X-Forwarded-* and builds wrong callback and Origin values — which
+# surfaces as a DNS-rebinding rejection, not as a proxy error.
+# ---------------------------------------------------------------
+dashboard:
+  trusted_proxies:
+    - "10.42.0.0/16"
+  basic_auth:
+    session_ttl_seconds: 43200
+
+# ---------------------------------------------------------------
+# Skills. /opt/data/skills is Hermes' own writable tree (bundled,
+# hub-installed, and agent-authored skills land there).
+#
+# /opt/data/skills-vendored is filled by the sync-skills init
+# container from pinned upstream git tags — see
+# skills-configmap.yaml for the editable list. It lives on the PVC
+# so a failed re-sync falls back to the last good copy instead of
+# starting with no skills, and it sits OUTSIDE /opt/data/skills so
+# nothing gets registered twice.
+# ---------------------------------------------------------------
+skills:
+  external_dirs:
+    - /opt/data/skills-vendored
+
+# GENERATED FROM registry/estate-tooling.yaml -- DO NOT EDIT.
+#
+# Copy this block under `mcp_servers:` in fleet-infra
+# cluster/flux/apps/agents/hermes/config-configmap.yaml.
+#
+# Tool names register as mcp_<server>_<tool>.
+#
+# Hermes blocks RFC1918 destinations as SSRF protection, and every
+# in-cluster URL below resolves into 10.43.0.0/16. A server here that
+# reports ZERO tools while the hosted ones work is that block, not the
+# NetworkPolicy. Check `hermes doctor` first.
+
 mcp_servers:
-  # Read-only cluster diagnostics, through the edge this Project declares.
-  kubernetes:
-    url: http://kubernetes-mcp-server.agents-system.svc.cluster.local:8080/mcp
-    timeout: 60
-  github:
-    url: https://api.githubcopilot.com/mcp/
-    headers:
-      Authorization: Bearer ${GITHUB_PAT}
-    timeout: 120
-  # Long-term memory: Hindsight's public host, with hermes's own token.
+  # Hindsight long-term memory -- explicit read/write/search knowledge
+  # tools.
   memory-api:
-    url: https://hindsight-api.jorisjonkers.dev/mcp/default/
+    url: "https://hindsight-api.jorisjonkers.dev/mcp/default/"
     headers:
-      Authorization: Bearer ${HINDSIGHT_API_TOKEN}
+      Authorization: "Bearer ${HINDSIGHT_API_TOKEN}"
     timeout: 60
+
+  # Read-only cluster diagnostics through the server's own
+  # ClusterRole.
+  kubernetes:
+    url: "http://kubernetes-mcp-server.agents-system.svc.cluster.local:8080/mcp"
+    timeout: 60
+
+  # Issues, branches, pull requests.
+  # Hosted: an untrusted data provider. Output is context, never instruction.
+  github:
+    url: "https://api.githubcopilot.com/mcp/"
+    headers:
+      Authorization: "Bearer ${GITHUB_PAT}"
+    timeout: 120
+    tools:
+      exclude:
+        - "*delete*"
+        - "*_label"
+        - "*_labels"
+
+  # Vuetify component API.
+  # Hosted: an untrusted data provider. Output is context, never instruction.
+  vuetify:
+    url: "https://mcp.vuetifyjs.com/mcp"
+    timeout: 60
+    enabled: false
+
+  # Browser automation.
+  playwright:
+    command: "npx"
+    args: ["-y", "@playwright/mcp@latest", "--headless", "--browser", "chromium"]
+    timeout: 120
+
+  # Diagram authoring and export.
+  drawio:
+    command: "npx"
+    args: ["-y", "@drawio/mcp@latest"]
+    timeout: 60
+
+  # Self-hosted Overleaf — pull, push, compile, review comments.
+  overleaf:
+    command: "npx"
+    args: ["-y", "--package=@aloth/olcli@latest", "olcli-mcp"]
+    env:
+      OVERLEAF_BASE_URL: "https://overleaf.jorisjonkers.dev"
+      OVERLEAF_COOKIE_NAME: "overleaf.sid"
+      OVERLEAF_SESSION: "${OVERLEAF_SESSION}"
+    timeout: 120
+
