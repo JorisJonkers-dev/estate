@@ -46,12 +46,12 @@ jobs:
   # delivery fragment, since it names the Release Gate and the Collector that
   # JorisJonkers-dev/delivery declares, and the estate-dashboard fragment,
   # since it admits that Application to the Kubernetes API, with auth's, which
-  # the dashboard signs in through. `data` and `mail` are still delivered by
-  # fleet-infra; their fragments are composed so a Project on the estate path
-  # can depend on them. Validation reads only what it is handed, so
-  # `data` is handed the config its Assets mount and its env scope, and
-  # `utility` its Asset, its env scope and auth's fragment, which headlamp
-  # signs in through.
+  # the dashboard signs in through. `data` is still delivered by fleet-infra;
+  # its fragment is composed so a Project on the estate path can depend on it.
+  # `mail` is delivered by its pin. Validation reads only what it is handed, so
+  # `data` and `mail` are handed the config their Assets mount and their env
+  # scopes, and `utility` its Asset, its env scope and auth's fragment, which
+  # headlamp signs in through.
   fragment:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
@@ -67,7 +67,8 @@ jobs:
           - project-file: platform/secrets.project.yml
           - project-file: platform/data/data.project.yml
             validate-with: platform/data/config platform/data/env
-          - project-file: platform/mail.project.yml
+          - project-file: platform/mail/mail.project.yml
+            validate-with: platform/mail/config platform/mail/env
           - project-file: platform/outline/outline.project.yml
             validate-with: platform/outline/env
             validate-with-fragments: auth
@@ -78,7 +79,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/publish-fragment.yml@5cc4fe950bfedc7ccf0fd26756a7f878f7288f1c # v0.37.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/publish-fragment.yml@f3bb6cabaa6ee33694f8632ce273a4e703d60780 # v0.38.0
     with:
       project-file: ${{ matrix.project-file }}
       version: ${{ needs.release-please.outputs.tag_name }}
