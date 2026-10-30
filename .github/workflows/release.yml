@@ -49,9 +49,9 @@ jobs:
   # the dashboard signs in through. `data` is still delivered by fleet-infra;
   # its fragment is composed so a Project on the estate path can depend on it.
   # `mail` is delivered by its pin. Validation reads only what it is handed, so
-  # `data` and `mail` are handed the config their Assets mount and their env
-  # scopes, and `utility` its Asset, its env scope and auth's fragment, which
-  # headlamp signs in through.
+  # `data`, `mail` and `secrets` are handed the config their Assets mount and
+  # their env scopes, and `utility` its Asset, its env scope and auth's
+  # fragment, which headlamp signs in through.
   fragment:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
@@ -64,7 +64,8 @@ jobs:
             validate-with-fragments: delivery estate-dashboard auth
           - project-file: platform/edge.project.yml
           - project-file: platform/observability.project.yml
-          - project-file: platform/secrets.project.yml
+          - project-file: platform/secrets/secrets.project.yml
+            validate-with: platform/secrets/config platform/secrets/env
           - project-file: platform/data/data.project.yml
             validate-with: platform/data/config platform/data/env
           - project-file: platform/mail/mail.project.yml

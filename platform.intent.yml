@@ -279,7 +279,11 @@ telemetry:
   collector: observability/otel-collector
   metrics: observability/prometheus
 
-# The Secret Store every grant is read from: declared in platform/secrets.project.yml.
+# The Secret Store every grant is read from: declared in
+# platform/secrets/secrets.project.yml. Every Project's VaultConnection and
+# policy job address it at vault.secrets-system.svc.cluster.local:8200, its
+# Process's own Service, now that no `serving` statement below sends them to
+# the old path's data-system.
 secretStore: secrets/vault
 
 # One posture for every container the estate renders.
@@ -328,13 +332,16 @@ delivery:
     latency: 1000ms
 
 # The Applications whose Processes may hold Kubernetes API access, and where
-# the API server answers. Each is in the delivery Project, save the
+# the API server answers. Each is in the delivery Project, save four: the
 # estate-dashboard, which reads Flux's sources and units and Flagger's Canaries
-# and writes nothing (JorisJonkers-dev/estate-dashboard), and headlamp, which
-# holds no rule and acts with each signed-in user's own token. This document
-# validates only beside their fragments: alone it refuses E_UNKNOWN_API_HOLDER.
+# and writes nothing (JorisJonkers-dev/estate-dashboard); headlamp, which
+# holds no rule and acts with each signed-in user's own token; Vault, which
+# reviews every kubernetes login's token with its own; and the Vault Secrets
+# Operator, which writes every grant's Secret and restarts its Process. This
+# document validates only beside their fragments: alone it refuses
+# E_UNKNOWN_API_HOLDER.
 apiAccess:
-  holders: [delivery/flagger, delivery/release-gate, delivery/collector, delivery/reporter, estate-dashboard/estate-dashboard, utility/headlamp]
+  holders: [delivery/flagger, delivery/release-gate, delivery/collector, delivery/reporter, estate-dashboard/estate-dashboard, utility/headlamp, secrets/vault, secrets/vault-secrets-operator]
   server:
     - { cidr: 10.43.0.1/32, port: 443 } # Service default/kubernetes, read 2026-10-07
 
@@ -349,10 +356,10 @@ humanGrants:
     reason: the platform owner administers the cluster with kubectl and headlamp over OIDC
 
 # The job that writes every rendered Vault policy and role into the Secret
-# Store. Its role, and the role's binding to the job's ServiceAccount
-# (vault-policy in Vault's namespace: data-system while `secrets` is legacy,
-# see handover.serving below), are created by bootstrap/cluster.sh: the
-# job cannot grant itself the privilege to write policies.
+# Store, from each Project's own namespace. Its role, policy-admin, binds the
+# ServiceAccount vault-policy in every namespace, and is written by
+# bootstrap/secrets.sh --only policy-admin: the job cannot grant itself the
+# privilege to write policies.
 policyJob:
   image: vault-policy
   role: policy-admin
@@ -389,7 +396,6 @@ handover:
   retireBy: 2027-03-31
   legacy:
     - edge
-    - secrets
     - observability
     - data
     - node
@@ -414,15 +420,15 @@ handover:
     - auth
     - mail
     - utility
+    # The last handover (JorisJonkers-dev/deploy-kit#663): Vault restored
+    # from a raft snapshot into secrets-system, and VSO with it.
+    - secrets
   # Where the old path runs a legacy Application that the estate path
   # reaches, rather than where its declaration puts it
-  # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). Live Vault is
-  # data-system/vault-0, not secrets-system: without this, the Vault policy
-  # job renders into a namespace that does not exist and every unit after it
-  # waits. A statement goes in the change that hands its Project over.
+  # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). A statement
+  # goes in the change that hands its Project over: `vault`'s, which sent
+  # every VaultConnection and policy job to data-system, went with secrets.
   serving:
-    - application: vault
-      namespace: data-system
     # The old path's Postgres, and where it keeps the administrative login the
     # catalog method applies the estate path's databases with.
     - application: platform-postgres
