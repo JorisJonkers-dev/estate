@@ -16,11 +16,14 @@ holds data.
 
 - **`platform/utility/`**: the project file, from deploy-kit's worked example;
   AdGuard's configuration as a seeded Asset (`config/AdGuardHome.yaml`, the
-  old path's ConfigMap with the web UI on 3000 and DNS on 5353), copied onto
+  old path's ConfigMap with the web UI on 3000 and DNS on 53, which the
+  render's NET_BIND_SERVICE lets the unprivileged Process bind), copied onto
   its `conf` directory before each start, as the old path's `seed-config`
   init container copies it; its `work` directory held in memory at 128Mi; and
   headlamp's env file (`env/headlamp/base.env`, the flags the old chart
-  passed, as `HEADLAMP_CONFIG_*`).
+  passed, as `HEADLAMP_CONFIG_*`) and its writable `/tmp`, which is also its
+  `HOME`: headlamp copies its frontend there on every start and exits if it
+  cannot.
 - **`platform.intent.yml`**:
   - `l4Addresses.lan-dns`, a pool of one address, 192.168.0.98, announced by
     the `l4-speaker` Node Agent the edge's `lan-edge` pool already declares.
@@ -56,7 +59,11 @@ holds data.
 
 ### The cut-over
 
-1. Merge, then merge the release. Composition delivers `apps-utility`; the new
+1. Delete Deployment `headlamp` with `--cascade=orphan`, so its ReplicaSet
+   keeps serving and the render's `headlamp` is created afresh rather than
+   applied over the chart's, whose arguments and `oidc` Secret references
+   helm-controller still owns. Then merge, then merge the release.
+   Composition delivers `apps-utility`; the new
    Deployment `adguard` starts beside `adguard-ha-a` and `adguard-ha-b`, and
    `adguard-lan-dns` waits for 192.168.0.98, which `adguard-ha-a` holds.
 2. Delete Service `adguard-ha-a`. MetalLB hands .98 to `adguard-lan-dns`;

@@ -40,9 +40,12 @@ applications:
         lifecycle: application
         image: adguard # adguard/adguardhome; the lock resolves digest, uid and gid
         runtime: none
+        # DNS on 53 itself: the image's binary carries the file capability
+        # cap_net_bind_service+ep, so exec fails with EPERM unless the container keeps
+        # NET_BIND_SERVICE, which the render adds for a port below 1024 and for nothing else.
         provides:
           http: 3000
-          dns: 5353
+          dns: 53
         # The live pods request 50m and 128Mi, and are limited at 512Mi; the model sets the
         # request to the limit. The working set is 80-92Mi live; the work directory held in
         # memory below adds its own 128Mi to both.
@@ -74,8 +77,8 @@ applications:
         # what decides which node announces the address, so it has to mean "answers DNS". The
         # web UI stays up while the DNS listener is wedged.
         probes:
-          readiness: { tcp: 5353 }
-          liveness: { tcp: 5353 }
+          readiness: { tcp: 53 }
+          liveness: { tcp: 53 }
         startupBudget: 30s
         cutover: continuous
 
@@ -100,6 +103,12 @@ applications:
         placement:
           memory: 128Mi
           cpu: 50m
+        # headlamp copies its frontend, 32MiB, into a new /tmp/.headlamp* directory on every
+        # start, and exits if it cannot; the old path's pod has a writable root, so it never
+        # showed. The declared /tmp is also its HOME, where it makes its empty plugin
+        # directories. Each start leaves its copy behind, so a container restart takes the
+        # directory past the platform's 64Mi and the pod is evicted and replaced, clean.
+        writablePaths: [/tmp]
         api:
           reason: it acts on the API with each signed-in user's own token, and holds nothing of its own
         # It exchanges each user's sign-in code at auth-api's token endpoint.
