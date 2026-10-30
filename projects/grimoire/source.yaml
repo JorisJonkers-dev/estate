@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/grimoire
   ref:
-    digest: sha256:0b84f9ae0a6a78de75007e26e0f32373c8c82e117d2b2e06bce402a9db540dc9
+    digest: sha256:303230da999e04b16ef838401f9ef0fcbe3eca9c0f96cf1d61ba7ab0d541eac9
   secretRef:
     name: render-pull
   verify:
