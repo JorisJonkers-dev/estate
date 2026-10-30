@@ -194,9 +194,11 @@ images:
     gid: 65534
     version: "1.37.0"
   # The Node Agents (platform.intent.yml's nodeAgents), the images fleet-infra
-  # runs today. The device plugin, the card counters and the L4 speaker run as
-  # root, as the catalog's privileges need; the host metrics and the speaker's
-  # controller as the image's own user.
+  # runs today: each digest is the imageID of every live pod of its agent, read
+  # 2026-10-29, so no node pulls anything at the handover. The device plugin,
+  # the card counters and the L4 speaker run as root, as the catalog's
+  # privileges need; the host metrics and the speaker's controller as the
+  # image's own user.
   nvidia-device-plugin:
     repository: nvcr.io/nvidia/k8s-device-plugin
     digest: "sha256:a61ba9fd8efb82f3a79f877f7580e02c1e8e7593f62473644bc9c79e315c3312"
