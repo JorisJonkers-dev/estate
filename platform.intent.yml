@@ -381,9 +381,10 @@ seeder:
 # Collector) are born on the estate path, and so is `estate-dashboard`.
 # `mail` moved in JorisJonkers-dev/deploy-kit#656, adopted in place on its
 # live claim. A Project that retires leaves the ledger: `knowledge` was
-# retired with the old knowledge stack (fleet-infra#495), and
-# `knowledge-platform` and `media` were split into the Projects that now run
-# their apps under `estate`.
+# retired with the old knowledge stack (fleet-infra#495), `knowledge-platform`
+# and `media` were split into the Projects that now run their apps under
+# `estate`, and `agents` is deprecated and never ported: it stays on the old
+# path until it is retired there (JorisJonkers-dev/deploy-kit#658).
 handover:
   retireBy: 2027-03-31
   legacy:
@@ -391,7 +392,6 @@ handover:
     - secrets
     - observability
     - data
-    - agents
     - node
   estate:
     - delivery
