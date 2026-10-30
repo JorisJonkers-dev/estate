@@ -62,7 +62,9 @@ bootstrap:
   crds:
     - traefik.io/v1alpha1
     - secrets.hashicorp.com/v1beta1
-    - monitoring.coreos.com/v1
+    - monitoring.coreos.com/v1 # the monitors and rules every Project renders
+    - monitoring.coreos.com/v1alpha1 # the AlertmanagerConfig the monitoring block renders
+    - grafana.integreatly.org/v1beta1 # the dashboards every Project renders
     - flagger.app/v1beta1 # the Canary every blue-green Process renders; bootstrap/cluster.sh applies it, Flagger's binary never does
     # The pools and advertisements the l4-speaker Node Agent renders. MetalLB's
     # chart installed them on the old path; bootstrap/cluster.sh adopts them at

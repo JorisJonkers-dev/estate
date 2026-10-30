@@ -9,8 +9,8 @@
 #              cluster whose public half is a read-only deploy key on estate,
 #              and Secret flux-system/render-pull, the ghcr.io credential every
 #              pin names.
-#   CRDs       the CRDs of the bootstrap set that no render holds: Flagger's
-#              and MetalLB's.
+#   CRDs       the CRDs of the bootstrap set that no render holds: Flagger's,
+#              MetalLB's, the Prometheus operator's and the Grafana operator's.
 #
 # Vault is secrets.sh's, which runs first: the Collector's and the Reporter's
 # App keys, the estate-dashboard's sign-in document, and the role the Vault
@@ -24,7 +24,7 @@ source "$here/lib/wizard.sh"
 # shellcheck source=lib/estate.sh
 source "$here/lib/estate.sh"
 
-TOTAL_STAGES=6
+TOTAL_STAGES=7
 
 DEPLOY_KEY_TITLE="flux-system/estate (read-only)"
 # The CRDs of the bootstrap set that no render holds (platform.intent.yml
@@ -37,6 +37,19 @@ FLAGGER_CRDS_SHA256=58bd594b9e33deb0edceac81f6ed160b458a7933039fb295552724f65603
 METALLB_VERSION=v0.15.3
 METALLB_MANIFEST_URL="https://raw.githubusercontent.com/metallb/metallb/$METALLB_VERSION/config/manifests/metallb-native.yaml"
 METALLB_MANIFEST_SHA256=84b4e102f2b65f5d69085f5816c29362b74641873d8ac3de996e5f86a8219176
+# The monitoring stack's CRDs (monitoring.coreos.com/v1 and v1alpha1,
+# grafana.integreatly.org/v1beta1), at the releases the observability
+# Project's operator images are: v0.93.1 is what kube-prometheus-stack 90.0.0
+# runs, v5.25.0 what fleet-infra's grafana-operator chart runs. Until
+# observability hands over, fleet-infra's HelmReleases installed them; the
+# handover suspends and deletes those releases, which leaves the CRDs in
+# place, and from then on this stage is what puts them on a cluster.
+PROMETHEUS_OPERATOR_VERSION=v0.93.1
+PROMETHEUS_OPERATOR_CRDS_URL="https://github.com/prometheus-operator/prometheus-operator/releases/download/$PROMETHEUS_OPERATOR_VERSION/stripped-down-crds.yaml"
+PROMETHEUS_OPERATOR_CRDS_SHA256=04bfc804e2a3cbd2b2b9071cb973b1379266965ee883173323c4136fd8e70efc
+GRAFANA_OPERATOR_VERSION=v5.25.0
+GRAFANA_OPERATOR_CRDS_URL="https://github.com/grafana/grafana-operator/releases/download/$GRAFANA_OPERATOR_VERSION/crds.yaml"
+GRAFANA_OPERATOR_CRDS_SHA256=d53519bf6c202427f7a36af6ac9cb05962e2ebde5ed11e8dee5b393710ecaa2e
 
 WORK=$(umask 077 && mktemp -d)
 trap estate_cleanup EXIT
@@ -179,6 +192,36 @@ ok "MetalLB $METALLB_VERSION's CRDs are established, with no conversion webhook"
 pause
 
 # ── 6 ─────────────────────────────────────────────────────────────────────
+stage "The bootstrap set: the monitoring stack's CRDs"
+# platform.intent.yml lists monitoring.coreos.com/v1, monitoring.coreos.com/v1alpha1
+# and grafana.integreatly.org/v1beta1 in the bootstrap set: the observability
+# Project renders both operators and every monitor, rule, routing and
+# dashboard, never their CRDs. Each file is pinned by its own digest.
+# --force-conflicts: on a cluster where fleet-infra's charts installed them,
+# helm-controller holds their fields, and this takes them over unchanged.
+apply_crds() { # <name> <url> <sha256> <crd>...
+  local name=$1 url=$2 sha=$3 file="$WORK/$1-crds.yaml"
+  shift 3
+  curl -fsSL "$url" -o "$file" || die "could not download $url"
+  [[ "$(shasum -a 256 "$file" | cut -d' ' -f1)" == "$sha" ]] \
+    || die "$url does not hash to $sha"
+  $KUBECTL apply --server-side --force-conflicts --field-manager=estate-bootstrap -f "$file" >/dev/null \
+    || die "$name's CRDs did not apply"
+  $KUBECTL wait --for=condition=Established --timeout=60s "$@" >/dev/null \
+    || die "$name's CRDs are not established"
+}
+apply_crds prometheus-operator "$PROMETHEUS_OPERATOR_CRDS_URL" "$PROMETHEUS_OPERATOR_CRDS_SHA256" \
+  crd/prometheuses.monitoring.coreos.com crd/alertmanagers.monitoring.coreos.com \
+  crd/servicemonitors.monitoring.coreos.com crd/podmonitors.monitoring.coreos.com \
+  crd/prometheusrules.monitoring.coreos.com crd/alertmanagerconfigs.monitoring.coreos.com \
+  crd/scrapeconfigs.monitoring.coreos.com
+ok "the Prometheus operator $PROMETHEUS_OPERATOR_VERSION's CRDs are established"
+apply_crds grafana-operator "$GRAFANA_OPERATOR_CRDS_URL" "$GRAFANA_OPERATOR_CRDS_SHA256" \
+  crd/grafanas.grafana.integreatly.org crd/grafanadashboards.grafana.integreatly.org
+ok "the Grafana operator $GRAFANA_OPERATOR_VERSION's CRDs are established"
+pause
+
+# ── 7 ─────────────────────────────────────────────────────────────────────
 stage "Prove Flux reads the estate repository"
 if ! $KUBECTL -n flux-system get gitrepository platform >/dev/null 2>&1; then
   warn "GitRepository flux-system/platform is not applied yet (fleet-infra's estate.yaml)"
