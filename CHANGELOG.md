@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.33.0](https://github.com/JorisJonkers-dev/estate/compare/v0.32.0...v0.33.0) (2026-10-30)
+
+
+### Features
+
+* **bootstrap:** copy the data Project's catalog and backup logins ([#267](https://github.com/JorisJonkers-dev/estate/issues/267)) ([bc2a7e0](https://github.com/JorisJonkers-dev/estate/commit/bc2a7e0b4253e9a373a9e6312d10d82544d2bc82))
+* hand the utility Project over to the estate path ([#248](https://github.com/JorisJonkers-dev/estate/issues/248)) ([9f15c80](https://github.com/JorisJonkers-dev/estate/commit/9f15c805f56ac91518bc630843ea3e44553647dc))
+
+## [0.32.0](https://github.com/JorisJonkers-dev/estate/compare/v0.31.2...v0.32.0) (2026-10-30)
+
+
+### Features
+
+* **bootstrap:** retire the unused downloads role and policy, and write Stalwart's recovery admin ([#251](https://github.com/JorisJonkers-dev/estate/issues/251)) ([9f2b043](https://github.com/JorisJonkers-dev/estate/commit/9f2b0434ad630b7533cbaa2667db45a083a613e0))
+* **bootstrap:** write the Cloudflare DNS token where the public tier's Traefik reads it ([#246](https://github.com/JorisJonkers-dev/estate/issues/246)) ([147b6e1](https://github.com/JorisJonkers-dev/estate/commit/147b6e15d4292f78438119fa95069dfd055b22fd))
+* **bootstrap:** write the off-cluster backup credential ([#263](https://github.com/JorisJonkers-dev/estate/issues/263)) ([df2105b](https://github.com/JorisJonkers-dev/estate/commit/df2105b72a11cebf4d23d8d9c050b2a9441ea861))
+* **drills:** drill an early rotation against a slow-starting consumer, and report its margin ([#245](https://github.com/JorisJonkers-dev/estate/issues/245)) ([f4e5b2d](https://github.com/JorisJonkers-dev/estate/commit/f4e5b2dceae1a544529711f59f2fef7877c59424))
+* **drills:** make every change themselves, and measure a node failure only once the node has failed ([#244](https://github.com/JorisJonkers-dev/estate/issues/244)) ([47b3481](https://github.com/JorisJonkers-dev/estate/commit/47b34816b62dcce5b63acbf4b4e138e7c29adb4f))
+* **drills:** script the three live drills, reading only and handing over every change ([#242](https://github.com/JorisJonkers-dev/estate/issues/242)) ([971bb0b](https://github.com/JorisJonkers-dev/estate/commit/971bb0b997962806b214a92d4d4286a3bac272a4))
+* hand the mail Project over to the estate path ([#250](https://github.com/JorisJonkers-dev/estate/issues/250)) ([50b2870](https://github.com/JorisJonkers-dev/estate/commit/50b2870b947e47d147cbaa520cc81815f9546433))
+
+
+### Bug Fixes
+
+* **platform:** name auth-api's forward-auth path and the public tier's DNS records ([#249](https://github.com/JorisJonkers-dev/estate/issues/249)) ([4daa9a2](https://github.com/JorisJonkers-dev/estate/commit/4daa9a224e777bf5f78db27d67b7b048eb705c54))
+* **platform:** state the live edge's listeners, certificates and addresses in the tiers ([#247](https://github.com/JorisJonkers-dev/estate/issues/247)) ([dc82a40](https://github.com/JorisJonkers-dev/estate/commit/dc82a406379e88ea13913d90abd2c0446abc8968))
+
 ## [0.31.2](https://github.com/JorisJonkers-dev/estate/compare/v0.31.1...v0.31.2) (2026-10-27)
 
 
