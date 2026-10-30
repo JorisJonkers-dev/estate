@@ -17,7 +17,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/findability-explorer
   ref:
-    digest: sha256:5e0e3d1e7967170dc9e9b49402a27296987232823fe8275fc269d87f1f656444
+    digest: sha256:72ffda971d2ab4a4192d085e2d4fa783bf43eecbeac0743841c40960ee90585a
   secretRef:
     name: render-pull
   verify:

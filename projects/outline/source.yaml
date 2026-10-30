@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/outline
   ref:
-    digest: sha256:1855bbaea36687a693e84311a8411c855dad46e05df4a085b14e32c15fb2816d
+    digest: sha256:af5bc89629d835f69d1f294dfb83d198084f95ebd013300acc473914423854ec
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/estate
-    event.toolkit.fluxcd.io/sha: c501f4fe48acfd3c4eae2aefb2968c4665d26965
+    event.toolkit.fluxcd.io/sha: 753cd5cfe03870721a9f71213df54b012bcad8ef
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.32.0
+    event.toolkit.fluxcd.io/version: 0.34.0
     event.toolkit.fluxcd.io/url: https://notes.jorisjonkers.dev
 spec:
   interval: 10m

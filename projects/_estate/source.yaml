@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render-estate
   ref:
-    digest: sha256:92972de5ead3e93401e444d2353bcae161adc96aa90dc7fa2617f1be762b8f2d
+    digest: sha256:688aefaada871fea71dd4c30974f79514686c04e0f739a54703029695575589a
   secretRef:
     name: render-pull
   verify:
@@ -19,6 +19,26 @@ spec:
     matchOIDCIdentity:
       - issuer: ^https://token\.actions\.githubusercontent\.com$
         subject: ^https://github\.com/JorisJonkers-dev/estate/\.github/workflows/compose\.yml@refs/heads/main$
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: estate-priority-classes
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/managed-by: deploy-kit
+spec:
+  interval: 10m
+  prune: true
+  wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
+  sourceRef:
+    kind: OCIRepository
+    name: estate
+  path: ./estate/priority-classes
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
