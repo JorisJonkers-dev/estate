@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.0](https://github.com/JorisJonkers-dev/estate/compare/v0.34.0...v0.35.0) (2026-10-30)
+
+
+### Features
+
+* hand the node Project over to the estate path ([#261](https://github.com/JorisJonkers-dev/estate/issues/261)) ([517a1a5](https://github.com/JorisJonkers-dev/estate/commit/517a1a5626345c74ee7cb890863bf0772f56fc6e))
+
 ## [0.34.0](https://github.com/JorisJonkers-dev/estate/compare/v0.33.0...v0.34.0) (2026-10-30)
 
 
