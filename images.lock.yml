@@ -113,6 +113,14 @@ images:
     uid: 65532
     gid: 65532
     version: "0.15.0"
+  # DRAFT: a placeholder until delivery 0.17.0 publishes mongo-backup
+  # (JorisJonkers-dev/delivery#109); the digest is that release's, read from the registry.
+  mongo-backup:
+    repository: ghcr.io/jorisjonkers-dev/delivery/mongo-backup
+    digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    uid: 65532
+    gid: 65532
+    version: "0.17.0"
 
   # The data and mail projects' images, resolved on 2026-10-15 as the digest
   # each live pod runs. fleet-infra still delivers both projects; these pin
