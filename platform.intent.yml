@@ -145,7 +145,11 @@ durability:
     retain: 90
     # Contabo Object Storage, EU: an S3-compatible bucket off every node the
     # estate runs on. The credential holds the endpoint
-    # (https://eu2.contabostorage.com), the bucket and the key pair.
+    # (https://eu2.contabostorage.com) and the key pair, under the variable
+    # names the backup method reads (AWS_ENDPOINT_URL, AWS_ACCESS_KEY_ID,
+    # AWS_SECRET_ACCESS_KEY, optionally AWS_REGION); the bucket is the
+    # destination below, never the credential's (bootstrap/secrets.sh
+    # --only backup-off-cluster writes it).
     offCluster:
       destination: "s3://jorisjonkers-dev-backups"
       credential: secret/data/platform/backup/off-cluster
