@@ -1,0 +1,151 @@
+# deploy-kit Project Intent for the estate's mail server, Stalwart.
+#
+# The Project is `mail`, so the namespace derives as `mail-system`, where Stalwart already runs.
+# It is on the estate path since JorisJonkers-dev/deploy-kit#656
+# (deploy-kit spec/v1/60-setup.md#handing-over-one-project-at-a-time): its pin delivers it,
+# adopted in place, on the live claim `stalwart-data`. `auth`, `outline` and `overleaf` send
+# their mail through it. It publishes with the Platform document, on this repository's
+# releases, and its images are in images.lock.yml.
+#
+# It started from deploy-kit's worked example (spec/v1/examples/mail/), which shows the
+# redirect and one node-address port each for SMTP and IMAP. Each value below is read from the
+# live objects in fleet-infra's cluster/flux/apps/mail/. Where the old path does something the
+# model derives instead, the comment says so.
+
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Project
+schemaVersion: 1.0.0
+
+project: mail # the namespace derives: mail-system
+owner: joris
+
+applications:
+  - id: stalwart
+    # The web admin, behind forward-auth: the mail protocols never pass through the edge.
+    # Stalwart serves it under /admin/ and answers 404 at the bare root, so the root of the
+    # host redirects there. The redirect is the exact route's own, so /admin/ is served by the
+    # prefix route and never redirected again.
+    exposure:
+      - name: admin
+        host: stalwart.jorisjonkers.dev
+        audience: authenticated
+        routes:
+          - { path: /, match: exact, process: stalwart, surface: http, redirectTo: /admin/ }
+          - { path: /, match: prefix, process: stalwart, surface: http }
+
+    # Mail is raw TCP and cannot pass Cloudflare's HTTP proxy, so mail.jorisjonkers.dev is a
+    # non-proxied A record at frankfurt-contabo-1's own address, and every listener is a host
+    # port there: `mail-node` in platform.intent.yml.
+    l4Exposure:
+      - { address: mail-node, port: 25, protocol: tcp, process: stalwart, surface: smtp }
+      - { address: mail-node, port: 110, protocol: tcp, process: stalwart, surface: pop3 }
+      - { address: mail-node, port: 143, protocol: tcp, process: stalwart, surface: imap }
+      - { address: mail-node, port: 465, protocol: tcp, process: stalwart, surface: submissions }
+      - { address: mail-node, port: 587, protocol: tcp, process: stalwart, surface: submission }
+      - { address: mail-node, port: 993, protocol: tcp, process: stalwart, surface: imaps }
+      - { address: mail-node, port: 995, protocol: tcp, process: stalwart, surface: pop3s }
+      - { address: mail-node, port: 4190, protocol: tcp, process: stalwart, surface: sieve }
+
+    processes:
+      - name: stalwart
+        lifecycle: application
+        image: stalwart # stalwartlabs/stalwart; the lock resolves digest, uid and gid
+        runtime: none
+        engine: files # the backup method reads the volume
+
+        provides:
+          http: 8080
+          smtp: 25
+          pop3: 110
+          imap: 143
+          submissions: 465
+          submission: 587 # what auth, outline and overleaf send their mail to
+          imaps: 993
+          pop3s: 995
+          sieve: 4190
+
+        # The live pod requests 1536Mi and is limited at 3Gi; the model sets request to limit.
+        placement:
+          memory: 3Gi
+          cpu: 300m
+
+        # The server delivers to every other domain's MX on port 25, fetches its web admin
+        # bundle from github.com on first boot, and renews its certificate with Let's Encrypt
+        # over DNS-01; the sidecar calls Cloudflare's API.
+        egress:
+          to: internet
+          reason: Stalwart delivers outbound mail to other domains' MX hosts, fetches its web admin bundle and renews its certificate; the provisioner calls Cloudflare's DNS API.
+
+        # Applies the provisioner manifest (accounts, domains, DNS records) against the admin API
+        # on localhost, then idles for as long as the server runs. The image's own entrypoint
+        # only prints the validator's help, so the sidecar names the apply script as its command,
+        # as the old path does (deploy-kit spec/v1/10-project-intent.md#command-and-arguments).
+        # It reads the manifest at the path the script defaults to, mounted from the Process's
+        # Asset below (deploy-kit spec/v1/10-project-intent.md#sidecars).
+        sidecars:
+          - name: stalwart-apply
+            image: stalwart-provisioner
+            command: [stalwart-provisioner-apply]
+            memory: 64Mi
+            cpu: 10m
+            assets:
+              - { from: config/manifest.json, mountAt: /etc/stalwart-provisioner/manifest.json }
+
+        # The root filesystem is read-only on the estate path, where the old path's was not: the
+        # sidecar writes each reconcile's plan to a mktemp file.
+        writablePaths: [/tmp]
+
+        # v0.16 reads only the datastore from config.json; everything else is a JMAP object in
+        # the datastore, which the sidecar reconciles from the manifest. The manifest is the
+        # Process's Asset so the sidecar can name it; the server's own container mounts it too,
+        # and never reads it.
+        assets:
+          - from: config/config.json
+            mountAt: /etc/stalwart/config.json
+          - from: config/manifest.json
+            mountAt: /etc/stalwart-provisioner/manifest.json
+
+        probes:
+          readiness: { path: /admin/, port: 8080 }
+          liveness: { tcp: 8080 }
+
+        startupBudget: 310s # the live readiness probe allows 30 checks 10s apart, after 10s
+
+        cutover: interrupted # one pod, on host ports and a ReadWriteOnce claim
+
+        volumes:
+          - claim: stalwart-data
+            mountAt: /var/lib/stalwart
+            size: 20Gi
+            durability: irreplaceable
+
+        # The admin login, the provisioner's DNS token, and the password of each mailbox the
+        # provisioner manages for another Application, read from that Application's own path.
+        # Each reaches a variable through env/stalwart/base.env. Vault holds no joris.password
+        # or n8n.password: those two mailboxes are pre-existing in the manifest, not managed.
+        secrets:
+          - path: secret/data/platform/mail
+            keys: [stalwart.admin_user, stalwart.admin_password, stalwart.recovery_admin, account.password]
+            access: read
+            delivery: env
+            rotation: { tolerates: restart }
+          - path: secret/data/platform/edge
+            keys: [cloudflare.dns_api_token]
+            access: read
+            delivery: env
+            rotation: { tolerates: restart }
+          - path: secret/data/auth-api
+            keys: [mail.password]
+            access: read
+            delivery: env
+            rotation: { tolerates: restart }
+          - path: secret/data/platform/outline
+            keys: [smtp.password]
+            access: read
+            delivery: env
+            rotation: { tolerates: restart }
+          - path: secret/data/platform/overleaf
+            keys: [smtp.password]
+            access: read
+            delivery: env
+            rotation: { tolerates: restart }

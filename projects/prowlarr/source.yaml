@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/prowlarr
   ref:
-    digest: sha256:0ebc44f399957bea012c41378c661ae3672ca9ad15b81abf287abe4d4729809b
+    digest: sha256:273533f5e8edc1079217dc7ee9908f19ffd96fb62c98b40b73d74851b596c7e5
   secretRef:
     name: render-pull
   verify:
