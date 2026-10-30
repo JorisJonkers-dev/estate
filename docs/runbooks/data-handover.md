@@ -2,7 +2,7 @@
 
 Moves the Project `data` (Postgres, RabbitMQ, Valkey and Garage, namespace
 `data-system`, on `frankfurt-contabo-1`) from fleet-infra's old path to its pin
-here, on deploy-kit 1.3.0, in the three changes of deploy-kit
+here, on deploy-kit 1.3.2 (the release carrying JorisJonkers-dev/deploy-kit#746), in the three changes of deploy-kit
 `docs/runbooks/handover.md`. Tracking: JorisJonkers-dev/deploy-kit#661, under
 the handover epic JorisJonkers-dev/deploy-kit#373.
 
@@ -16,24 +16,26 @@ maintainer present, at a quiet hour. A live step is the maintainer's go-ahead,
 never an agent's.
 
 MongoDB, Overleaf's document store in the same namespace, stays on the old path
-for now: see W5.
+for now, and follows under JorisJonkers-dev/deploy-kit#748: see W5.
 
 ## What it waits on
 
 | | what | where |
 |---|---|---|
-| W1 | the observability handover, the one before this in the order | JorisJonkers-dev/deploy-kit#660 |
-| W2 | three Vault documents the render reads and nobody has written: `secret/data/data/postgres/catalog` (`user`, `password`), `secret/data/data/postgres/backup` (`PGUSER`, `PGPASSWORD`) and `secret/data/data/rabbitmq/backup` (`RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD`), each a copy of a login in `platform/postgres` or `platform/rabbitmq`; and `secret/data/platform/backup/off-cluster`, which mail reads first | a person, [pre-check 3](#pre-checks) |
-| W3 | the namespace keeps its prune mark once the render applies it. The render writes `data-system` without one, and server-side apply by the same `kustomize-controller` field manager drops the mark fleet-infra put there. After the flip, one prune of the namespace (a rollback that skips its step 1, a render that drops it) deletes Vault and MongoDB with it | a deploy-kit change, or the maintainer accepting it with every volume on `Retain` |
+| W1 | the observability handover, which goes first: its window is the one before this | JorisJonkers-dev/deploy-kit#660 |
+| W2 | three Vault documents the render reads and nobody has written: `secret/data/data/postgres/catalog` (`user`, `password`), `secret/data/data/postgres/backup` (`PGUSER`, `PGPASSWORD`) and `secret/data/data/rabbitmq/backup` (`RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD`), each a copy of a login in `platform/postgres` or `platform/rabbitmq`; and `secret/data/platform/backup/off-cluster`, which mail reads first and is already written | a person: `bootstrap/secrets.sh --only data` (JorisJonkers-dev/estate#267), [pre-check 3](#pre-checks) |
+| W3 | **fixed in deploy-kit 1.3.2.** The namespace has to keep its prune mark once the render applies it: server-side apply by the same `kustomize-controller` field manager drops a mark the render does not write, and one prune of the namespace would delete Vault and MongoDB with it. The render now writes `prune: disabled` on every namespace ([0142](https://github.com/JorisJonkers-dev/deploy-kit/blob/main/docs/adr/model/0142-a-rendered-namespace-is-never-pruned.md)), so fleet-infra's mark is replaced by the render's own | `toolkit.yml` on deploy-kit 1.3.2 (JorisJonkers-dev/deploy-kit#744) |
 | W4 | Garage's split: the window, and who runs the copy | the maintainer, [cutover](#cutover) step 3 |
-| W5 | platform-mongo: deploy-kit has the `mongo` engine (JorisJonkers-dev/deploy-kit#403), but delivery publishes no `mongo-backup` image, so a declaration is refused `E_NO_ENGINE_POLICY`. Until then MongoDB stays on the old path, in `apps-data-leftovers`. Its handover then also needs the replica set's member host moved from `mongo-0.mongo.data-system.svc.cluster.local`, a StatefulSet name the render does not make | JorisJonkers-dev/delivery, then a change here |
+| W5 | platform-mongo, **not in this window** (decided 2026-10-30): MongoDB stays on the old path, in `apps-data-leftovers`. The `mongo-backup` image is built (JorisJonkers-dev/delivery#109) and ships in delivery's next release. Its handover also needs a login for the method, since the live MongoDB runs without authentication, and the replica set's member host moved from `mongo-0.mongo.data-system.svc.cluster.local`, a StatefulSet name the render does not make | JorisJonkers-dev/deploy-kit#748 |
+| W6 | the Platform `priority` block. Without it, all four Deployments lose `platform-data`; with it, postgres, rabbitmq and garage keep it | JorisJonkers-dev/estate#266, merged before B |
 
 ## The changes, in order
 
 | # | where | what | merges | outage |
 |---|---|---|---|---|
 | D0 | fleet-infra#562 | marks `data-system` and every claim `apps-data` applies `prune: disabled` | now | none |
-| P0 | a person | every `data-system` volume reclaims `Retain`: seven read `Delete` (commands in D0) | now | none |
+| P0 | a person | every `data-system` volume reclaims `Retain`: seven read `Delete` (read 2026-10-30; the loop is in D0's description, fleet-infra#562) | now | none |
+| T | the release coordinator | `toolkit.yml` moves to deploy-kit 1.3.2 | before the window | none: every estate-path namespace gains `prune: disabled`, one annotation each, and nothing restarts |
 | A | JorisJonkers-dev/estate#215, then its release | this file; the project file declares Garage; the images lock gains `mongo`, `garage` and `garage-catalog`; the Platform document gains `engines.s3` and Garage's `serving` location | before the window | none: every artifact composes byte for byte as on `main` |
 | P1 | a person | the Vault documents of W2 | before the window | none |
 | D1 | fleet-infra#537 | every object of postgres, rabbitmq and valkey, and Garage's server, claim, Service and monitor, `prune: disabled`; `apps-data` stops pruning | before the window, or window step 1 | none |
@@ -47,27 +49,29 @@ D2's `apps-data` must be gone before B: the estate's unit is also
 
 ## The render against the old path
 
-Rendered with deploy-kit 1.3.0, the version `toolkit.yml` pins, from A with B's
-ledger change: `deploy-kit compose` over every participant's newest fragment,
+Rendered with deploy-kit `main` at 828dbab (1.3.1 plus #746, what 1.3.2
+releases) on estate `main` at 5eeaae4, from A with B's ledger change: `deploy-kit compose` over every participant's newest fragment,
 this branch's Platform and estate fragments, `participants.yml`,
 `cluster-state.yml` and the committed sources. Compared against `kubectl
 kustomize cluster/flux/apps/data` of fleet-infra `main` and the live objects,
-read 2026-10-29. Every image matches the live pod by digest, and every Asset is
-byte-identical to the ConfigMap it replaces. deploy-kit 1.2.0 renders the same
-tree less the one external-checks ConfigMap below.
+read 2026-10-29, re-rendered 2026-10-30. Every image matches the live pod by
+digest, and every Asset is byte-identical to the ConfigMap it replaces. A
+composes byte for byte as estate `main` does. deploy-kit 1.3.1 renders the same
+tree less the namespace's mark, and 1.3.0 less that and `HOME=/tmp` on
+postgres.
 
 | object | difference | why |
 |---|---|---|
-| Namespace `data-system` | gains `managed-by: deploy-kit`; loses the prune mark | every rendered namespace carries the label; the mark is W3 |
+| Namespace `data-system` | gains `managed-by: deploy-kit`; keeps `prune: disabled`, now the render's own | every rendered namespace carries both (W3) |
 | Deployments `postgres`, `rabbitmq`, `valkey`, `garage` | selector `name` becomes `name` + `instance` | the fixed label set; a selector is immutable, so the first pin recreates each (`force: Enabled`) |
 | | `nodeSelector` site `frankfurt` becomes node affinity on `frankfurt-contabo-1` | the node each claim is bound to; the same node |
-| | `priorityClassName: platform-data` is gone | the Platform document declares no `priority`; adding it also moves `auth` and the foundation, so it is a change of its own |
+| | `priorityClassName: platform-data` stays on postgres, rabbitmq and garage and goes from valkey, once estate#266 is in (W6); without it, it goes from all four | a Process whose engine derives a backup runs at the data class, and valkey's `reconstructible` volume derives none. The block also moves `auth` and the foundation, so it lands as a change of its own |
 | | `runAsNonRoot`, uid and gid from the lock (postgres 999:999, rabbitmq 100:101, valkey 999:1000, garage 1000:1000), `fsGroup` the gid, `RuntimeDefault` seccomp, read-only root, every capability dropped | `hardening: restricted`. Each image but Garage's already drops to that user. kubelet applies `fsGroup` to a `local` volume at each mount, so every file on the claim becomes group-writable (read on `immich-postgres`, 2026-10-29) |
 | | memory request equals limit: postgres 4Gi, its exporter 128Mi, rabbitmq 1Gi, valkey 768Mi, its exporter 96Mi, garage 1Gi; no CPU limit | about 4.1Gi more requested on `frankfurt-contabo-1`: 12.6Gi becomes 16.7Gi of 23.5Gi |
 | | `revisionHistoryLimit` 3 becomes the default | fleet-infra's patch on `apps-data` |
 | `postgres` | the server runs the image's entrypoint with `-c config_file=/etc/postgresql/postgresql.conf`, the file the old path's shell wrapper names; the exporter sidecar reads its queries from the same path through `--extend.query-path`, as live | `args`, and the sidecar's `assets` |
 | | probes: TCP 5432 (startup 120 × 5s), where live runs `pg_isready` | the model has TCP and HTTP probes; a wedged postmaster that keeps its listener reads as healthy, and `PostgresDown` still reports it |
-| | the environment: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` and the exporter's `DATA_SOURCE_*`, in both containers; the init script's `AUTH_DB_*`, `AGENTS_DB_*` and `KB_DB_*` are not delivered | a Process's environment is its pod's; the init script runs only on an empty data directory and is not rendered |
+| | the environment: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` and the exporter's `DATA_SOURCE_*`, in both containers, and `HOME=/tmp` in both; the init script's `AUTH_DB_*`, `AGENTS_DB_*` and `KB_DB_*` are not delivered | a Process's environment is its pod's; the init script runs only on an empty data directory and is not rendered. Each container mounts a writable `/tmp`, so it gets `HOME=/tmp` (deploy-kit 1.3.1); the server reads nothing under its home |
 | | the data directory is group-writable after the mount | the image's entrypoint resets it to 0700 before Postgres checks it, as `immich-postgres` shows |
 | `rabbitmq` | `HOME=/tmp`, a writable path | Erlang refuses a cookie file anyone but its owner can read. On a copy of its volume made group-writable as kubelet leaves it, the live image exits with `Cookie file /var/lib/rabbitmq/.erlang.cookie must be accessible by owner only`; with `HOME` on `/tmp` it writes a fresh owner-only cookie and starts, every plugin enabled (Docker, 2026-10-29) |
 | `garage` | the claim `garage-data` mounts at `/var/lib/garage/data`, and `data_dir` names `data/` on it, where the old path wrote the blocks; the metadata is on the new `garage-meta`; snapshots every 6h onto the new `garage-snapshots` | the split |
@@ -109,17 +113,10 @@ kubectl -n flux-system get kustomization apps-data -o jsonpath='{.spec.prune}{"\
 #    Every object of postgres, rabbitmq and valkey, and Garage's Deployment, Service, claim and
 #    monitor, read disabled. UNMARKED is expected for Vault's, MongoDB's and Garage's support objects.
 
-# 3. (write, a person) The documents of W2, through the port-forward and OIDC sign-in
-#    bootstrap/secrets.sh uses. Each value goes over stdin and is never printed.
-vault kv get -format=json -mount=secret platform/postgres \
-  | jq '.data.data | {user: .["postgres.user"], password: .["postgres.password"]}' \
-  | vault kv put -mount=secret data/postgres/catalog -
-vault kv get -format=json -mount=secret platform/postgres \
-  | jq '.data.data | {PGUSER: .["postgres.user"], PGPASSWORD: .["postgres.password"]}' \
-  | vault kv put -mount=secret data/postgres/backup -
-vault kv get -format=json -mount=secret platform/rabbitmq \
-  | jq '.data.data | {RABBITMQ_USERNAME: .["rabbitmq.user"], RABBITMQ_PASSWORD: .["rabbitmq.password"]}' \
-  | vault kv put -mount=secret data/rabbitmq/backup -
+# 3. (write, a person) The documents of W2: the section copies each login from
+#    platform/postgres or platform/rabbitmq, asks before each write, shows every
+#    value as a 12-character fingerprint, and skips a copy that is already right.
+./bootstrap/secrets.sh --only data       # from the estate checkout, context personal
 
 # 4. Vault holds every key the render reads (names only).
 for p in platform/postgres platform/rabbitmq platform/garage data/postgres/catalog data/postgres/backup \
@@ -218,8 +215,9 @@ the first derived Postgres backup has been read back off the cluster,
 ## Rollback
 
 The generic runbook's steps (deploy-kit `docs/runbooks/handover.md#rollback`),
-in this order and no other, because the render's namespace carries no mark
-(W3):
+in this order and no other. Since 1.3.2 the namespace and every backed-up
+claim are marked, so no prune deletes them (W3), but moving `data` back to
+`legacy` with pruning on would still delete the four Deployments:
 
 1. Set `spec.prune: false` on `apps-data` in `projects/data/source.yaml`,
    reconcile `estate-pins`, and read the value back.
