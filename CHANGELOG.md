@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.33.0](https://github.com/JorisJonkers-dev/estate/compare/v0.32.0...v0.33.0) (2026-10-30)
+
+
+### Features
+
+* **bootstrap:** copy the data Project's catalog and backup logins ([#267](https://github.com/JorisJonkers-dev/estate/issues/267)) ([bc2a7e0](https://github.com/JorisJonkers-dev/estate/commit/bc2a7e0b4253e9a373a9e6312d10d82544d2bc82))
+* hand the utility Project over to the estate path ([#248](https://github.com/JorisJonkers-dev/estate/issues/248)) ([9f15c80](https://github.com/JorisJonkers-dev/estate/commit/9f15c805f56ac91518bc630843ea3e44553647dc))
+
 ## [0.32.0](https://github.com/JorisJonkers-dev/estate/compare/v0.31.2...v0.32.0) (2026-10-30)
 
 

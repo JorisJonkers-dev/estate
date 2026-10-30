@@ -19,7 +19,7 @@ go-ahead, never an agent's.
 
 | | what | where |
 |---|---|---|
-| W1 | every other handover done: utility, `node`, observability, edge, data (mail is done; agents is never ported and stays on the old path until it is retired there) | JorisJonkers-dev/deploy-kit#657 and #659 to #662 |
+| W1 | every other handover done: `node`, observability, edge, data (mail and utility are done; agents is never ported and stays on the old path until it is retired there) | JorisJonkers-dev/deploy-kit#659 to #662 |
 | W2 | the four retirements live, in order: the Vault CSI provider, the Vault Agent injector, Reloader, cert-manager | fleet-infra #570, #571, #572, #573 |
 | W3 | no pod asks the injector for an agent: Postgres and RabbitMQ (data's drop, fleet-infra #538), agents-api and the agents rename Job (fleet-infra #531) gone | live check in [Pre-checks](#pre-checks) |
 | W4 | `VaultSealed` reads `secrets-system`, wherever the rule lives by then: fleet-infra #575 carries the expression, which the observability Project's `alertRules` take if observability has handed over | [The alert](#the-alert) |

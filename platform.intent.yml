@@ -118,8 +118,8 @@ acme:
   dnsProvider: cloudflare
   token: secret/data/platform/cloudflare
 
-# The addresses a client off the cluster reaches the edge and the mail server
-# on (deploy-kit spec/v1/14-platform-intent.md#l4-addresses).
+# The addresses a client off the cluster reaches the edge, the mail server and
+# the LAN's DNS on (deploy-kit spec/v1/14-platform-intent.md#l4-addresses).
 l4Addresses:
   # frankfurt-contabo-1's own address, 167.86.79.203: the public Traefik binds
   # 80 and 443 there as host ports.
@@ -139,6 +139,14 @@ l4Addresses:
   mail-node:
     kind: node
     node: frankfurt-contabo-1
+  # The address adguard answers the LAN's DNS on: 192.168.0.98, the first of
+  # the two AdGuard addresses the router names today. A pool is announced under
+  # its own name, so MetalLB needs a pool `lan-dns` holding .98 alone before
+  # utility hands over.
+  lan-dns:
+    kind: pool
+    site: enschede
+    range: 192.168.0.98/32
 
 # One policy per Durability Class.
 durability:
@@ -324,16 +332,28 @@ delivery:
     latency: 1000ms
 
 # The Applications whose Processes may hold Kubernetes API access, and where
-# the API server answers. Each is in the delivery Project, save three: the
+# the API server answers. Each is in the delivery Project, save four: the
 # estate-dashboard, which reads Flux's sources and units and Flagger's Canaries
-# and writes nothing (JorisJonkers-dev/estate-dashboard); Vault, which reviews
-# every kubernetes login's token with its own; and the Vault Secrets Operator,
-# which writes every grant's Secret and restarts its Process. This document
-# validates only beside its fragment: alone it refuses E_UNKNOWN_API_HOLDER.
+# and writes nothing (JorisJonkers-dev/estate-dashboard); headlamp, which
+# holds no rule and acts with each signed-in user's own token; Vault, which
+# reviews every kubernetes login's token with its own; and the Vault Secrets
+# Operator, which writes every grant's Secret and restarts its Process. This
+# document validates only beside their fragments: alone it refuses
+# E_UNKNOWN_API_HOLDER.
 apiAccess:
-  holders: [delivery/flagger, delivery/release-gate, delivery/collector, delivery/reporter, estate-dashboard/estate-dashboard, secrets/vault, secrets/vault-secrets-operator]
+  holders: [delivery/flagger, delivery/release-gate, delivery/collector, delivery/reporter, estate-dashboard/estate-dashboard, utility/headlamp, secrets/vault, secrets/vault-secrets-operator]
   server:
     - { cidr: 10.43.0.1/32, port: 443 } # Service default/kubernetes, read 2026-10-07
+
+# Who among people may use the cluster, and as what (deploy-kit
+# spec/v1/14-platform-intent.md#human-grants). The one grant the old path holds
+# is ClusterRoleBinding headlamp-oidc-admin, in fleet-infra beside headlamp; it
+# moves here with utility's handover, because removing headlamp must not remove
+# anyone's kubectl access. auth-api decides who is in the group.
+humanGrants:
+  - group: oidc:k8s-admin
+    clusterRole: cluster-admin
+    reason: the platform owner administers the cluster with kubectl and headlamp over OIDC
 
 # The job that writes every rendered Vault policy and role into the Secret
 # Store, from each Project's own namespace. Its role, policy-admin, binds the
@@ -349,6 +369,15 @@ policyJob:
   # container; 120s left no margin on a slow node, and one attempt past it
   # failed the Job and every estate-path unit behind it.
   deadline: 5m
+
+# The image a Process's seeded Assets are copied onto its volumes with, before
+# every start (deploy-kit spec/v1/14-platform-intent.md#the-seeder): any image
+# with a shell and `cp` will do, so one small one serves the estate. adguard is
+# the first Process that seeds: it rewrites its configuration on every start.
+seeder:
+  image: busybox
+  memory: 16Mi
+  cpu: 10m
 
 # Which delivery path each Project is on while the estate moves off
 # fleet-infra's deploy/production branch, one Project at a time
@@ -369,7 +398,6 @@ handover:
     - edge
     - observability
     - data
-    - utility
     - node
   estate:
     - delivery
@@ -391,6 +419,7 @@ handover:
     - n8n
     - auth
     - mail
+    - utility
     # The last handover (JorisJonkers-dev/deploy-kit#663): Vault restored
     # from a raft snapshot into secrets-system, and VSO with it.
     - secrets

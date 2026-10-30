@@ -42,6 +42,7 @@ client secrets.
 ./bootstrap/secrets.sh --only hermes --replace           # rewrite the document, dropping what is not offered
 ./bootstrap/secrets.sh --only overleaf --rollback        # back to an earlier KV version
 ./bootstrap/secrets.sh --only mail                       # Stalwart's user:password pair, from its admin login
+./bootstrap/secrets.sh --only data                       # the data Project's catalog and backup logins, copied
 ./bootstrap/secrets.sh --only backup-off-cluster         # the S3 key pair irreplaceable backups copy off-cluster with
 ./bootstrap/secrets.sh --only grimoire --rerun-garage-bootstrap
 ./bootstrap/secrets.sh --only discord-webhook --rotate --test-alert

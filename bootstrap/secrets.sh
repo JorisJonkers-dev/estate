@@ -13,6 +13,7 @@
 #   bootstrap/secrets.sh --only tribelt --rotate          a new OIDC client secret
 #   bootstrap/secrets.sh --only hermes --replace          rewrite secret/agents/hermes whole
 #   bootstrap/secrets.sh --only overleaf --rollback       restore an earlier version
+#   bootstrap/secrets.sh --only data                      the data Project's copied logins
 #
 # Flags:
 #   --only S[,S]           run these sections (and the auth-api stage, when one is a client)
@@ -74,6 +75,7 @@ SECTIONS=(
   "hermes|the Hermes Agent's provider keys and its Hindsight token"
   "mistral|the Mistral API keys Hindsight and Karakeep read"
   "backup-off-cluster|the S3 credential irreplaceable volumes' backups copy off-cluster with"
+  "data|the Postgres catalog and backup logins and the RabbitMQ backup login, copied from their admin logins"
   "garage-keys|optional: the Garage web and archive keys, pre-generated so a rebuild reproduces them"
   "agents-github-app|optional: the agents GitHub App's id, key and runner bearer"
   "agents-deploy-key|optional: the shared read-only deploy key agent workspaces fall back to"
@@ -1463,6 +1465,81 @@ section_backup_off_cluster() {
   unset id secret
 }
 
+# ── data ──────────────────────────────────────────────────────────────────
+# The data Project's render reads three logins nobody else writes, each a copy
+# of an admin login the old path's datastores already run with: the Postgres
+# catalog Job's, and the two backup methods' (deploy-kit
+# spec/v1/14-platform-intent.md#engines: the operator writes a backup's
+# credential at secret/<project>/<process>/backup, in the method's own keys).
+# Each is written as one whole version holding just its two keys, so a re-run
+# finds it right and skips it; a source that changed is copied again.
+#   destination|its user key|its password key|source|its user key|its password key
+DATA_COPIES=(
+  "data/postgres/catalog|user|password|platform/postgres|postgres.user|postgres.password"
+  "data/postgres/backup|PGUSER|PGPASSWORD|platform/postgres|postgres.user|postgres.password"
+  "data/rabbitmq/backup|RABBITMQ_USERNAME|RABBITMQ_PASSWORD|platform/rabbitmq|rabbitmq.user|rabbitmq.password"
+)
+
+# data_copy DEST DEST_USER DEST_PASS SRC SRC_USER SRC_PASS: copy one login,
+# where it is missing or differs. Prints nothing secret: fingerprints only.
+data_copy() {
+  local dest="$1" duser="$2" dpass="$3" src="$4" suser="$5" spass="$6"
+  local doc user password have_user have_password cas readers line
+  doc=$(kv_load "$src")
+  user=$(kv_field "$doc" "$suser")
+  password=$(kv_field "$doc" "$spass")
+  if [[ -z "$user" || -z "$password" ]]; then
+    later "secret/$src has no $suser or $spass: restore them, then re-run --only data"
+    DATA_STATE="waiting for secret/$src"
+    return 0
+  fi
+  doc=$(kv_load "$dest")
+  have_user=$(kv_field "$doc" "$duser")
+  have_password=$(kv_field "$doc" "$dpass")
+  if [[ "$have_user" == "$user" && "$have_password" == "$password" && "$(jq 'length' <<<"$doc")" == 2 ]]; then
+    ok "secret/$dest → $duser $(fp "$user"), $dpass $(fp "$password"): matches secret/$src"
+    return 0
+  fi
+  if [[ "$doc" == "{}" ]]; then
+    say "secret/$dest does not exist: the data Project's render reads it."
+  else
+    note "secret/$dest holds $duser $(fp_or "$have_user"), $dpass $(fp_or "$have_password"), keys $(jq -c 'keys' <<<"$doc");"
+    note "secret/$src's login is $suser $(fp "$user"), $spass $(fp "$password")"
+  fi
+  readers=$(vso_readers "$dest")
+  if [[ -n "$readers" ]]; then
+    say "What reads secret/$dest now:"
+    while IFS= read -r line; do step "$line"; done <<<"$readers"
+  fi
+  confirm "Write $duser $(fp "$user") and $dpass $(fp "$password"), copied from secret/$src, to secret/$dest?" \
+    || { later "secret/$dest is not written"; DATA_STATE="not all written"; return 0; }
+  # One whole version, checked against the one read, so no stale key survives
+  # and a racing write is refused. The values reach jq and vault on stdin.
+  cas=$(vault kv metadata get -mount=secret -format=json "$dest" 2>/dev/null </dev/null \
+    | jq -r '.data.current_version // 0' || true)
+  printf '%s\0%s' "$user" "$password" \
+    | jq -Rs --arg u "$duser" --arg p "$dpass" 'split("\u0000") as $v | {($u): $v[0], ($p): $v[1]}' \
+    | vault kv put -mount=secret -cas="${cas:-0}" "$dest" - >/dev/null \
+    || die "writing secret/$dest failed"
+  doc=$(kv_load "$dest")
+  [[ "$(kv_field "$doc" "$duser")" == "$user" && "$(kv_field "$doc" "$dpass")" == "$password" ]] \
+    || die "secret/$dest does not read back"
+  ok "secret/$dest → $duser $(fp "$user"), $dpass $(fp "$password")"
+  [[ "$DATA_STATE" != "already right" ]] || DATA_STATE=written
+}
+
+section_data() {
+  local entry fields
+  DATA_STATE="already right"
+  for entry in "${DATA_COPIES[@]}"; do
+    IFS='|' read -r -a fields <<<"$entry"
+    data_copy "${fields[@]}"
+  done
+  [[ "$DATA_STATE" != written ]] \
+    || note "Each VaultStaticSecret syncs its copy within its refresh. Nothing on the old path reads these paths."
+  result data "$DATA_STATE"
+}
+
 # ── garage-keys (optional) ────────────────────────────────────────────────
 # fleet-infra cluster/flux/apps/data/garage (README.md, vault-secrets.yaml):
 # keys pre-generated in Vault so a rebuild reproduces them. web.* is the key CI
@@ -1669,6 +1746,7 @@ for CURRENT_SECTION in "${SELECTED[@]}"; do
     hermes) section_hermes ;;
     mistral) section_mistral ;;
     backup-off-cluster) section_backup_off_cluster ;;
+    data) section_data ;;
     garage-keys) section_garage_keys ;;
     agents-github-app) section_agents_github_app ;;
     agents-deploy-key) section_agents_deploy_key ;;
