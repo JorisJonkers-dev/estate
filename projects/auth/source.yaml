@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/auth
   ref:
-    digest: sha256:dc7262dcb4358987482fb1113de14b4a97001e8163037237af22fc85630ba8a4
+    digest: sha256:dcfd9fd019f8c55b7a6251d9cc2e90e060e6eb160f442ce5fc00fd34645d618d
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/auth-api
-    event.toolkit.fluxcd.io/sha: cd1d40c639e5d59fde2d9d00b77ae776b10ed757
+    event.toolkit.fluxcd.io/sha: dbedf5eb7ef44cb71921e0e116a7a1fdcd89dae0
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.21.2
+    event.toolkit.fluxcd.io/version: 0.21.4
     event.toolkit.fluxcd.io/url: https://auth.jorisjonkers.dev
 spec:
   interval: 10m
@@ -45,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-auth
   path: ./apps/auth
+  dependsOn:
+    - name: apps-mail

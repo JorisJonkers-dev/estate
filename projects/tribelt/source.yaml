@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/tribelt
   ref:
-    digest: sha256:3828fd05f101970cdb21fb8e8f28420d9f5d917352884db8c532312c82f8edd5
+    digest: sha256:b6eb2d8fea08d7d5e995ca53a66d147ab409b3480f0906eae0a3bdd47c8e5250
   secretRef:
     name: render-pull
   verify:

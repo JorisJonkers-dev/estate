@@ -157,18 +157,48 @@ images:
     uid: 2000
     gid: 2000
     version: "v0.16.20"
-  # 0.4.2. Its image names no user, so it runs as root today; the handover
-  # gives it one.
+  # 0.4.2. Its image names no user, so it ran as root on the old path; on the
+  # estate path it runs as stalwart's 2000, the pod's user.
   stalwart-provisioner:
     repository: ghcr.io/jorisjonkers-dev/stalwart-provisioner
     digest: "sha256:124a9d73c246c1af9e52620b3ad337f28fb08c0faee0834450f6b572383b1b77"
     uid: 0
     gid: 0
     version: "0.4.2"
+  # utility's two, the images fleet-infra runs today (read from the live pods on
+  # 2026-10-29). AdGuard's image names no user and runs as root on the old path;
+  # here it runs as 1000, the gid the old pods' fsGroup used, keeping only
+  # NET_BIND_SERVICE, for DNS on 53. headlamp's image names its user (`headlamp`); this is that user's
+  # number, as the old path's chart runs it.
+  adguard:
+    repository: docker.io/adguard/adguardhome
+    digest: "sha256:aba9e3bf0613be3ba3755e1fc311b126e2c24bec25e18b6483894a88283074f0"
+    uid: 1000
+    gid: 1000
+    version: "v0.107.79"
+  headlamp:
+    repository: ghcr.io/headlamp-k8s/headlamp
+    digest: "sha256:db3f0e0fc58d358d41daa3fe7fc852437552c7ee873c3645470f7b86a8e0db49"
+    uid: 100
+    gid: 101
+    version: "v0.45.0"
+  # The seeder (platform.intent.yml's seeder; deploy-kit
+  # spec/v1/14-platform-intent.md#the-seeder): Docker Hub's busybox 1.37.0, its
+  # multi-arch index, which runs as nobody. It copies adguard's seeded
+  # configuration onto its conf directory before each start, as the Process's
+  # own user. Pinned as deploy-kit's worked example pins it.
+  busybox:
+    repository: docker.io/library/busybox
+    digest: "sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec"
+    uid: 65534
+    gid: 65534
+    version: "1.37.0"
   # The Node Agents (platform.intent.yml's nodeAgents), the images fleet-infra
-  # runs today. The device plugin, the card counters and the L4 speaker run as
-  # root, as the catalog's privileges need; the host metrics and the speaker's
-  # controller as the image's own user.
+  # runs today: each digest is the imageID of every live pod of its agent, read
+  # 2026-10-29, so no node pulls anything at the handover. The device plugin,
+  # the card counters and the L4 speaker run as root, as the catalog's
+  # privileges need; the host metrics and the speaker's controller as the
+  # image's own user.
   nvidia-device-plugin:
     repository: nvcr.io/nvidia/k8s-device-plugin
     digest: "sha256:a61ba9fd8efb82f3a79f877f7580e02c1e8e7593f62473644bc9c79e315c3312"

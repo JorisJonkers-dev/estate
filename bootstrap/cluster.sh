@@ -10,7 +10,7 @@
 #              and Secret flux-system/render-pull, the ghcr.io credential every
 #              pin names.
 #   CRDs       the CRDs of the bootstrap set that no render holds: Flagger's,
-#              the Prometheus operator's and the Grafana operator's.
+#              MetalLB's, the Prometheus operator's and the Grafana operator's.
 #
 # Vault is secrets.sh's, which runs first: the Collector's and the Reporter's
 # App keys, the estate-dashboard's sign-in document, and the role the Vault
@@ -24,7 +24,7 @@ source "$here/lib/wizard.sh"
 # shellcheck source=lib/estate.sh
 source "$here/lib/estate.sh"
 
-TOTAL_STAGES=6
+TOTAL_STAGES=7
 
 DEPLOY_KEY_TITLE="flux-system/estate (read-only)"
 # The CRDs of the bootstrap set that no render holds (platform.intent.yml
@@ -32,6 +32,11 @@ DEPLOY_KEY_TITLE="flux-system/estate (read-only)"
 FLAGGER_VERSION=v1.45.0
 FLAGGER_CRDS_URL="https://raw.githubusercontent.com/fluxcd/flagger/$FLAGGER_VERSION/artifacts/flagger/crd.yaml"
 FLAGGER_CRDS_SHA256=58bd594b9e33deb0edceac81f6ed160b458a7933039fb295552724f656033ee5
+# MetalLB's, at the release its speaker image in the images lock is. The
+# release manifest is the one file that holds every CRD of the release.
+METALLB_VERSION=v0.15.3
+METALLB_MANIFEST_URL="https://raw.githubusercontent.com/metallb/metallb/$METALLB_VERSION/config/manifests/metallb-native.yaml"
+METALLB_MANIFEST_SHA256=84b4e102f2b65f5d69085f5816c29362b74641873d8ac3de996e5f86a8219176
 # The monitoring stack's CRDs (monitoring.coreos.com/v1 and v1alpha1,
 # grafana.integreatly.org/v1beta1), at the releases the observability
 # Project's operator images are: v0.93.1 is what kube-prometheus-stack 90.0.0
@@ -53,7 +58,7 @@ banner "Estate: one cluster's credentials"
 
 # ── 1 ─────────────────────────────────────────────────────────────────────
 stage "Preflight: tools, cluster and GitHub"
-require_tools "$KUBECTL" flux gh jq curl shasum
+require_tools "$KUBECTL" flux gh jq yq curl shasum
 require_cluster
 $KUBECTL get crd ocirepositories.source.toolkit.fluxcd.io >/dev/null 2>&1 \
   || die "Flux is not installed; run fleet-infra's flux-bootstrap-playbook first"
@@ -146,6 +151,47 @@ ok "Flagger $FLAGGER_VERSION's CRDs are established"
 pause
 
 # ── 5 ─────────────────────────────────────────────────────────────────────
+stage "The bootstrap set: MetalLB's CRDs"
+# platform.intent.yml lists metallb.io/v1beta1 in the bootstrap set: the `node`
+# Project renders the pools and advertisements of the l4-speaker Node Agent,
+# never their CRDs (deploy-kit spec/v1/14-platform-intent.md#the-bootstrap-set).
+# No webhook is rendered, so bgppeers' conversion webhook is dropped: the
+# estate holds no BGPPeer to convert.
+curl -fsSL "$METALLB_MANIFEST_URL" -o "$WORK/metallb-native.yaml" \
+  || die "could not download $METALLB_MANIFEST_URL"
+[[ "$(shasum -a 256 "$WORK/metallb-native.yaml" | cut -d' ' -f1)" == "$METALLB_MANIFEST_SHA256" ]] \
+  || die "$METALLB_MANIFEST_URL does not hash to $METALLB_MANIFEST_SHA256"
+yq 'select(.kind == "CustomResourceDefinition") | .spec.conversion = {"strategy": "None"}' \
+  "$WORK/metallb-native.yaml" > "$WORK/metallb-crds.yaml" \
+  || die "could not read MetalLB's CRDs out of its release manifest"
+METALLB_CRDS=$(yq -N '.metadata.name' "$WORK/metallb-crds.yaml" | sed 's|^|crd/|')
+# The old path's chart installed bgppeers with the webhook. A server-side apply
+# cannot drop a field another manager owns, so the stanza is replaced whole
+# first. MetalLB's old controller serves that webhook and rotates its
+# certificate into the CRD, so it is stopped before this stage runs.
+if [[ "$($KUBECTL get crd bgppeers.metallb.io -o jsonpath='{.spec.conversion.strategy}' 2>/dev/null)" == "Webhook" ]]; then
+  confirm "Drop bgppeers.metallb.io's conversion webhook? MetalLB's old controller must be stopped first." \
+    || die "stopped"
+  $KUBECTL patch crd bgppeers.metallb.io --type=json \
+    -p '[{"op": "replace", "path": "/spec/conversion", "value": {"strategy": "None"}}]' >/dev/null \
+    || die "bgppeers.metallb.io's conversion webhook was not dropped"
+fi
+# --force-conflicts: where the old path's chart installed them, helm-controller
+# owns their fields, and this stage takes them over.
+$KUBECTL apply --server-side --force-conflicts --field-manager=estate-bootstrap \
+  -f "$WORK/metallb-crds.yaml" >/dev/null \
+  || die "MetalLB's CRDs did not apply"
+# shellcheck disable=SC2086 # one argument per CRD
+$KUBECTL wait --for=condition=Established --timeout=60s $METALLB_CRDS >/dev/null \
+  || die "MetalLB's CRDs are not established"
+# Read back: no CRD of the group still names a conversion webhook.
+WEBHOOKED=$($KUBECTL get crd -o json \
+  | jq -r '.items[] | select(.spec.group == "metallb.io" and .spec.conversion.strategy != "None") | .metadata.name')
+[[ -z "$WEBHOOKED" ]] || die "still converted by a webhook: $WEBHOOKED"
+ok "MetalLB $METALLB_VERSION's CRDs are established, with no conversion webhook"
+pause
+
+# ── 6 ─────────────────────────────────────────────────────────────────────
 stage "The bootstrap set: the monitoring stack's CRDs"
 # platform.intent.yml lists monitoring.coreos.com/v1, monitoring.coreos.com/v1alpha1
 # and grafana.integreatly.org/v1beta1 in the bootstrap set: the observability
@@ -167,14 +213,15 @@ apply_crds() { # <name> <url> <sha256> <crd>...
 apply_crds prometheus-operator "$PROMETHEUS_OPERATOR_CRDS_URL" "$PROMETHEUS_OPERATOR_CRDS_SHA256" \
   crd/prometheuses.monitoring.coreos.com crd/alertmanagers.monitoring.coreos.com \
   crd/servicemonitors.monitoring.coreos.com crd/podmonitors.monitoring.coreos.com \
-  crd/prometheusrules.monitoring.coreos.com crd/alertmanagerconfigs.monitoring.coreos.com
+  crd/prometheusrules.monitoring.coreos.com crd/alertmanagerconfigs.monitoring.coreos.com \
+  crd/scrapeconfigs.monitoring.coreos.com
 ok "the Prometheus operator $PROMETHEUS_OPERATOR_VERSION's CRDs are established"
 apply_crds grafana-operator "$GRAFANA_OPERATOR_CRDS_URL" "$GRAFANA_OPERATOR_CRDS_SHA256" \
   crd/grafanas.grafana.integreatly.org crd/grafanadashboards.grafana.integreatly.org
 ok "the Grafana operator $GRAFANA_OPERATOR_VERSION's CRDs are established"
 pause
 
-# ── 6 ─────────────────────────────────────────────────────────────────────
+# ── 7 ─────────────────────────────────────────────────────────────────────
 stage "Prove Flux reads the estate repository"
 if ! $KUBECTL -n flux-system get gitrepository platform >/dev/null 2>&1; then
   warn "GitRepository flux-system/platform is not applied yet (fleet-infra's estate.yaml)"
