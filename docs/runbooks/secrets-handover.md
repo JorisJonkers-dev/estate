@@ -1,7 +1,7 @@
 # Handing `secrets` over to the estate path
 
 Moves the Project `secrets` (Vault and the Vault Secrets Operator) from
-fleet-infra's old path to its pin here, on deploy-kit 1.2.0, in the three
+fleet-infra's old path to its pin here, on deploy-kit 1.3.1, in the three
 changes of deploy-kit `spec/v1/60-setup.md#handing-over-one-project-at-a-time`.
 It is the last handover: after it `legacy` is empty. Tracking:
 JorisJonkers-dev/deploy-kit#663 and #209 here.
@@ -19,25 +19,30 @@ go-ahead, never an agent's.
 
 | | what | where |
 |---|---|---|
-| W1 | every other handover done: mail, utility, agents, `node`, observability, data, edge | JorisJonkers-dev/deploy-kit#656 to #662 |
+| W1 | every other handover done: utility, `node`, observability, edge, data (mail is done; agents is never ported and stays on the old path until it is retired there) | JorisJonkers-dev/deploy-kit#657 and #659 to #662 |
 | W2 | the four retirements live, in order: the Vault CSI provider, the Vault Agent injector, Reloader, cert-manager | fleet-infra #570, #571, #572, #573 |
 | W3 | no pod asks the injector for an agent: Postgres and RabbitMQ (data's drop, fleet-infra #538), agents-api and the agents rename Job (fleet-infra #531) gone | live check in [Pre-checks](#pre-checks) |
 | W4 | `VaultSealed` reads `secrets-system`, wherever the rule lives by then: fleet-infra #575 carries the expression, which the observability Project's `alertRules` take if observability has handed over | [The alert](#the-alert) |
 | W5 | the estate's `ops/unseal-vault.sh` (from #212) reaches `secrets-system/vault` | until then, [the inline unseal](#unseal) |
-| W6 | decisions D1 to D7 below, each answered on deploy-kit#663 | the maintainer |
+| W6 | decisions D1 to D7 below: D1 to D6 accepted as proposed on 2026-10-30, D7 with the edge | done |
 | W7 | auto-unseal stays deferred (#210): the person running the window holds the one unseal key (Shamir, 1 of 1) | the maintainer |
+| W8 | the Platform document's `priority` block released and composed (D6), after fleet-infra stopped applying the two classes | #266; fleet-infra #577 (live), #578 |
+| W9 | the old path's `immich-system/immich-postgres` policy, which is enforced, admits Vault from `secrets-system` as well as `data-system`, so Vault's database engine still reaches immich's Postgres after the flip | fleet-infra #574 |
+| W10 | auth-api's release that points its `VAULT_ADDR` at `secrets-system`, approved and held for step 9 | JorisJonkers-dev/auth-api#132 |
 
-## Decisions this handover needs
+## Decisions
 
-| | question | proposed | why |
+D1 to D6 were accepted as proposed on 2026-10-30. D7 is decided with the edge.
+
+| | question | decided | why |
 |---|---|---|---|
 | D1 | which Vault runs in `secrets-system` | **1.21.4**, the lock's `vault` | vault-0 runs **1.21.2** (`vault status`, 2026-10-29). Its StatefulSet already names 2.0.4, which it takes only on a pod delete (`OnDelete`). Restoring 1.21.2's snapshot into 1.21.4 is a patch forward, rehearsed; 2.x is its own change, later |
 | D2 | VSO's client cache | **not persisted**, accepted until deploy-kit#735 | the model renders no VaultAuth for the cache's transit key. Each VSO restart re-issues the nine dynamic database credentials (1h leases) and restarts their Processes; the window does that once anyway |
 | D3 | Vault's metrics | **scraped without a token** (`unauthenticated_metrics_access = true` in `config/vault.hcl`) | the model renders a scrape with no credential. This retires the metrics token, fleet-infra's renewal CronJob, its VSO copy and `secrets.sh --only metrics-token` (a later `retire.sh` entry). The metrics carry no secret; the alternative is no Vault metrics, and `VaultMetricsUnreachable` deleted |
 | D4 | Vault's backup | **`files` on the raft volume**, plus the raft snapshot below by hand, until deploy-kit#734 | `file-backup` copies the raft files while Vault writes them (02:45, off-cluster, 90 kept); a copy can be torn. fleet-infra's six-hourly `observability/vault-raft-snapshot` addresses `vault.data-system` and fails after the flip. Either re-point that job (if observability still runs it) or accept `files` alone until #734 |
 | D5 | Vault's own configuration (auth methods, engines, DB connections, transit keys, roles of what is not a Project) | **frozen in the snapshot**; fleet-infra's `bootstrap-auth.sh` leaves with fleet-infra #575 | it is carried by the restore, and nothing maintains it afterwards: deploy-kit#736. A new connection or key meanwhile is a person's `vault write`, recorded on its issue. Decide before #575 merges |
-| D6 | Vault's priority | **add the Platform document's `priority` block first**, as its own change | the estate document has none, so Vault renders with no priority class (live: `platform-data`). Evicted under memory pressure on `frankfurt-contabo-1`, Vault comes back sealed. Adding `priority` re-renders every Project once, so it is not folded into this change |
-| D7 | the LAN tier's certificate once cert-manager retires | to decide with the edge handover | `edge-system/jorisjonkers-dev-tls` is the default TLSStore's, issued by cert-manager, valid to 2026-12-16; the LAN tier (`certificates: none`) cannot issue its own. fleet-infra #573 waits on it |
+| D6 | Vault's priority | **the Platform document's `priority` block, first**, as its own change: #266 | without it, Vault renders with no priority class (live: `platform-data`). Evicted under memory pressure on `frankfurt-contabo-1`, Vault comes back sealed. With it, Vault renders `platform-data` (its `files` engine derives a backup) and VSO `platform-critical-app` (it holds API access). Adding `priority` re-renders every Project once, so it is not folded into this change. The live classes are fleet-infra's: #577 marks them never to be pruned and #578 drops them from apps-data, so the estate release adopts them |
+| D7 | the LAN tier's certificate once cert-manager retires | **with the edge**: deploy-kit#726 gives the LAN tier a certificate source before the edge's flip, and cert-manager retires with the edge | `edge-system/jorisjonkers-dev-tls` is the default TLSStore's, issued by cert-manager, valid to 2026-12-16; the LAN tier (`certificates: none`) cannot issue its own. fleet-infra #573 waits on it |
 
 ## The changes, in order
 
@@ -59,13 +64,16 @@ the window.
 
 ## The render against the old path
 
-Rendered with deploy-kit 1.2.0 from this change (`deploy-kit compose` over
+Rendered with deploy-kit 1.3.1 (deploy-kit `main` on 2026-10-30, which is 1.3.1) from this change (`deploy-kit compose` over
 every participant's newest fragment, this branch's Platform and platform
 fragments, `participants.yml`, `cluster-state.yml` and the committed pin
 sources), against fleet-infra `main` (`helm get manifest` of both releases,
 `kustomize build` of `apps/data/vault`, `apps/core/vso` and
 `vso-secrets/vault-prometheus-token.yaml`) and the live objects, read
-2026-10-29.
+2026-10-29. Re-rendered on 2026-10-30 against estate `main` and every
+participant's newest fragment: outside `secrets`, only VSO objects, Canaries,
+`VaultConnection`s, policy jobs and render-only policies change, and no
+workload, so the flip itself restarts no other Process.
 
 ### Vault
 
@@ -75,10 +83,11 @@ sources), against fleet-infra `main` (`helm get manifest` of both releases,
 | StatefulSet `vault` | becomes Deployment `vault`, `Recreate`, one replica | no Process is a StatefulSet; one server on one RWO claim |
 | | image `vault:1.21.2` (pod) / `2.0.4` (template) becomes `vault@sha256:4e33b126…` 1.21.4 | D1 |
 | | the chart's shell wrapper (copies and `sed`s the config, then `docker-entrypoint.sh`) becomes `command: [vault]`, `args: [server, -config=/vault/config/vault.hcl]` | the image's own arguments are `server -dev`; the entrypoint tries `setcap` and `chown` |
-| | env `VAULT_K8S_*`, `VAULT_API_ADDR`, `VAULT_CLUSTER_ADDR`, `VAULT_RAFT_NODE_ID=vault-0`, `SKIP_*`, `HOST_IP`, `POD_IP` become `VAULT_ADDR=http://127.0.0.1:8200` and `HOME` | `api_addr` and `cluster_addr` are in the config; the raft node id is Vault's own, kept in `node-id` on the volume (rehearsed across a restart) |
+| | env `VAULT_K8S_*`, `VAULT_API_ADDR`, `VAULT_CLUSTER_ADDR`, `VAULT_RAFT_NODE_ID=vault-0`, `SKIP_*`, `HOST_IP`, `POD_IP` become `VAULT_ADDR=http://127.0.0.1:8200`, and `HOME=/tmp`, which deploy-kit 1.3.1 sets for a writable `/tmp`, so the CLI keeps its token there | `api_addr` and `cluster_addr` are in the config; the raft node id is Vault's own, kept in `node-id` on the volume (rehearsed across a restart) |
 | | `nodeSelector` site frankfurt becomes node affinity `frankfurt-contabo-1` | `placement.site: frankfurt`; one node there |
-| | pod anti-affinity, `priorityClassName: platform-data` dropped | one replica; D6 |
-| | pod 100:1000, `fsGroup` 1000 (unchanged), plus seccomp, read-only root, all capabilities dropped, no privilege escalation; `/tmp` and `/home/vault` emptyDirs (64Mi) | `restricted`. A snapshot restore stages in `/tmp` and fails on a read-only one (rehearsed) |
+| | pod anti-affinity dropped; `priorityClassName: platform-data` kept, once #266 is released | one replica; D6 |
+| | pod 100:1000, `fsGroup` 1000 (unchanged), plus seccomp, read-only root, all capabilities dropped, no privilege escalation; a `/tmp` emptyDir (64Mi) | `restricted`. A snapshot restore stages in `/tmp` and fails on a read-only one (rehearsed) |
+| | no `IPC_LOCK`: `disable_mlock = true` in `config/vault.hcl`, as live | restricted Pod Security never grants it. The 1.21.4 image's `/bin/vault` carries no file capability (its layers, read with `crane` on 2026-10-30), so it execs under drop-ALL; only the skipped entrypoint would `setcap` it |
 | | requests none, becomes 512Mi/100m, limit 512Mi | 132Mi in use; a restore holds the snapshot in memory |
 | | readiness `exec vault status` every 5s becomes HTTP `/v1/sys/health` every 10s; liveness none becomes TCP 8200; a TCP startup probe (6 × 5s) | sealed answers 503: not ready, still alive, so a sealed Vault is not restarted under the person unsealing it |
 | | ports 8201 (`https-internal`) and 8202 (`http-rep`) not declared | one server: no raft peer and no replication to reach it; 8201 is still bound on the pod |
@@ -101,7 +110,7 @@ sources), against fleet-infra `main` (`helm get manifest` of both releases,
 | new | `VaultConnection secret-store`, `vault-policy` CronJob, Job, ConfigMap, SA, and the policy and role `secrets-system-vault-backup` | every estate Project has them |
 | new | `Service platform-rabbitmq` (ExternalName to its Stable Address) | the optional edge Vault's rabbitmq engine reaches |
 | new | `flux-system` Alert `rollouts-secrets`, Provider `reporter-secrets` | rollout events |
-| rendered, not applied | NetworkPolicies `default-deny`, `vault`, `vault-secrets-operator`, `vault-backup`, `vault-policy` | render-only on this substrate. Vault's egress to both Postgres servers is missing: deploy-kit#737 |
+| rendered, not applied | NetworkPolicies `default-deny`, `vault`, `vault-secrets-operator`, `vault-backup`, `vault-policy` | render-only on this substrate, so the egress to both Postgres servers they miss (deploy-kit#737) blocks nothing yet. What is enforced is the old path's own `immich-system/immich-postgres`, which admits Vault from `data-system` alone: W9 |
 
 ### The Vault Secrets Operator
 
@@ -113,6 +122,7 @@ sources), against fleet-infra `main` (`helm get manifest` of both releases,
 | | args: `--leader-elect` dropped; `--client-cache-persistence-model=direct-encrypted` dropped; `--metrics-bind-address` 127.0.0.1:8080 becomes `:8080`; the rest as live | one replica elects nothing, and the lease is what lost VSO its leadership on the Pis; D2 |
 | | node affinity "not the Pis" becomes every node | without leader election the reason is gone; the persisted cache that wrote to disk is gone too (D2) |
 | | 64Mi/10m request, 128Mi/500m limit becomes 128Mi/50m, limit 128Mi; probes `/readyz` and `/healthz` on 8081 as live, cadence the platform's | request equals limit |
+| | no priority class becomes `platform-critical-app`, once #266 is released | it holds API access, a privileged role |
 | | pod `runAsNonRoot` becomes 65532:65532, seccomp, read-only root, all capabilities dropped | `restricted`; the image's own user |
 | ClusterRole `vault-secrets-operator-manager-role` | `secrets-system-vault-secrets-operator`: the same rules, less `deletecollection` on Secrets and Argo `rollouts` | the model's verbs have no `deletecollection`; no Rollouts run |
 | ClusterRoles `*-editor-role`, `*-viewer-role`, `metrics-reader`, `proxy-role`; Role `leader-election-role` | not rendered | aggregation helpers for people, the proxy, and the lease |
@@ -127,14 +137,14 @@ sources), against fleet-infra `main` (`helm get manifest` of both releases,
 The flip removes the `vault` serving statement, so each Project's render
 follows Vault: `VaultConnection secret-store` and each `vault-policy` Job's
 `VAULT_ADDR` become `http://vault.secrets-system.svc.cluster.local:8200`
-(14 connections), auth-api's `VAULT_ADDR` likewise, and each render-only
+(15 connections), and each render-only
 egress rule to Vault names `secrets-system`. Every unit that holds a
 grant gains `dependsOn: apps-secrets`, 16 of them, so none applies its new
-revision until Vault in `secrets-system` is unsealed and Ready. Pins move for
-`_estate`, auth, delivery, estate-dashboard, findability-explorer, grimoire,
-hindsight, home-portal, immich, karakeep, n8n, outline, overleaf, prowlarr,
-qbittorrent, tribelt and secrets; on `main` today eight of them would move
-anyway, from releases already published.
+revision until Vault in `secrets-system` is unsealed and Ready. auth-api's
+`VAULT_ADDR` is its own literal and does not follow: W10. The render
+moves for `_estate`, auth, delivery, estate-dashboard, findability-explorer,
+grimoire, hindsight, immich, karakeep, mail, n8n, outline, overleaf, prowlarr,
+qbittorrent, tribelt and secrets (read 2026-10-30).
 
 ## Pre-checks
 
@@ -263,8 +273,14 @@ while sleep 5; do printf '%s ' "$(date +%T)"; curl -s -o /dev/null -w '%{http_co
    against the restored Vault, VSO logs in as each Process and syncs. The nine
    dynamic database credentials are issued anew and their Deployments restart
    once (D2). The leases the snapshot holds expire within the hour and Vault
-   revokes them; their Processes have moved by then. auth-api restarts on its
-   new `VAULT_ADDR`; sign-in, which signs with Vault's transit key, works again.
+   revokes them; their Processes have moved by then.
+
+   **auth-api is the exception**: its `VAULT_ADDR` is a literal in its own env
+   file, so the render leaves it on the sealed Vault. Merge
+   JorisJonkers-dev/auth-api#132 now, and its release PR, so its Canary
+   analyses a copy that reaches the unsealed Vault (not before step 8: against
+   a sealed or absent Vault the Canary fails and rolls back). Sign-in, which
+   signs with Vault's transit key, works again once it promotes.
 
 10. **What the render does not re-point, by hand:**
 
@@ -372,6 +388,8 @@ Then revert B, S2 and S1, in that order.
    `kubectl -n secrets-system scale deploy/vault-secrets-operator --replicas=0`.
 4. Unseal the old Vault and start its VSO, as above. Each unit re-points as
    its pin moves.
+   If auth-api#132 has released, revert it in auth-api and release that, so
+   auth-api reaches `data-system` again.
 5. Revert S2, then S1.
 
 **What a rollback after step 8 loses:** every write to the new Vault since the
