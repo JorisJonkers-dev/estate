@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/qbittorrent
   ref:
-    digest: sha256:b2370297716282088f6366f6a611c26c3210c6b0cbcbdd8ad0c876ed75d95846
+    digest: sha256:11d64a61e3b0f6401da7b6969c238ae4b1addc991e189490528cbcf958b7fb6b
   secretRef:
     name: render-pull
   verify:
