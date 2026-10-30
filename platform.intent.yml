@@ -266,6 +266,9 @@ engines:
   postgres: { backup: postgres-backup, surface: postgres, catalog: postgres-catalog }
   rabbitmq: { backup: rabbitmq-backup, surface: management }
   files: { backup: file-backup }
+  # `catalog` applies the bucket catalog of the estate path's projects over Garage's admin API.
+  # No edge names a bucket yet, so it derives nothing until one does.
+  s3: { backup: file-backup, catalog: garage-catalog, catalogSurface: admin }
 
 # One cadence for every rendered monitor.
 monitors:
@@ -428,6 +431,10 @@ handover:
     - application: platform-postgres
       namespace: data-system
       admin: { path: secret/data/platform/postgres, user: postgres.user, password: postgres.password }
+    # The old path's Garage, and the admin token its bucket catalog would sign in with.
+    - application: platform-garage
+      namespace: data-system
+      admin: { path: secret/data/platform/garage, token: admin_token }
     # The old path's collector: Grafana Alloy, whose Service and pods carry the
     # instance alloy, with an OTLP gRPC receiver on 4317. Without this every
     # exporting Runtime Profile (auth-api's jvm, the first on the estate path)
