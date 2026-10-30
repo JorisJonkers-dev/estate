@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/overleaf
   ref:
-    digest: sha256:c7ed98cb76e40ccadde4fdce19ba0b36aec4b3ebdc06917f275882efd3b1c1a0
+    digest: sha256:3554e1ea6bf524109e5f9971ada9046171b2fb81fb84df42b5774748cab84e1a
   secretRef:
     name: render-pull
   verify:
