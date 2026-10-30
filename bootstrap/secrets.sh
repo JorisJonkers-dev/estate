@@ -18,9 +18,10 @@
 #   --only S[,S]           run these sections (and the auth-api stage, when one is a client)
 #   --rotate               with --only: replace values that are present instead of skipping
 #                          them: an OIDC client secret, an API key, the Discord webhook, the
-#                          metrics token, the Cloudflare DNS token. Never a key whose rotation
-#                          breaks stored state (a session key, a VAPID or S3 pair): those are
-#                          only ever minted where missing. --rotate-client-secret is the same flag.
+#                          metrics token, the Cloudflare DNS token, the off-cluster backup
+#                          credential. Never a key whose rotation breaks stored state (a session
+#                          key, a VAPID or grimoire's S3 pair): those are only ever minted where
+#                          missing. --rotate-client-secret is the same flag.
 #   --replace              with --only hermes|overleaf: write a new version holding only the
 #                          fields offered; names every field it drops and waits for "yes"
 #   --rollback             with --only hermes|overleaf: roll the document back to a version
@@ -72,6 +73,7 @@ SECTIONS=(
   "mail|Stalwart's recovery admin, the user:password pair its server reads, from its admin login"
   "hermes|the Hermes Agent's provider keys and its Hindsight token"
   "mistral|the Mistral API keys Hindsight and Karakeep read"
+  "backup-off-cluster|the S3 credential irreplaceable volumes' backups copy off-cluster with"
   "garage-keys|optional: the Garage web and archive keys, pre-generated so a rebuild reproduces them"
   "agents-github-app|optional: the agents GitHub App's id, key and runner bearer"
   "agents-deploy-key|optional: the shared read-only deploy key agent workspaces fall back to"
@@ -1356,6 +1358,115 @@ section_mistral() {
   [[ -z "$any" ]] || note "VSO re-renders both Secrets on its next refresh and restarts the workloads."
 }
 
+# ── backup-off-cluster ────────────────────────────────────────────────────
+# The credential an irreplaceable volume's backup copies off-cluster with
+# (estate#228). platform.intent.yml's durability.irreplaceable.offCluster
+# names its path; the render grants it to each backup identity alone and hands
+# the whole document to the method as variables (envFrom), so its keys are the
+# variable names JorisJonkers-dev/delivery's backup method reads
+# (internal/offcluster): AWS_ENDPOINT_URL, AWS_ACCESS_KEY_ID,
+# AWS_SECRET_ACCESS_KEY, and AWS_REGION where the provider wants one (it
+# defaults to us-east-1). The bucket is not here: it is offCluster.destination.
+# Until the document exists, a backup's VaultStaticSecret cannot sync, and a
+# Project with an irreplaceable volume never goes Ready.
+BACKUP_KV_PATH=platform/backup/off-cluster
+BACKUP_ENDPOINT_DEFAULT=https://eu2.contabostorage.com
+
+# backup_destination prints offCluster.destination from platform.intent.yml.
+backup_destination() {
+  sed -n '/^ *offCluster:/,/^ *egress:/s/^ *destination: *"\{0,1\}\([^" ]*\)"\{0,1\}.*/\1/p' \
+    "$here/../platform.intent.yml" | head -n 1
+}
+
+# backup_s3_check ENDPOINT BUCKET REGION ID SECRET asks the provider, signed with
+# the key pair, whether it sees the bucket (path-style, as the method writes).
+# Prints the HTTP status. The pair travels on stdin, never as an argument.
+backup_s3_check() {
+  printf 'user = "%s:%s"\n' "$4" "$5" \
+    | curl -sS --max-time 20 --config - -o /dev/null -w '%{http_code}' -I \
+        --aws-sigv4 "aws:amz:$3:s3" "${1%/}/$2" 2>/dev/null || printf 'unreachable'
+}
+
+section_backup_off_cluster() {
+  local doc endpoint id secret region dest bucket code cas
+  doc=$(kv_load "$BACKUP_KV_PATH")
+  dest=$(backup_destination)
+  [[ "$dest" == s3://* ]] || die "platform.intent.yml names no s3:// offCluster.destination (read: '${dest}')"
+  bucket=${dest#s3://}
+  bucket=${bucket%%/*}
+  endpoint=$(kv_field "$doc" AWS_ENDPOINT_URL)
+  id=$(kv_field "$doc" AWS_ACCESS_KEY_ID)
+  secret=$(kv_field "$doc" AWS_SECRET_ACCESS_KEY)
+  region=$(kv_field "$doc" AWS_REGION)
+  if [[ "$endpoint" =~ ^https?://[^/]+/?$ && -n "$id" && -n "$secret" && -z "$ROTATE" ]]; then
+    ok "secret/$BACKUP_KV_PATH holds AWS_ENDPOINT_URL $endpoint, AWS_ACCESS_KEY_ID $(fp "$id"), AWS_SECRET_ACCESS_KEY $(fp "$secret")${region:+, AWS_REGION $region}"
+    note "the bucket, $bucket, is platform.intent.yml's offCluster.destination, not the credential's"
+    result backup-off-cluster "already right"
+    return 0
+  fi
+  if [[ "$doc" == "{}" ]]; then
+    say "secret/$BACKUP_KV_PATH does not exist: every irreplaceable volume's backup reads it,"
+    say "and a Project with one (mail) never goes Ready without it."
+  else
+    say "secret/$BACKUP_KV_PATH is incomplete or --rotate asked for a new pair:"
+    note "  AWS_ENDPOINT_URL ${endpoint:-none}, AWS_ACCESS_KEY_ID $(fp_or "$id"), AWS_SECRET_ACCESS_KEY $(fp_or "$secret"), AWS_REGION ${region:-none}"
+  fi
+  say "The key pair is Contabo's: my.contabo.com → Object Storage → S3 credentials, for the"
+  say "bucket $bucket ($dest, from platform.intent.yml; the credential does not hold it)."
+  BACKUP_ENDPOINT=""
+  ask BACKUP_ENDPOINT "S3 endpoint [Enter: ${endpoint:-$BACKUP_ENDPOINT_DEFAULT}]:"
+  endpoint=${BACKUP_ENDPOINT:-${endpoint:-$BACKUP_ENDPOINT_DEFAULT}}
+  unset BACKUP_ENDPOINT
+  [[ "$endpoint" =~ ^https://[^/[:space:]]+/?$ ]] || die "the endpoint is https://host, nothing more: '$endpoint'"
+  endpoint=${endpoint%/}
+  BACKUP_ID="" BACKUP_SECRET="" BACKUP_REGION=""
+  ask_secret BACKUP_ID "Access key id (hidden; Enter skips):"
+  ask_secret BACKUP_SECRET "Secret access key (hidden; Enter skips):"
+  id=$(printf '%s' "$BACKUP_ID" | tr -d '[:space:]')
+  secret=$(printf '%s' "$BACKUP_SECRET" | tr -d '[:space:]')
+  unset BACKUP_ID BACKUP_SECRET
+  if [[ -z "$id" || -z "$secret" ]]; then
+    later "secret/$BACKUP_KV_PATH is not written: an access key id and its secret are both needed"
+    result backup-off-cluster "not written"
+    return 0
+  fi
+  ask BACKUP_REGION "Region (optional; Enter leaves it out, and the method signs for us-east-1):"
+  region=$(printf '%s' "$BACKUP_REGION" | tr -d '[:space:]')
+  unset BACKUP_REGION
+  if [[ -z "$LOCAL_VAULT" ]]; then
+    code=$(backup_s3_check "$endpoint" "$bucket" "${region:-us-east-1}" "$id" "$secret")
+    case "$code" in
+      200) ok "$endpoint accepts the pair and it sees bucket $bucket" ;;
+      401|403) warn "$endpoint refuses the pair for bucket $bucket ($code): a wrong key, or one without access to it" ;;
+      404) warn "$endpoint has no bucket $bucket (404): create it, or fix offCluster.destination" ;;
+      *) warn "could not check the pair against $endpoint ($code); the backup's first run will" ;;
+    esac
+    [[ "$code" == 200 ]] || confirm "Write it anyway?" \
+      || { later "secret/$BACKUP_KV_PATH is not written"; result backup-off-cluster "not written"; return 0; }
+  fi
+  confirm "Write AWS_ENDPOINT_URL $endpoint, AWS_ACCESS_KEY_ID $(fp "$id"), AWS_SECRET_ACCESS_KEY $(fp "$secret")${region:+, AWS_REGION $region} to secret/$BACKUP_KV_PATH?" \
+    || { later "secret/$BACKUP_KV_PATH is not written"; result backup-off-cluster "not written"; return 0; }
+  # One whole version, checked against the one read, so no stale key survives
+  # and a racing write is refused. The values reach jq and vault on stdin.
+  cas=$(vault kv metadata get -mount=secret -format=json "$BACKUP_KV_PATH" 2>/dev/null </dev/null \
+    | jq -r '.data.current_version // 0' || true)
+  printf '%s\0%s\0%s\0%s' "$endpoint" "$id" "$secret" "$region" \
+    | jq -Rs 'split("\u0000") as $v
+        | {AWS_ENDPOINT_URL: $v[0], AWS_ACCESS_KEY_ID: $v[1], AWS_SECRET_ACCESS_KEY: $v[2]}
+          + (if ($v[3] // "") == "" then {} else {AWS_REGION: $v[3]} end)' \
+    | vault kv put -mount=secret -cas="${cas:-0}" "$BACKUP_KV_PATH" - >/dev/null \
+    || die "writing secret/$BACKUP_KV_PATH failed"
+  doc=$(kv_load "$BACKUP_KV_PATH")
+  [[ "$(kv_field "$doc" AWS_ENDPOINT_URL)" == "$endpoint" \
+    && "$(kv_field "$doc" AWS_ACCESS_KEY_ID)" == "$id" \
+    && "$(kv_field "$doc" AWS_SECRET_ACCESS_KEY)" == "$secret" \
+    && "$(kv_field "$doc" AWS_REGION)" == "$region" ]] || die "secret/$BACKUP_KV_PATH does not read back"
+  ok "secret/$BACKUP_KV_PATH → AWS_ENDPOINT_URL $endpoint, AWS_ACCESS_KEY_ID $(fp "$id"), AWS_SECRET_ACCESS_KEY $(fp "$secret")${region:+, AWS_REGION $region}"
+  note "Each backup's VaultStaticSecret syncs it within its refresh; nothing else reads it, so nothing restarts."
+  result backup-off-cluster written
+  unset id secret
+}
+
 # ── garage-keys (optional) ────────────────────────────────────────────────
 # fleet-infra cluster/flux/apps/data/garage (README.md, vault-secrets.yaml):
 # keys pre-generated in Vault so a rebuild reproduces them. web.* is the key CI
@@ -1561,6 +1672,7 @@ for CURRENT_SECTION in "${SELECTED[@]}"; do
     mail) section_mail ;;
     hermes) section_hermes ;;
     mistral) section_mistral ;;
+    backup-off-cluster) section_backup_off_cluster ;;
     garage-keys) section_garage_keys ;;
     agents-github-app) section_agents_github_app ;;
     agents-deploy-key) section_agents_deploy_key ;;
