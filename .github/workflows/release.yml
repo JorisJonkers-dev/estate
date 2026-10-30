@@ -62,7 +62,8 @@ jobs:
           - project-file: platform.intent.yml
             validate-with: platform node-contract.yml images.lock.yml
             validate-with-fragments: delivery estate-dashboard auth
-          - project-file: platform/edge.project.yml
+          - project-file: platform/edge/edge.project.yml
+            validate-with: platform/edge/env
           - project-file: platform/observability.project.yml
           - project-file: platform/secrets.project.yml
           - project-file: platform/data/data.project.yml

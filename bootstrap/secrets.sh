@@ -64,6 +64,7 @@ SECTIONS=(
   "metrics-token|the token Prometheus scrapes Vault's metrics with; re-minted only when invalid"
   "discord-webhook|the Discord webhook Alertmanager posts alerts to"
   "cloudflare|the Cloudflare DNS token the public tier's Traefik issues certificates with"
+  "tls-wildcard|the wildcard the LAN tier serves, copied once from cert-manager's last issue"
   "collector-key|the delivery Collector GitHub App's id, installation id and key"
   "reporter-key|the delivery Reporter GitHub App's id, installation id and key"
   "estate-dashboard|the dashboard's OIDC client secret, session key and GitHub token"
@@ -709,6 +710,62 @@ cf_token_check() {
   else
     die "Cloudflare rejects $2 ($(fp "$1")): $(jq -r '[.errors[]?.message] | join("; ")' <<<"$reply")"
   fi
+}
+
+# ── tls-wildcard ──────────────────────────────────────────────────────────
+# The LAN tier serves the wildcard read from secret/platform/tls/jorisjonkers-dev
+# (platform.intent.yml's certificateFrom, JorisJonkers-dev/deploy-kit#726), and
+# every proxy serves it from the default TLS store. Until an issuer writes that
+# path, it is seeded once from the Secret fleet-infra's cert-manager renews, so
+# the edge's proxies serve a valid certificate from their first start.
+TLS_KV_PATH=platform/tls/jorisjonkers-dev
+TLS_FROM_NS="edge-system"
+TLS_FROM_SECRET=jorisjonkers-dev-tls
+section_tls_wildcard() {
+  local doc cur_crt crt key cas end
+  doc=$(kv_load "$TLS_KV_PATH")
+  cur_crt=$(kv_field "$doc" tls.crt)
+  if [[ -n "$LOCAL_VAULT" ]]; then
+    later "secret/$TLS_KV_PATH is copied from the cluster, which a local Vault run skips"
+    result tls-wildcard skipped
+    return 0
+  fi
+  crt=$($KUBECTL -n "$TLS_FROM_NS" get secret "$TLS_FROM_SECRET" -o 'jsonpath={.data.tls\.crt}' 2>/dev/null | base64 -d 2>/dev/null || true)
+  key=$($KUBECTL -n "$TLS_FROM_NS" get secret "$TLS_FROM_SECRET" -o 'jsonpath={.data.tls\.key}' 2>/dev/null | base64 -d 2>/dev/null || true)
+  if [[ -z "$crt" || -z "$key" ]]; then
+    if [[ -n "$cur_crt" ]]; then
+      ok "secret/$TLS_KV_PATH → tls.crt exists ($(fp "$cur_crt")); $TLS_FROM_NS/$TLS_FROM_SECRET is gone, so its issuer keeps it"
+      result tls-wildcard "already right"
+    else
+      later "$TLS_FROM_NS/$TLS_FROM_SECRET is not readable and secret/$TLS_KV_PATH is empty: the LAN tier has no certificate"
+      result tls-wildcard "not written"
+    fi
+    return 0
+  fi
+  end=$(printf '%s' "$crt" | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
+  if [[ "$cur_crt" == "$crt" && -z "$ROTATE" ]]; then
+    ok "secret/$TLS_KV_PATH holds $TLS_FROM_SECRET's certificate ($(fp "$crt")), valid to $end"
+    result tls-wildcard "already right"
+    return 0
+  fi
+  [[ -z "$cur_crt" ]] || note "secret/$TLS_KV_PATH holds another certificate ($(fp "$cur_crt"))"
+  confirm "Copy $TLS_FROM_NS/$TLS_FROM_SECRET (tls.crt $(fp "$crt"), tls.key $(fp "$key"), valid to $end) to secret/$TLS_KV_PATH?" \
+    || { later "secret/$TLS_KV_PATH is not written"; result tls-wildcard "not written"; return 0; }
+  # One whole version, checked against the one read. The values reach jq and
+  # vault on stdin.
+  cas=$(vault kv metadata get -mount=secret -format=json "$TLS_KV_PATH" 2>/dev/null </dev/null \
+    | jq -r '.data.current_version // 0' || true)
+  printf '%s\0%s' "$crt" "$key" \
+    | jq -Rs 'split("\u0000") as $v | {"tls.crt": $v[0], "tls.key": $v[1]}' \
+    | vault kv put -mount=secret -cas="${cas:-0}" "$TLS_KV_PATH" - >/dev/null \
+    || die "writing secret/$TLS_KV_PATH failed"
+  doc=$(kv_load "$TLS_KV_PATH")
+  [[ "$(kv_field "$doc" tls.crt)" == "$crt" && "$(kv_field "$doc" tls.key)" == "$key" ]] \
+    || die "secret/$TLS_KV_PATH does not read back"
+  ok "secret/$TLS_KV_PATH → tls.crt $(fp "$crt"), tls.key $(fp "$key"), valid to $end"
+  later "nothing renews secret/$TLS_KV_PATH until its issuer is declared: renew before $end"
+  result tls-wildcard written
+  unset crt key
 }
 
 # ── collector-key, reporter-key ───────────────────────────────────────────
@@ -1747,6 +1804,7 @@ for CURRENT_SECTION in "${SELECTED[@]}"; do
     mistral) section_mistral ;;
     backup-off-cluster) section_backup_off_cluster ;;
     data) section_data ;;
+    tls-wildcard) section_tls_wildcard ;;
     garage-keys) section_garage_keys ;;
     agents-github-app) section_agents_github_app ;;
     agents-deploy-key) section_agents_deploy_key ;;

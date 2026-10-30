@@ -32,6 +32,15 @@ images:
     uid: 65532
     gid: 65532
     version: "v3.7.12"
+  # external-dns v0.21.0, the image fleet-infra's chart 1.21.1 runs today: the
+  # digest the live pod runs, a multi-arch index. The image names root; the
+  # chart runs it as 65532, as it runs here.
+  external-dns:
+    repository: registry.k8s.io/external-dns/external-dns
+    digest: "sha256:f53faaf71cb270d1ca9dce6ea0c94bfebf1a18696263487f0fbc74b9bf2bd7ff"
+    uid: 65532
+    gid: 65532
+    version: "v0.21.0"
 
   # 1.21.4, which fleet-infra runs. The image starts as root and drops to its
   # own `vault` user, uid 100 and gid 1000, which is what it runs as here.

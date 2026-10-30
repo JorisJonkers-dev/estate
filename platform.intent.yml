@@ -94,20 +94,26 @@ tiers:
     # agents-ws and jellyfin publish unproxied records, and the node's own
     # address answers on 443 directly, so a client could write
     # CF-Connecting-IP itself.
-    traefik: edge/traefik-public # declared in platform/edge.project.yml, placed on the public-ingress node
+    traefik: edge/traefik-public # declared in platform/edge/edge.project.yml, placed on the public-ingress node
     ingressClass: traefik-public # the class the live public Traefik admits, and external-dns filters on
-    # Where the live public routes' records point, proxied by Cloudflare.
-    dns: {target: ingress.jorisjonkers.dev, proxied: true}
+    # Where the live public routes' records point, proxied by Cloudflare, and
+    # where a grey-cloud host points instead: frankfurt-contabo-1's own address,
+    # which edge-frankfurt names. hermes and agents-ws publish unproxied
+    # records there today (their exposures' `proxied: false`).
+    dns: {target: ingress.jorisjonkers.dev, proxied: true, direct: 167.86.79.203}
     # Host ports 80 and 443 on the Frankfurt node, which Cloudflare forwards to.
     address: edge-frankfurt
   - name: lan
     audiences: [lan]
     # The live LAN Traefik serves every route on websecure.
     listener: tls
-    # It serves the wildcard the proxy already holds: the default TLSStore's,
-    # which fleet-infra's cert-manager issues. It cannot issue its own: it runs
-    # in Enschede, and the Cloudflare token only answers from Frankfurt.
+    # It cannot issue its own: it runs in Enschede, and the Cloudflare token
+    # only answers from Frankfurt. It serves the wildcard read from the Secret
+    # Store instead, from the default TLS store every proxy serves, which
+    # replaces fleet-infra's cert-manager wildcard (keys tls.crt and tls.key;
+    # JorisJonkers-dev/deploy-kit#726).
     certificates: none
+    certificateFrom: secret/data/platform/tls/jorisjonkers-dev
     traefik: edge/traefik-lan # placed on a LAN node
     ingressClass: traefik-lan # the class the live LAN Traefik admits
     # No `dns`: AdGuard answers the LAN's names, and external-dns writes no
@@ -340,11 +346,14 @@ delivery:
 # The Applications whose Processes may hold Kubernetes API access, and where
 # the API server answers. Each is in the delivery Project, save the
 # estate-dashboard, which reads Flux's sources and units and Flagger's Canaries
-# and writes nothing (JorisJonkers-dev/estate-dashboard), and headlamp, which
-# holds no rule and acts with each signed-in user's own token. This document
-# validates only beside their fragments: alone it refuses E_UNKNOWN_API_HOLDER.
+# and writes nothing (JorisJonkers-dev/estate-dashboard), headlamp, which
+# holds no rule and acts with each signed-in user's own token, and edge's
+# external-dns, which reads every public route and the Services behind it. The
+# tiers' two proxies need no place here: their tiers derive their access
+# (JorisJonkers-dev/deploy-kit#727). This document validates only beside their
+# fragments: alone it refuses E_UNKNOWN_API_HOLDER.
 apiAccess:
-  holders: [delivery/flagger, delivery/release-gate, delivery/collector, delivery/reporter, estate-dashboard/estate-dashboard, utility/headlamp]
+  holders: [delivery/flagger, delivery/release-gate, delivery/collector, delivery/reporter, estate-dashboard/estate-dashboard, utility/headlamp, edge/external-dns]
   server:
     - { cidr: 10.43.0.1/32, port: 443 } # Service default/kubernetes, read 2026-10-07
 
@@ -418,12 +427,12 @@ seeder:
 handover:
   retireBy: 2027-03-31
   legacy:
-    - edge
     - secrets
     - observability
     - data
   estate:
     - delivery
+    - edge
     - estate-dashboard
     - home-portal
     - tribelt
