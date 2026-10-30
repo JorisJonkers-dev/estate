@@ -21,14 +21,14 @@ live step is the maintainer's go-ahead, never an agent's.
 | D1 | **Which `config.yaml` hermes runs with: decided 2026-10-30, the live file.** The seeded Asset replaces `/opt/data/config.yaml` before every start, so what this repository ships is what hermes runs. `platform/agents/config/hermes/config.yaml` is fleet-infra's live `config.yaml` (the `hermes-config` ConfigMap on its `main`, identical to the cluster's), with its three `@VAR@` markers rewritten as `${GITHUB_PAT}`, `${HINDSIGHT_API_TOKEN}` and `${OVERLEAF_SESSION}` and nothing else changed. It holds no secret value; each of the three reaches hermes through `env/hermes/base.env`. Its comments still describe the old path's seed step and `.env` | decided |
 | D2 | **The old `/opt/data/.env`.** The old path's seed step writes the provider keys and `GITHUB_PERSONAL_ACCESS_TOKEN` into `/opt/data/.env` on every start. Nothing writes it on the estate path, where the same values are the process's own environment; the stale file stays on the volume, and whether hermes lets it override its environment was not checked | Move it aside once hermes runs on the estate path (cutover step 5), so a key rotated in Vault is the one hermes uses |
 | D3 | **agents-api and agents-ui stay declared, parked.** The worked example keeps them so unparking is deleting a line; fleet-infra#531 retires them on the old path (2026-10-23). Parked, they render two zero-replica Deployments, their Services, ServiceAccounts, agents-api's Role and their NetworkPolicies | Keep them for this handover, which copies the example; delete both blocks in a later change if the retirement is final |
-| D4 | **hermes's memory request rises from 1Gi to 3Gi** (2Gi for the Process plus its 1Gi in-memory `/dev/shm`; request equals limit). `enschede-gtx-960m-1` has 2096Mi unrequested today, so the new pod fits by 48Mi once the old one is gone. Live, hermes works at 1069Mi and peaked at 1.4Gi | Delete the orphaned `auth-bootstrap` pod (128Mi, retired by fleet-infra#531) before the flip, and read the margin again at pre-check 5 |
+| D4 | **hermes's memory request: decided 2026-10-30, 2.5Gi**, up from 1Gi (1.5Gi for the Process plus its 1Gi in-memory `/dev/shm`; request equals limit). Live, hermes works at 1069Mi and peaked at 1.4Gi. To make room on `enschede-gtx-960m-1`, auth-api (4Gi to 2Gi per replica), `tei-embedding` (4Gi to 3Gi) and `hindsight-api` (1.5Gi to 768Mi) are right-sized to their use first (JorisJonkers-dev/auth-api#128, JorisJonkers-dev/hindsight#29). The orphaned `auth-bootstrap` pod (128Mi, retired by fleet-infra#531) is deleted at pre-check 5: until B and C land, `apps-agents` recreates it | decided |
 
 ## What it waits on
 
 | | what | where |
 |---|---|---|
 | W1 | the utility handover, before this one in the order | JorisJonkers-dev/deploy-kit#657, JorisJonkers-dev/estate#248 |
-| W2 | D2 to D4 decided | above |
+| W2 | D2 and D3 decided | above |
 | W3 | fleet-infra#531, if it goes first: these changes were checked to merge after it | JorisJonkers-dev/fleet-infra#531 |
 
 Nothing needs a Vault write. `secret/data/agents/hermes` holds `github-pat`,
@@ -70,7 +70,7 @@ adds two ConfigMaps to what 1.2.0 rendered, `hermes-external-checks` and
 | init `sync-skills` (alpine as root, git clones from `sources.conf`) | none | RENDER-GAPS A8, JorisJonkers-dev/deploy-kit#706, open: hermes runs with the skills its image bundles, the maintainer's decision. The last sync's copy stays in `/opt/data/skills-vendored`, which the live config still names in `skills.external_dirs`, so hermes keeps reading that frozen copy |
 | env from Secret `hermes-credentials` (VSO, `vso-system/default`, 1h refresh) | env from `hermes-agents-hermes` (own `VaultAuth` as `agents-system-hermes`, 10m refresh, `hmacSecretData`), every key optional; `GITHUB_PERSONAL_ACCESS_TOKEN` from `github-pat`, as the old `.env` carried it | identity per Process; the policy job writes the role and its read policy on `secret/data/agents/hermes` and its metadata |
 | issuer `https://auth.jorisjonkers.dev`, client `hermes`, public URL `https://hermes.jorisjonkers.dev` | the same values, from `${exposure:auth.public#url}` and `${exposure:hermes.public#url}` | the Platform document names no sign-in provider, so no `client` block (`E_NO_SIGN_IN_PROVIDER`); hermes keeps signing in against auth-api, whose registered redirect URI is unchanged |
-| requests 250m/1Gi, limits 2 CPU/4Gi | 250m/3Gi, limit 3Gi, no CPU limit | request equals limit, and the in-memory `/dev/shm` counts toward it: D4 |
+| requests 250m/1Gi, limits 2 CPU/4Gi | 250m/2.5Gi, limit 2.5Gi, no CPU limit | request equals limit, and the in-memory `/dev/shm` counts toward it: D4 |
 | `/dev/shm` emptyDir, Memory, 1Gi | the same | `{path: /dev/shm, memory: 1Gi}` |
 | probes `/api/status`: readiness delay 20s × 6 of 10s, liveness delay 60s × 4 of 30s | startup 24 × 5s (the 120s budget), readiness and liveness every 10s × 3, no delay | `startupBudget` and the platform's cadence |
 | `progressDeadlineSeconds` 900, `revisionHistoryLimit` 3, Reloader annotation | 660, default, none | derived from the budget; the 900 covered the first 950MiB pull, which the node has cached. VSO restarts hermes on a change of content |
@@ -123,7 +123,7 @@ adds two ConfigMaps to what 1.2.0 rendered, `hermes-external-checks` and
   `agents-github-deploy-key`, `github-app` and their Secrets; ConfigMaps
   `hermes-config`, `hermes-skills`, `hermes-bootstrap`, `agents-mcp-servers`;
   ServiceAccounts `vault-secrets-operator`, `agent-runner`, `agents-api` (the
-  render's replaces it); Pod `auth-bootstrap`; CronJob `agents-refresh-ping`;
+  render's replaces it); CronJob `agents-refresh-ping`;
   Role and RoleBinding `agents-api-runner-controller`; NetworkPolicy
   `runner-default`; Deployment and Service `agents-api-ws`; PDBs `agents-api`,
   `agents-ui`; ServiceMonitor `agents-api`; claim `agents-api-agent-home`; the
@@ -136,7 +136,7 @@ adds two ConfigMaps to what 1.2.0 rendered, `hermes-external-checks` and
 
 ## Pre-checks
 
-Each must print what it says. Nothing here writes.
+Each must print what it says. Nothing here writes, save pre-check 5's one delete.
 
 ```sh
 # 1. A and B reached the live objects: every object of both units, the namespace and the claims, carry the mark.
@@ -159,7 +159,9 @@ kubectl -n agents-system get networkpolicy hermes -o jsonpath='{.metadata.labels
 kubectl -n agents-system get secret hermes-credentials -o json | jq -r '.data | keys[]'
 #    github-pat, hindsight-api-token, openrouter-api-key at least; the rest are optional.
 
-# 5. hermes fits on its node: unrequested memory, plus the old pod's 1Gi, must exceed 3Gi.
+# 5. hermes fits on its node. B and C have landed (pre-checks 1 and 3), so nothing recreates the
+#    orphaned auth-bootstrap pod: delete it, then unrequested memory, plus the old pod's 1Gi, must exceed 2.5Gi.
+kubectl -n agents-system delete pod auth-bootstrap
 kubectl describe node enschede-gtx-960m-1 | sed -n '/Allocated resources/,/Events/p'
 
 # 6. The volume is hermes's: nothing under /opt/data owned by anyone but 10000.

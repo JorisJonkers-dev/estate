@@ -66,9 +66,10 @@ applications:
           dashboard: 9119
         # Its claim is bound to enschede-gtx-960m-1, so the ClusterState
         # snapshot holds it there; no node is named here. Live it works at
-        # about 1.1Gi and peaked at 1.4Gi over two weeks (2026-10-29).
+        # about 1.1Gi and peaked at 1.4Gi over two weeks (2026-10-29). With its
+        # 1Gi in-memory /dev/shm the request is 2.5Gi.
         placement:
-          memory: 2Gi
+          memory: 1536Mi
           cpu: 250m
           site: enschede
         # The memory, sessions and installed skills: hermes writes them and
