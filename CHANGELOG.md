@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.0](https://github.com/JorisJonkers-dev/estate/compare/v0.33.0...v0.34.0) (2026-10-30)
+
+
+### Features
+
+* **platform:** declare the priority classes, so every Process runs at its derived priority ([#266](https://github.com/JorisJonkers-dev/estate/issues/266)) ([8219807](https://github.com/JorisJonkers-dev/estate/commit/82198079c0353cad94550cde7b9cdd9f37d3b45d))
+
 ## [0.33.0](https://github.com/JorisJonkers-dev/estate/compare/v0.32.0...v0.33.0) (2026-10-30)
 
 
