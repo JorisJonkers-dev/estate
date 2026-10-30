@@ -269,6 +269,10 @@ engines:
   # `catalog` applies the bucket catalog of the estate path's projects over Garage's admin API.
   # No edge names a bucket yet, so it derives nothing until one does.
   s3: { backup: file-backup, catalog: garage-catalog, catalogSurface: admin }
+  # Dumped over its wire protocol, as the user `backup` of `admin`: a copy of a running mongod's
+  # files is no consistent backup. No `catalog`: a mongo owns no databases
+  # (deploy-kit spec/v1/16-dependencies.md#the-database-catalog).
+  mongo: { backup: mongo-backup, surface: mongo }
 
 # One cadence for every rendered monitor.
 monitors:
