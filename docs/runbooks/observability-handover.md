@@ -43,7 +43,7 @@ of their first rollout).
 | O1 | JorisJonkers-dev/fleet-infra#563 | prune marks on the namespace `observability`, `gatus-data`, `observability-backups` and the three routes; the loki chart keeps its claim, the grafana chart tells Helm to keep its | before the window | none |
 | P | a person | PersistentVolumes to `Retain` (below) | before the window | none |
 | O2 | JorisJonkers-dev/fleet-infra#564 | every object of `apps-observability`, `apps-observability-rules` and `apps-grafana-dashboards` marked; the seven HelmReleases suspended; the three Kustomizations `prune: false` | window step 1 | none |
-| O3 | JorisJonkers-dev/fleet-infra#566 | the manifests and the three Kustomizations go; the namespace, the backup CronJobs and dcgm-exporter stay under `apps-observability-namespace`; the grafana, gatus and faro routes move unchanged to `apps-edge` | window step 2 | none |
+| O3 | JorisJonkers-dev/fleet-infra#566 | the manifests and the three Kustomizations go; the namespace, the backup CronJobs and the node agents' two PodMonitors stay under `apps-observability-namespace`; the grafana, gatus and faro routes move unchanged to `apps-edge` | window step 2 | none |
 | B | estate, #260, then its release | the ledger moves `observability` to `estate` and drops its `serving` statement; the Platform document gains `bootstrap.k3s.metrics`, `bootstrap.flux.metrics`, `telemetry.dashboards`, `monitoring` with its `stores`, and the six API holders | window step 3 | auth-api rolls once; the old stack stops alerting as the new one starts |
 | O4 | JorisJonkers-dev/fleet-infra#568 | the routes serve `observability-system`; both Traefiks trace to the new collector; the old Grafana's and Alertmanager's VaultStaticSecrets go | after the flip, once the units are Ready | both Traefiks restart |
 
@@ -281,13 +281,20 @@ kubectl --context personal get ds -A | grep -E 'node-exporter|node-metrics'
    kubectl --context personal -n observability delete alertmanager metrics-stack-alertmanager
    kubectl --context personal -n observability delete grafana grafana
    # Their monitors and routing. The new Prometheus selects every monitor of every namespace, so the old
-   # kubelet, apiserver, coredns, node-exporter and kube-state-metrics ones would scrape twice.
-   kubectl --context personal -n observability delete servicemonitor,podmonitor,alertmanagerconfig --all
+   # kubelet, apiserver, coredns, kube-state-metrics and the stores' ones would scrape twice.
+   kubectl --context personal -n observability get servicemonitor,podmonitor -o name \
+     | grep -vE '^podmonitor\.monitoring\.coreos\.com/(node-metrics|gpu-metrics)$' \
+     | xargs kubectl --context personal -n observability delete
+   kubectl --context personal -n observability delete alertmanagerconfig --all
    kubectl --context personal -n flux-system delete podmonitor flux-controllers
    ```
 
-   Monitors in other namespaces stay: they are still-legacy Projects' (edge's
-   Traefiks), and the new Prometheus scrapes them as the old one did.
+   Two monitors stay: `observability/node-metrics` and `/gpu-metrics`, which
+   fleet-infra keeps applying under `apps-observability-namespace` (O3) until
+   deploy-kit renders the node agents' own (JorisJonkers-dev/deploy-kit#731).
+   They keep the jobs `node-exporter` and `dcgm-exporter`. Monitors in other
+   namespaces stay too: they belong to still-legacy Projects (edge's Traefiks),
+   and the new Prometheus scrapes them as the old one did.
 3. Merge O4 once `apps-observability` is Ready. Both Traefiks restart once
    with the new tracing endpoint, and the three routes serve the new stack.
 
