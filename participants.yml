@@ -41,6 +41,13 @@ participants:
     dormant: true
     owner: joris
     reason: publishes with the Platform document, on this repository's releases
+  # utility: adguard and headlamp, moved from fleet-infra in place, in
+  # utility-system. Both run third-party images, so it publishes from this
+  # repository, on this repository's releases.
+  utility:
+    dormant: true
+    owner: joris
+    reason: publishes with the Platform document, on this repository's releases
   # JorisJonkers-dev/delivery: the Release Gate, the Collector and the Vault
   # policy job. Its releases follow the delivery machinery's own changes.
   delivery:
