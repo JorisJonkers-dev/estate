@@ -1,9 +1,9 @@
-# deploy-kit Project Intent for the estate's shared datastores: Postgres, RabbitMQ, Valkey and
-# Garage.
+# deploy-kit Project Intent for the estate's shared datastores: Postgres, RabbitMQ, Valkey,
+# Garage and MongoDB.
 #
-# The Project is `data`, so the namespace derives as `data-system`, where all four already run.
-# MongoDB, Overleaf's document store in the same namespace, joins this file once delivery
-# publishes the `mongo` engine's backup method; until then the old path keeps delivering it.
+# The Project is `data`, so the namespace derives as `data-system`, where all of them already
+# run. MongoDB, Overleaf's document store, joined after the other four, in its own handover
+# (JorisJonkers-dev/deploy-kit#748, docs/runbooks/mongo-handover.md).
 # It is on the estate path since JorisJonkers-dev/deploy-kit#661
 # (deploy-kit docs/runbooks/handover.md): its pin delivers it, and its unit applies the Postgres
 # catalog. It publishes with the Platform document, on this repository's releases, and its
@@ -279,3 +279,79 @@ applications:
             mountAt: /var/lib/garage/data
             size: 20Gi
             durability: recoverable
+
+  # ========================================================== platform-mongo
+  # Overleaf's document store: every project's text and every account. A replica set of one,
+  # named `overleaf`, because Overleaf's transactions and change streams need one; the name is in
+  # every connection string, and renaming a set means re-initiating it. Overleaf is its one
+  # consumer, and names it in its own `dependsOn`.
+  - id: platform-mongo
+    processes:
+      - name: mongo
+        lifecycle: application
+        image: mongo # mongo:8.0
+        runtime: none
+        # Keys the backup method, a dump over the wire protocol on the `mongo` surface, as the
+        # user `backup` of `admin` from secret/data/data/mongo/backup. A mongo owns no databases,
+        # so no edge into it derives a catalog.
+        engine: mongo
+
+        # The member is configured as this Process's Service name,
+        # mongo.data-system.svc.cluster.local, which the pod resolves to itself (deploy-kit 0145).
+        # Authentication is on, and the member authenticates as itself by the x.509 key and
+        # self-signed certificate below, its own CA: mongod refuses a keyFile any group can
+        # read, and the claim's fsGroup makes every mounted Secret group-readable. preferTLS
+        # still takes its clients' plain connections, each signing in with its own login.
+        # WiredTiger sizes its cache from the host's memory, not the container's, so it is set.
+        args:
+          - --replSet
+          - overleaf
+          - --bind_ip_all
+          - --wiredTigerCacheSizeGB
+          - "0.25"
+          - --auth
+          - --clusterAuthMode
+          - x509
+          - --tlsMode
+          - preferTLS
+          - --tlsCertificateKeyFile
+          - /etc/mongo/membership.pem
+          - --tlsCAFile
+          - /etc/mongo/membership.pem
+          - --tlsAllowConnectionsWithoutCertificates
+
+        provides:
+          mongo: 27017
+
+        # The live pod's working set is about 280Mi, with a 1 GB cache and a 2Gi limit.
+        # frankfurt-contabo-1 requests 17.8Gi of 23.5Gi before data's window adds about 4Gi.
+        placement:
+          memory: 1Gi
+          cpu: 200m
+
+        # mongod writes its socket under /tmp and its config database under /data/configdb.
+        writablePaths: [/tmp, /data/configdb]
+
+        probes:
+          readiness: { tcp: 27017 }
+          liveness: { tcp: 27017 }
+
+        startupBudget: 120s # journal recovery after an unclean stop runs before the listener
+
+        cutover: interrupted
+
+        volumes:
+          # The StatefulSet's claim, kept by name, so the handover adopts it in place.
+          - claim: mongo-data-mongo-0
+            mountAt: /data/db
+            size: 20Gi
+            durability: irreplaceable
+
+        secrets:
+          - path: secret/data/data/mongo/membership
+            keys: [pem]
+            access: read
+            delivery: file
+            mountAt: /etc/mongo/membership.pem
+            fileMode: "0440"
+            rotation: { tolerates: restart }
