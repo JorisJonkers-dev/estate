@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.36.0](https://github.com/JorisJonkers-dev/estate/compare/v0.35.0...v0.36.0) (2026-10-31)
+
+
+### Features
+
+* **bootstrap:** pin the monitoring stack's CRDs in the bootstrap set ([#259](https://github.com/JorisJonkers-dev/estate/issues/259)) ([dc23656](https://github.com/JorisJonkers-dev/estate/commit/dc23656f1f75b3eef5f5ebbf0ba7f458899cd7a6))
+* hand the observability Project over to the estate path ([#260](https://github.com/JorisJonkers-dev/estate/issues/260)) ([dd83e6a](https://github.com/JorisJonkers-dev/estate/commit/dd83e6ad62386d33683fe000b9716bda097fc738))
+
 ## [0.35.0](https://github.com/JorisJonkers-dev/estate/compare/v0.34.0...v0.35.0) (2026-10-30)
 
 
