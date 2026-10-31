@@ -10,7 +10,7 @@ apiVersion: state.jorisjonkers.dev/v1
 kind: ClusterState
 schemaVersion: 1.0.0
 cluster: "production"
-capturedAt: "2026-10-30T15:22:02Z"
+capturedAt: "2026-10-31T01:52:03Z"
 bindings:
   - { claim: "alertmanager-metrics-stack-alertmanager-db-alertmanager-metrics-stack-alertmanager-0", node: "frankfurt-contabo-1" }
   - { claim: "audit-vault-0", node: "frankfurt-contabo-1" }
@@ -51,6 +51,7 @@ bindings:
   - { claim: "sonarr-config", node: "enschede-t1000-1" }
   - { claim: "sonarr-config-backup", node: "enschede-t1000-1" }
   - { claim: "stalwart-data", node: "frankfurt-contabo-1" }
+  - { claim: "stalwart-data-backup", node: "frankfurt-contabo-1" }
   - { claim: "storage-loki-0", node: "frankfurt-contabo-1" }
   - { claim: "storage-tempo-0", node: "frankfurt-contabo-1" }
   - { claim: "tei-embedding-models", node: "enschede-gtx-960m-1" }
