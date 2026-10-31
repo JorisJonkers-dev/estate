@@ -10,7 +10,7 @@ apiVersion: state.jorisjonkers.dev/v1
 kind: ClusterState
 schemaVersion: 1.0.0
 cluster: "production"
-capturedAt: "2026-10-31T21:22:04Z"
+capturedAt: "2026-10-31T21:32:02Z"
 bindings:
   - { claim: "alertmanager-data", node: "frankfurt-contabo-1" }
   - { claim: "alertmanager-metrics-stack-alertmanager-db-alertmanager-metrics-stack-alertmanager-0", node: "frankfurt-contabo-1" }
@@ -84,7 +84,7 @@ placements:
   - { process: "gpu-metrics", node: "enschede-gtx-960m-1" }
   - { process: "gpu-metrics", node: "enschede-t1000-1" }
   - { process: "grafana", node: "frankfurt-contabo-1" }
-  - { process: "grafana-operator", node: "enschede-t1000-1" }
+  - { process: "grafana-operator", node: "enschede-gtx-960m-1" }
   - { process: "grimoire", node: "enschede-gtx-960m-1" }
   - { process: "headlamp-primary", node: "enschede-gtx-960m-1" }
   - { process: "hindsight-api-primary", node: "enschede-gtx-960m-1" }
@@ -99,7 +99,7 @@ placements:
   - { process: "karakeep", node: "enschede-t1000-1" }
   - { process: "karakeep-chrome-primary", node: "frankfurt-contabo-1" }
   - { process: "karakeep-search", node: "enschede-pi-3" }
-  - { process: "kube-state-metrics-primary", node: "enschede-t1000-1" }
+  - { process: "kube-state-metrics-primary", node: "enschede-gtx-960m-1" }
   - { process: "l4-controller", node: "enschede-gtx-960m-1" }
   - { process: "l4-speaker", node: "enschede-gtx-960m-1" }
   - { process: "l4-speaker", node: "enschede-pi-1" }
@@ -114,7 +114,7 @@ placements:
   - { process: "node-metrics", node: "enschede-pi-3" }
   - { process: "node-metrics", node: "enschede-t1000-1" }
   - { process: "node-metrics", node: "frankfurt-contabo-1" }
-  - { process: "otel-collector", node: "enschede-t1000-1" }
+  - { process: "otel-collector", node: "enschede-gtx-960m-1" }
   - { process: "outline-primary", node: "enschede-t1000-1" }
   - { process: "outline-primary", node: "frankfurt-contabo-1" }
   - { process: "overleaf", node: "enschede-t1000-1" }
