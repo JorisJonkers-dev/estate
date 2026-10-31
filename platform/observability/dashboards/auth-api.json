@@ -1,0 +1,99 @@
+{
+  "uid": "auth-api",
+  "title": "Auth API",
+  "tags": ["auth", "oauth2", "spring-boot"],
+  "timezone": "browser",
+  "editable": false,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "schemaVersion": 39,
+  "templating": { "list": [] },
+  "panels": [
+    { "id": 100, "type": "text", "title": "Investigating a slow request?",
+      "gridPos": {"h":3,"w":24,"x":0,"y":0},
+      "options": {
+        "mode": "markdown",
+        "content": "This dashboard is the per-feature traffic overview. **To drill into one slow request and see its full span tree, logs, metrics, and profile**, open the [Spring Service — Endpoint Investigation](/d/spring-service-endpoints) dashboard, pick `auth-api` as the service, and click an exemplar dot on the latency heatmap."
+      }
+    },
+    { "id": 1, "title": "Login Rate", "type": "timeseries",
+      "gridPos": {"h":8,"w":8,"x":0,"y":3},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(rate(http_server_requests_seconds_count{application=\"auth-api\", uri=~\"/api/v1/auth/login\"}[5m]))", "legendFormat": "Login requests/s" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    { "id": 2, "title": "Login Success vs Failure", "type": "timeseries",
+      "gridPos": {"h":8,"w":8,"x":8,"y":3},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(rate(http_server_requests_seconds_count{application=\"auth-api\", uri=~\"/api/v1/auth/login\", status=~\"2..\"}[5m]))", "legendFormat": "Success (2xx)" },
+        { "expr": "sum(rate(http_server_requests_seconds_count{application=\"auth-api\", uri=~\"/api/v1/auth/login\", status=~\"4..\"}[5m]))", "legendFormat": "Client Error (4xx)" },
+        { "expr": "sum(rate(http_server_requests_seconds_count{application=\"auth-api\", uri=~\"/api/v1/auth/login\", status=~\"5..\"}[5m]))", "legendFormat": "Server Error (5xx)" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    { "id": 3, "title": "Login Latency p95 / p50", "type": "timeseries",
+      "gridPos": {"h":8,"w":8,"x":16,"y":3},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum by(le)(rate(http_server_requests_seconds_bucket{application=\"auth-api\", uri=~\"/api/v1/auth/login\"}[5m])))", "legendFormat": "p95" },
+        { "expr": "histogram_quantile(0.50, sum by(le)(rate(http_server_requests_seconds_bucket{application=\"auth-api\", uri=~\"/api/v1/auth/login\"}[5m])))", "legendFormat": "p50" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    { "id": 4, "title": "OAuth2 Token requests/s", "type": "timeseries",
+      "gridPos": {"h":8,"w":8,"x":0,"y":11},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(rate(http_server_requests_seconds_count{application=\"auth-api\", uri=\"/api/oauth2/token\"}[5m]))", "legendFormat": "Token requests/s" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    { "id": 5, "title": "Authorize requests/s", "type": "timeseries",
+      "gridPos": {"h":8,"w":8,"x":8,"y":11},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(rate(http_server_requests_seconds_count{application=\"auth-api\", uri=~\"/api/oauth2/authorize.*\"}[5m]))", "legendFormat": "Authorize requests/s" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    { "id": 6, "title": "Token Latency p95", "type": "timeseries",
+      "gridPos": {"h":8,"w":8,"x":16,"y":11},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by(le)(rate(http_server_requests_seconds_bucket{application=\"auth-api\", uri=\"/api/oauth2/token\"}[5m])))", "legendFormat": "p95" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    { "id": 7, "title": "Userinfo Rate", "type": "timeseries",
+      "gridPos": {"h":8,"w":8,"x":0,"y":19},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(rate(http_server_requests_seconds_count{application=\"auth-api\", uri=\"/api/userinfo\"}[5m]))", "legendFormat": "Userinfo requests/s" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    { "id": 8, "title": "Forward-Auth Verify Rate", "type": "timeseries",
+      "gridPos": {"h":8,"w":8,"x":8,"y":19},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(rate(http_server_requests_seconds_count{application=\"auth-api\", uri=~\"/api/v1/auth/verify\"}[5m]))", "legendFormat": "Verify requests/s" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    { "id": 9, "title": "Registration Rate", "type": "timeseries",
+      "gridPos": {"h":8,"w":8,"x":16,"y":19},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(rate(http_server_requests_seconds_count{application=\"auth-api\", uri=~\"/api/v1/users/register\"}[5m]))", "legendFormat": "Register requests/s" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    { "id": 10, "title": "4xx / 5xx by endpoint (top 10)", "type": "table",
+      "gridPos": {"h":8,"w":24,"x":0,"y":27},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "topk(10, sum by(uri, status)(rate(http_server_requests_seconds_count{application=\"auth-api\", status=~\"[45]..\"}[5m])))", "format": "table", "instant": true }]
+    },
+    { "id": 11, "title": "Recent auth errors", "type": "logs",
+      "gridPos": {"h":10,"w":12,"x":0,"y":35},
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [{ "expr": "{service_name=\"auth-api\"} | json | level=~\"ERROR|error\"" }],
+      "options": { "showTime": true, "wrapLogMessage": true, "enableLogDetails": true, "sortOrder": "Descending" }
+    },
+    { "id": 12, "title": "Failed login attempts", "type": "logs",
+      "gridPos": {"h":10,"w":12,"x":12,"y":35},
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [{ "expr": "{service_name=\"auth-api\"} | json | message=~\"(?i)login.*fail|authentication.*fail|bad credentials|invalid.*password\"" }],
+      "options": { "showTime": true, "wrapLogMessage": true, "enableLogDetails": true, "sortOrder": "Descending" }
+    }
+  ]
+}
+

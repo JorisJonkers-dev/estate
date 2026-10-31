@@ -42,6 +42,16 @@ substrate:
 
 # What must exist before the first rendered object can apply.
 bootstrap:
+  # Where k3s serves its own metrics, as its install sets them: the metrics
+  # stack scrapes the kubelet (with cAdvisor and probes), the API server and
+  # CoreDNS there, replacing kube-prometheus-stack's kubelet, apiserver and
+  # coredns monitors (deploy-kit spec/v1/14-platform-intent.md#k3ss-metrics).
+  # etcd is not recorded: this k3s runs on sqlite, so there is none.
+  k3s:
+    metrics:
+      kubelet: {port: 10250}
+      apiServer: {service: default/kubernetes, port: https}
+      coreDns: {port: 9153}
   flux:
     # The GitRepository that reads this repository, declared in fleet-infra's
     # flux-system while fleet-infra still owns the Flux controllers.
@@ -57,6 +67,12 @@ bootstrap:
       # The render packages are private: every pin source pulls with this
       # Secret, which the bootstrap wrote into flux-system for the canary.
       pullSecret: render-pull
+    # Where Flux's controllers serve their metrics, as fleet-infra's Flux
+    # install sets them: the metrics stack scrapes them there with the
+    # `flux-controllers` PodMonitor observability renders, which replaces
+    # fleet-infra's observability/flux-monitoring
+    # (deploy-kit spec/v1/14-platform-intent.md#fluxs-metrics).
+    metrics: {port: 8080, path: /metrics}
   vault:
     unsealed: true
   crds:
@@ -286,10 +302,38 @@ monitors:
 
 # The collector every exporting Runtime Profile sends to, and the metrics
 # stack every declared scrape surface admits: both declared in
-# platform/observability.project.yml.
+# platform/observability/observability.project.yml.
 telemetry:
   collector: observability/otel-collector
   metrics: observability/prometheus
+  # The Grafana every Application's dashboards ship to: the labels its
+  # instance carries, as fleet-infra's Grafana object carries them today, and
+  # the data source a vendored dashboard's inputs map to.
+  dashboards:
+    instance: {dashboards: grafana}
+    datasource: prometheus
+
+# The monitoring stack by role, and the one routing of every alert
+# (deploy-kit spec/v1/14-platform-intent.md#monitoring): fleet-infra's
+# alertmanager-discord routing, unchanged. The webhook is the key
+# fleet-infra's alertmanager-discord VaultStaticSecret reads today.
+monitoring:
+  grafana: observability/grafana
+  prometheus: observability/prometheus
+  alertmanager: observability/alertmanager
+  # The stores Grafana reads beside them: each is a data source, derived from
+  # Grafana's edge to it (deploy-kit spec/v1/14-platform-intent.md#grafanas-instance-and-data-sources).
+  stores:
+    loki: observability/loki
+    tempo: observability/tempo
+    pyroscope: observability/pyroscope
+  receivers:
+    - name: discord
+      discord:
+        webhook: {path: secret/data/platform/observability, key: discord.alert_webhook_url}
+  routes:
+    - {severity: critical, receiver: discord, repeat: 4h}
+    - {severity: warning, receiver: discord, repeat: 12h}
 
 # The Secret Store every grant is read from: declared in platform/secrets.project.yml.
 secretStore: secrets/vault
@@ -340,13 +384,29 @@ delivery:
     latency: 1000ms
 
 # The Applications whose Processes may hold Kubernetes API access, and where
-# the API server answers. Each is in the delivery Project, save the
+# the API server answers: the delivery Project's machinery, the
 # estate-dashboard, which reads Flux's sources and units and Flagger's Canaries
-# and writes nothing (JorisJonkers-dev/estate-dashboard), and headlamp, which
-# holds no rule and acts with each signed-in user's own token. This document
-# validates only beside their fragments: alone it refuses E_UNKNOWN_API_HOLDER.
+# and writes nothing (JorisJonkers-dev/estate-dashboard), headlamp, which
+# holds no rule and acts with each signed-in user's own token, and the
+# observability Project's monitoring stack, operators and collectors. This
+# document validates only beside their fragments: alone it refuses
+# E_UNKNOWN_API_HOLDER.
 apiAccess:
-  holders: [delivery/flagger, delivery/release-gate, delivery/collector, delivery/reporter, estate-dashboard/estate-dashboard, utility/headlamp]
+  holders:
+    - delivery/flagger
+    - delivery/release-gate
+    - delivery/collector
+    - delivery/reporter
+    - estate-dashboard/estate-dashboard
+    - utility/headlamp
+    # The monitoring stack's Prometheus, operators and collectors, each
+    # reading the cluster for what it monitors.
+    - observability/prometheus
+    - observability/prometheus-operator
+    - observability/kube-state-metrics
+    - observability/grafana-operator
+    - observability/gatus
+    - observability/alloy
   server:
     - { cidr: 10.43.0.1/32, port: 443 } # Service default/kubernetes, read 2026-10-07
 
@@ -422,7 +482,6 @@ handover:
   legacy:
     - edge
     - secrets
-    - observability
     - data
   estate:
     - delivery
@@ -446,6 +505,7 @@ handover:
     - mail
     - utility
     - node
+    - observability
   # Where the old path runs a legacy Application that the estate path
   # reaches, rather than where its declaration puts it
   # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). Live Vault is
@@ -460,13 +520,6 @@ handover:
     - application: platform-postgres
       namespace: data-system
       admin: { path: secret/data/platform/postgres, user: postgres.user, password: postgres.password }
-    # The old path's collector: Grafana Alloy, whose Service and pods carry the
-    # instance alloy, with an OTLP gRPC receiver on 4317. Without this every
-    # exporting Runtime Profile (auth-api's jvm, the first on the estate path)
-    # is handed otel-collector.observability-system, which does not exist.
-    - application: otel-collector
-      namespace: observability
-      instance: alloy
 
 # No `providers`: everything an Application depends on today runs in the
 # cluster and is declared by some Project. The worked example's `stalwart`

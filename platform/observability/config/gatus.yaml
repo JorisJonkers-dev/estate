@@ -1,0 +1,12 @@
+# Gatus's own settings, as fleet-infra's gatus-config ConfigMap holds them. Its
+# endpoints are not here: each Project renders its own external checks, and
+# the checks sidecar writes each as a file beside this one
+# (deploy-kit spec/v1/14-platform-intent.md#the-foundation-is-declared).
+metrics: true
+storage:
+  type: sqlite
+  path: /data/data.db
+ui:
+  title: jorisjonkers.dev status
+  description: Uptime for every route the estate renders.
+  header: jorisjonkers.dev

@@ -50,6 +50,84 @@ images:
     gid: 10001
     version: "0.162.0"
 
+  # The observability Project's images, each at the digest its live pod runs
+  # in fleet-infra's `observability` namespace (read 2026-10-29). `uid` and
+  # `gid` are the image's own numeric user; where the image names its user
+  # (`nobody`, `pyroscope`) or runs as root (gatus, alloy, the checks
+  # sidecar's python), the user it runs as under the restricted posture.
+  prometheus-operator:
+    repository: quay.io/prometheus-operator/prometheus-operator
+    digest: "sha256:e52bb28fd41c98dd407c7a8cba8bdcfe7eabd7447e250afaf1fe7bb816dedbff"
+    uid: 65534
+    gid: 65534
+    version: "v0.93.1"
+  kube-state-metrics:
+    repository: registry.k8s.io/kube-state-metrics/kube-state-metrics
+    digest: "sha256:42cfe3723a5f058171c627537fb57a3ea0f26e4380fa18555a95cb1a1b4cfc5b"
+    uid: 65534 # nobody
+    gid: 65534
+    version: "v2.20.0"
+  alertmanager:
+    repository: quay.io/prometheus/alertmanager
+    digest: "sha256:690c7b525f4367aa91f73e2f91c632206d32e97c6384bdbf2fb7a861b420340d"
+    uid: 65534 # nobody
+    gid: 65534
+    version: "v0.34.0"
+  grafana-operator:
+    repository: ghcr.io/grafana/grafana-operator
+    digest: "sha256:e0fdb5b64f3ac485a6356646ae7fd252fe92db34c6e7675db5fab5b35e054edb"
+    uid: 65532
+    gid: 65532
+    version: "v5.25.0"
+  grafana:
+    repository: docker.io/grafana/grafana
+    digest: "sha256:2175aaa91c96733d86d31cf270d5310b278654b03f5718c59de12a865380a31f"
+    uid: 472
+    gid: 472
+    version: "12.3.1"
+  loki:
+    repository: docker.io/grafana/loki
+    digest: "sha256:44148ad243c07957113baea950ee5ba9b0c8eff8d7e38ff3cc1c0af705790945"
+    uid: 10001
+    gid: 10001
+    version: "3.6.11"
+  tempo:
+    repository: docker.io/grafana/tempo
+    digest: "sha256:65a5789759435f1ef696f1953258b9bbdb18eb571d5ce711ff812d2e128288a4"
+    uid: 10001
+    gid: 10001
+    version: "2.9.0"
+  pyroscope:
+    repository: docker.io/grafana/pyroscope
+    digest: "sha256:86a9ee7448487409ead8ada78789de7b78b739711b92b5d7224a1a54abf3eeb2"
+    uid: 10001 # pyroscope
+    gid: 10001
+    version: "2.3.1"
+  # The DaemonSet's v1.19.2; the image runs as root, and owns its own
+  # directories as 473.
+  alloy:
+    repository: docker.io/grafana/alloy
+    digest: "sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839"
+    uid: 473
+    gid: 473
+    version: "v1.19.2"
+  # Live: docker.io/twinproduction/gatus, which runs as root.
+  gatus:
+    repository: docker.io/twinproduction/gatus
+    digest: "sha256:c5f210d095fa78e6efaa20ffeb14803f2ba4f10615e16a6d12087697149617f0"
+    uid: 65534
+    gid: 65534
+    version: "v5.36.0"
+  # The checks sidecar: kiwigrid's k8s-sidecar 2.5.0, the image fleet-infra's
+  # Grafana already runs to gather its data sources. The worked example's
+  # ghcr.io/jorisjonkers-dev/platform/gatus-checks was never built.
+  gatus-checks:
+    repository: docker.io/kiwigrid/k8s-sidecar
+    digest: "sha256:a6b3f707f883108376514489a94d6629109a327b2978e1d826cd104c4ca436df"
+    uid: 65534
+    gid: 65534
+    version: "2.5.0"
+
   # v3.14.0-distroless, the prometheus kube-prometheus-stack 90.0.0 runs in
   # fleet-infra.
   prometheus:

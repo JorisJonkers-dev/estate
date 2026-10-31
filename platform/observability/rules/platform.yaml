@@ -1,0 +1,561 @@
+# The platform's alert rules, carried by the monitoring stack's Prometheus
+# (deploy-kit spec/v1/10-project-intent.md#alert-rules). A rule's `severity`
+# label picks the route the Platform document's `monitoring` block declares.
+#
+# Carried from fleet-infra's observability-rules/platform-alerts.yaml at
+# 72a449c, rule for rule, VaultSealed included as fleet-infra#545 rewrote it
+# on 2026-10-29. Only the PrometheusRule wrapper is gone: the render writes it.
+groups:
+  # ───────── Edge / SLO ─────────
+  - name: platform-edge
+    rules:
+      - alert: PlatformIngressErrorsHigh
+        expr: sum(rate(traefik_service_requests_total{code=~"5.."}[5m])) / sum(rate(traefik_service_requests_total[5m])) > 0.01
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: Elevated ingress 5xx rate
+          description: Traefik 5xx ratio > 1% over the last 5m.
+      - alert: PlatformIngressLatencyHigh
+        expr: histogram_quantile(0.95, sum by (le) (rate(traefik_service_request_duration_seconds_bucket[5m]))) > 1
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: Edge p95 latency above 1s
+          description: Traefik p95 request duration > 1s for 10 minutes.
+      - alert: PlatformTLSCertExpiringSoon
+        expr: (traefik_tls_certs_not_after - time()) < (14 * 24 * 3600)
+        for: 1h
+        labels: {severity: warning}
+        annotations:
+          summary: TLS certificate near expiry
+          description: A certificate exposed by Traefik expires in < 14 days.
+  # ───────── SLO burn rate ─────────
+  - name: platform-slo
+    rules:
+      # Grouped by `service`, not `service_name`. spanmetrics labels the
+      # service `service`; `service_name` exists elsewhere in this Prometheus
+      # (probe and webhook metrics) but not on this metric, so grouping by it
+      # collapsed every service into a single unnamed series. The alert then
+      # fired with an empty summary -- and worse, the fleet-wide average
+      # diluted a real 4.7% burn on one service to 0.54%, below the fast-burn
+      # threshold, so the critical alert could not fire at all.
+      #
+      # traefik is excluded. Its spanmetrics errors are 4xx from the public
+      # internet -- forward-auth 403s, scanner 404s, 405s -- which is not
+      # error budget; over the same window it served zero 5xx. The edge
+      # already has the right SLI in PlatformIngressErrorsHigh, which watches
+      # the 5xx ratio directly.
+      - alert: ServiceErrorBudgetFastBurn
+        # 99.9% target → budget = 0.001. Fast burn page when consuming
+        # >14.4× budget over 1h (Google SRE multi-window-multi-burn-rate).
+        expr: |
+          (
+            sum by (service) (rate(traces_spanmetrics_calls_total{status_code="STATUS_CODE_ERROR",service!="traefik"}[1h]))
+            /
+            sum by (service) (rate(traces_spanmetrics_calls_total{service!="traefik"}[1h]))
+          ) > (14.4 * 0.001)
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: '{{ $labels.service }}: SLO fast-burn'
+          description: Error rate consumes >14.4× error budget over 1h. Page.
+      - alert: ServiceErrorBudgetSlowBurn
+        expr: |
+          (
+            sum by (service) (rate(traces_spanmetrics_calls_total{status_code="STATUS_CODE_ERROR",service!="traefik"}[6h]))
+            /
+            sum by (service) (rate(traces_spanmetrics_calls_total{service!="traefik"}[6h]))
+          ) > (1 * 0.001)
+        for: 30m
+        labels: {severity: warning}
+        annotations:
+          summary: '{{ $labels.service }}: SLO slow-burn'
+          description: Error rate consumes >1× error budget over 6h. Open a ticket.
+  # ───────── Service / pod health ─────────
+  - name: platform-services
+    rules:
+      - alert: PodCrashLooping
+        expr: increase(kube_pod_container_status_restarts_total[15m]) > 3
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: 'Pod restarting frequently: {{ $labels.namespace }}/{{ $labels.pod }}'
+          description: '{{ $labels.container }} has restarted >3 times in 15m.'
+      - alert: PodOOMKilled
+        expr: increase(container_oom_events_total[10m]) > 0
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: 'OOM kill: {{ $labels.namespace }}/{{ $labels.pod }}'
+          description: Pod was OOM killed at least once in the last 10 minutes.
+      - alert: PodNotReady
+        expr: kube_pod_status_ready{condition="true"} == 0 and on (namespace, pod) kube_pod_status_phase{phase="Running"} == 1
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: 'Pod not ready: {{ $labels.namespace }}/{{ $labels.pod }}'
+          description: Pod is Running but not Ready for 10 minutes.
+  # ───────── JVM ─────────
+  - name: platform-jvm
+    rules:
+      - alert: JvmHeapHigh
+        expr: |
+          sum by (application) (jvm_memory_used_bytes{area="heap"})
+          / sum by (application) (jvm_memory_max_bytes{area="heap"} > 0) > 0.9
+        for: 15m
+        labels: {severity: warning}
+        annotations:
+          summary: '{{ $labels.application }}: JVM heap > 90%'
+          description: Old generation heap is sustained > 90% — risk of OOM/GC thrash.
+      - alert: JvmGcPauseHigh
+        expr: histogram_quantile(0.95, sum by (le, application) (rate(jvm_gc_pause_seconds_bucket[5m]))) > 0.5
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: '{{ $labels.application }}: GC pause p95 > 500ms'
+          description: Garbage-collection p95 pause time > 500ms for 5 minutes.
+  # ───────── Data tier ─────────
+  - name: platform-data
+    rules:
+      # Every other alert in this group reads an exporter metric, and a
+      # PromQL comparison over a metric that does not exist matches nothing
+      # and stays silent. That is not theoretical: the postgres, valkey and
+      # rabbitmq Services were missing the app.kubernetes.io/name label their
+      # ServiceMonitors select on, so no scrape job existed, no series were
+      # ingested, and PostgresDown could not have fired if Postgres had been
+      # down. These alerts watch for the absence itself, so a broken scrape
+      # is reported rather than read as health.
+      - alert: PostgresMetricsMissing
+        expr: absent(pg_up)
+        for: 15m
+        labels: {severity: critical}
+        annotations:
+          summary: No Postgres metrics are being ingested
+          description: >-
+            PostgresDown and PostgresConnectionsHigh cannot fire while this is firing. Check the postgres Service carries app.kubernetes.io/name=postgres, which its ServiceMonitor selects on.
+      - alert: ValkeyMetricsMissing
+        expr: absent(redis_up)
+        for: 15m
+        labels: {severity: warning}
+        annotations:
+          summary: No Valkey metrics are being ingested
+          description: >-
+            Valkey eviction, memory and fragmentation alerts cannot fire while this is firing. Check the valkey Service label.
+      - alert: RabbitMQMetricsMissing
+        expr: absent(rabbitmq_identity_info)
+        for: 15m
+        labels: {severity: warning}
+        annotations:
+          summary: No RabbitMQ metrics are being ingested
+          description: >-
+            RabbitMQQueueDepthHigh cannot fire while this is firing. Check the rabbitmq Service label.
+      # maxmemory is set explicitly on the deployment, so this ratio is
+      # meaningful; with the default maxmemory 0 the divisor is zero and the
+      # expression never produces a usable value.
+      - alert: ValkeyMemoryNearLimit
+        expr: redis_memory_max_bytes > 0 and redis_memory_used_bytes / redis_memory_max_bytes > 0.8
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: Valkey above 80% of maxmemory
+          description: >-
+            Policy is noeviction, so writes start failing at 100% rather than older keys being dropped. Sessions live here.
+      - alert: PostgresConnectionsHigh
+        # sum(): pg_stat_activity_count is split per database AND per state,
+        # so comparing each series to max_connections only fires if one
+        # database in one state exhausts the server alone. On 2026-09-17 the
+        # total reached the 100 ceiling while the largest single series was
+        # 30, and this stayed silent for a week.
+        expr: (sum(pg_stat_activity_count) / max(pg_settings_max_connections)) > 0.8
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: Postgres connections > 80% of max
+          description: Connection saturation increases failure risk for new clients.
+      - alert: PostgresCollationDrift
+        expr: max by (datname) (pg_database_collation_drifted) == 1
+        for: 15m
+        labels: {severity: warning}
+        annotations:
+          summary: Postgres database {{ $labels.datname }} has a stale collation version
+          description: >-
+            Its recorded collation version differs from the C library's, so its text indexes may be sorted wrong. Run amcheck, REINDEX what fails, then ALTER DATABASE ... REFRESH COLLATION VERSION.
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations: {summary: Postgres exporter cannot reach the DB}
+      - alert: ValkeyEvictionsHappening
+        expr: rate(redis_evicted_keys_total[10m]) > 0
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: Valkey is evicting keys
+          description: Cache memory pressure — consider raising maxmemory.
+      - alert: ValkeyMemoryFragmentationHigh
+        expr: redis_memory_fragmentation_ratio > 1.5
+        for: 30m
+        labels: {severity: info}
+        annotations: {summary: 'Valkey fragmentation > 1.5 (sustained 30m)'}
+      - alert: RabbitMQQueueDepthHigh
+        expr: rabbitmq_queue_messages_unacked > 10000
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: 'RabbitMQ unacked > 10k: {{ $labels.queue }}'
+          description: Unacknowledged messages have piled up — consumer slow / dead.
+  # ───────── Storage ─────────
+  - name: platform-storage
+    rules:
+      - alert: PersistentVolumeFillingUp
+        expr: (kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes) > 0.85
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: 'PVC > 85% full: {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }}'
+          description: Volume is at >85% capacity. Resize or clean up before it hits 100%.
+      - alert: PlatformNodeDiskPressure
+        expr: max(kube_node_status_condition{condition="DiskPressure",status="true"}) > 0
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: Node reports disk pressure
+          description: At least one Kubernetes node is under disk pressure.
+  # ───────── Cluster / kubelet ─────────
+  - name: platform-cluster
+    rules:
+      - alert: NodeNotReady
+        expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: 'Node not Ready: {{ $labels.node }}'
+          description: Kubelet has reported NotReady for 5 minutes.
+      - alert: KubeletDown
+        expr: up{job="kubelet"} == 0
+        for: 5m
+        labels: {severity: critical}
+        annotations: {summary: 'Kubelet is down: {{ $labels.node }}'}
+  # ───────── GPU nodes ─────────
+  # A driver bump that leaves the old NVIDIA module loaded skips the CDI
+  # generator by design, so the deploy succeeds; nothing failed, and no pod
+  # notices until one restarts and cannot get its GPU (two days on
+  # enschede-t1000-1, 2026-10-19 to 10-21). Each NVIDIA node reports the
+  # check every minute (JorisJonkers-dev/nix-config#62).
+  - name: platform-gpu
+    rules:
+      - alert: NvidiaDriverMismatch
+        expr: (nvidia_driver_mismatch * on(instance) group_left(nodename) node_uname_info) == 1
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: 'NVIDIA module {{ $labels.loaded }} loaded on {{ $labels.nodename }}, generation installs {{ $labels.installed }}'
+          description: >-
+            No CDI spec is written until the module matches, so the next pod to restart there cannot get its GPU. Run scripts/ops/reload-nvidia-modules.sh {{ $labels.nodename }} --reload in nix-config, or reboot the node if the kernel changed too.
+      - alert: NvidiaCdiSpecMissing
+        expr: (nvidia_cdi_spec_present * on(instance) group_left(nodename) node_uname_info) == 0
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: 'No CDI spec on {{ $labels.nodename }}'
+          description: >-
+            /var/run/cdi holds no spec, so a GPU pod that starts there fails with "unresolvable CDI devices". Check the driver with scripts/ops/reload-nvidia-modules.sh {{ $labels.nodename }}.
+      - alert: NvidiaCdiStateStale
+        expr: (time() - node_textfile_mtime_seconds{file=~".*nvidia-cdi.prom"}) > 600
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: 'nvidia-cdi-state has not reported for 10 minutes on {{ $labels.instance }}'
+          description: The nvidia-cdi-state timer stopped writing, so the two GPU alerts above cannot fire there.
+  # ───────── Release Gate (delivery#22) ─────────
+  # The gate serves each round of tending at GET /metrics, to this Prometheus
+  # alone. Every series is one finding, so an empty result is the healthy
+  # state. They move to the observability Project's own alert rules when it
+  # leaves the old path.
+  - name: platform-release-gate
+    rules:
+      - alert: ReleaseCanaryFailedAndHeld
+        # Flagger never analyses a failed Canary again for the same revision,
+        # so this release stays held until someone moves it. Surfaced, never
+        # retried (the maintainer, 2026-10-26).
+        expr: (time() - release_gate_held_since_timestamp_seconds{reason="analysis-failed"}) > release_gate_held_deadline_seconds
+        labels: {severity: warning}
+        annotations:
+          summary: '{{ $labels.namespace }}/{{ $labels.application }} is held: a member failed its analysis'
+          description: >-
+            It serves {{ $labels.serving }} while its pin names {{ $labels.pinned }}, past its gate deadline. Flagger will not analyse this revision again on its own. To retry it, restart the failed member's Deployment (kubectl -n {{ $labels.namespace }} rollout restart deployment/<member>); or move the Application's pin again.
+      - alert: ReleaseHeld
+        expr: (time() - release_gate_held_since_timestamp_seconds{reason!="analysis-failed"}) > release_gate_held_deadline_seconds
+        labels: {severity: warning}
+        annotations:
+          summary: '{{ $labels.namespace }}/{{ $labels.application }} is held: {{ $labels.reason }}'
+          description: >-
+            It serves {{ $labels.serving }} while its pin names {{ $labels.pinned }}, past its gate deadline. stale-proof: the migration's proof names a revision that no longer serves, so publish a release proven against what serves. migration-failed: read the migration Job's log.
+      - alert: ReleaseMigrationNotUndone
+        expr: release_gate_undo_refused == 1
+        labels: {severity: critical}
+        annotations:
+          summary: '{{ $labels.namespace }}/{{ $labels.application }}: a migration stays applied ({{ $labels.condition }})'
+          description: >-
+            The release is held and the gate will not run its Down, so the schema is ahead of what serves. The condition says why: first-release (no Down to run), new-copy-running, primaries-moved, non-transactional, or down-failed. The Down would return to tag {{ $labels.tag }}.
+      - alert: ReleaseGateCannotReadApplication
+        expr: release_gate_unanswerable == 1
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: 'The Release Gate cannot read {{ $labels.namespace }}/{{ $labels.application }}'
+          description: >-
+            It answers no to every question about it, so its releases cannot move. The gate's log says why (release gate could not tend an Application).
+      - alert: ReleaseGateNotTending
+        expr: (time() - release_gate_tended_timestamp_seconds) > 120
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: The Release Gate has not finished a round of tending for over two minutes
+          description: >-
+            It tends every 15 seconds. Without a round nothing is recorded, started or undone, and held releases go unseen. Read kubectl -n delivery-system logs deploy/release-gate.
+  # ───────── GitOps (Flux) ─────────
+  - name: platform-gitops
+    rules:
+      # Both alerts previously read gotk_reconcile_condition, which does not
+      # exist in Flux v2 -- the controllers stopped emitting it. Measured:
+      # zero series, while gotk_reconcile_duration_seconds has 682 and the
+      # controllers scrape healthy. So neither alert could ever fire, and
+      # neither did through two multi-day outages.
+      #
+      # gotk_resource_ready comes from kube-state-metrics CustomResourceState,
+      # configured on the metrics-stack HelmRelease. Two differences from the
+      # old metric matter:
+      #
+      #   1. The sense is inverted -- alert on == 0, not on status="False".
+      #   2. Conditions other than Ready are also emitted (FetchFailed,
+      #      Reconciling, Released) and are legitimately 1, so type="Ready"
+      #      is mandatory, not decorative.
+      #
+      # The two alerts partition the kinds between them rather than overlap.
+      # The old pair both matched a failing source, so one broken
+      # GitRepository would have produced two notifications.
+      #
+      # `for: 10m` is load-bearing, not a default. A condition of Unknown --
+      # which is what every Flux resource reports briefly while it
+      # reconciles -- renders as 0, indistinguishable from Ready=False.
+      # Measured while this very change rolled out: five resources
+      # (apps-observability, apps-observability-rules,
+      # apps-grafana-dashboards, apps-agents and the metrics-stack
+      # HelmRelease) sat at 0 for a single 30s scrape step. Shortening the
+      # debounce would turn every routine reconcile into a page; removing it
+      # would make these alerts fire on every deploy. Ten minutes is
+      # comfortably longer than a healthy reconcile and still catches a
+      # resource that is genuinely stuck.
+      - alert: FluxResourceNotReady
+        expr: gotk_resource_ready{type="Ready",customresource_kind!~"GitRepository|HelmRepository|OCIRepository"} == 0
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: 'Flux not Ready: {{ $labels.customresource_kind }}/{{ $labels.name }}'
+          description: >-
+            {{ $labels.customresource_kind }} {{ $labels.exported_namespace }}/{{ $labels.name }} has been Ready=False for 10 minutes.
+      - alert: FluxSourceFailing
+        expr: gotk_resource_ready{type="Ready",customresource_kind=~"GitRepository|HelmRepository|OCIRepository"} == 0
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: 'Flux source failing: {{ $labels.customresource_kind }}/{{ $labels.name }}'
+          description: >-
+            Source {{ $labels.exported_namespace }}/{{ $labels.name }} has been Ready=False for 10 minutes, so everything downstream is reconciling against a stale artifact.
+  # ───────── Vault ─────────
+  - name: platform-vault
+    rules:
+      # A sealed Vault cannot report its seal through its own metrics:
+      # /v1/sys/metrics needs a token, and a sealed Vault checks none, so
+      # vault_core_unsealed is absent rather than 0. When vault-0 came back
+      # sealed after the frankfurt restart on 2026-10-18, Prometheus never
+      # recorded it at 0.
+      #
+      # vault-0's readiness probe runs `vault status`, which fails while
+      # Vault is sealed, and kube-state-metrics reports that from outside
+      # Vault. There is no auto-unseal (JorisJonkers-dev/estate#210 defers
+      # it), so this alert is what says to unseal.
+      - alert: VaultSealed
+        expr: kube_pod_status_ready{namespace="data-system", pod=~"vault-[0-9]+", condition="true"} == 0 and on (namespace, pod) kube_pod_status_phase{phase="Running"} == 1
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: 'Vault is sealed or not ready: {{ $labels.pod }}'
+          description: >-
+            {{ $labels.pod }} is Running but its readiness probe (vault status) has failed for 2 minutes, which is what a sealed Vault looks like. Every workload that reads a secret stalls until it is unsealed: run scripts/ops/unseal-vault.sh.
+      - alert: VaultAuditFailures
+        expr: increase(vault_audit_log_request_failure[5m]) > 0
+        for: 1m
+        labels: {severity: warning}
+        annotations: {summary: Vault audit log write failure}
+      # A 403 from an expired metrics token blinds every Vault metric,
+      # VaultAuditFailures included, which is why the scrape itself is
+      # critical rather than a warning. VaultSealed does not depend on it.
+      - alert: VaultMetricsUnreachable
+        expr: up{job="vault"} == 0
+        for: 15m
+        labels: {severity: critical}
+        annotations: {summary: "Vault metrics scrape failing: check the metrics token"}
+  # ───────── Profiling ─────────
+  - name: platform-profiling
+    rules:
+      - alert: PyroscopeIngestErrors
+        expr: rate(pyroscope_ingester_ingest_errors_total[5m]) > 0
+        for: 10m
+        labels: {severity: warning}
+        annotations: {summary: Pyroscope is rejecting profile ingest}
+  # ───────── JVM services — request pipeline ─────────
+  # Per-stage latency from Tempo's `traces_spanmetrics_*`. The
+  # span-derived dimensions (http.route, k8s.pod.name) were added
+  # in #292. p95 thresholds picked at ~3× current healthy p95 so
+  # alerts fire on genuine regression rather than normal noise.
+  - name: platform-jvm-pipeline
+    rules:
+      - alert: ControllerLatencyHighP95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, service_name, http_route) (
+              rate(traces_spanmetrics_latency_bucket{
+                span_name="pipeline.controller", service_name=~"auth-api|agents-api"
+              }[5m])
+            )
+          ) > 2
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: '{{ $labels.service_name }} {{ $labels.http_route }}: p95 controller latency > 2s'
+          description: |
+            `pipeline.controller` p95 — wall clock spent inside the
+            controller method body + Jackson response write — has been
+            > 2s for 10 minutes on this route. Open the per-endpoint
+            dashboard, filter by route + pod, check the pipeline.*
+            breakdown.
+      - alert: ResponseFinalizeLatencyHighP95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, service_name, http_route) (
+              rate(traces_spanmetrics_latency_bucket{
+                span_name="pipeline.response-finalize", service_name=~"auth-api|agents-api"
+              }[5m])
+            )
+          ) > 1
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: '{{ $labels.service_name }} {{ $labels.http_route }}: p95 response-finalize > 1s'
+          description: Outbound network back-pressure or session write-back stall after handler returns.
+  # ───────── JVM services — Redis (Lettuce) ─────────
+  - name: platform-jvm-redis
+    rules:
+      - alert: LettuceCommandTimeouts
+        # `error=CancellationException` is what Lettuce reports when a
+        # command exceeds `spring.data.redis.timeout`. Sustained
+        # non-zero rate means Redis or the Lettuce event loop is
+        # backed up; each affected request blocks for the full
+        # timeout window before the cache falls through.
+        expr: |
+          sum by (service_name, db_operation) (
+            rate(lettuce_seconds_count{error="CancellationException"}[5m])
+          ) > 0.05
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: '{{ $labels.service_name }} Redis {{ $labels.db_operation }} timing out'
+          description: Lettuce returned a CancellationException at >0.05/s for 5 min. Investigate Valkey load and the Lettuce event-loop concurrency.
+      - alert: LettuceCommandLatencyHighP95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, service_name, db_operation) (
+              rate(lettuce_seconds_bucket{error="none"}[5m])
+            )
+          ) > 0.2
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: '{{ $labels.service_name }} Redis {{ $labels.db_operation }} p95 > 200ms'
+          description: Per-command Redis p95 has been > 200ms for 10 min. Healthy is single-digit ms on a local Valkey.
+  # ───────── JVM services — Postgres (Hikari) ─────────
+  - name: platform-jvm-hikari
+    rules:
+      - alert: HikariConnectionsPending
+        expr: hikaricp_connections_pending{application=~"auth-api|agents-api"} > 0
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: '{{ $labels.application }} ({{ $labels.instance }}): Hikari pool exhausted'
+          description: Connections are queued waiting for a free DB connection. Pool size or query duration is wrong.
+      - alert: HikariAcquireLatencyHighP95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, application, instance) (
+              rate(hikaricp_connections_acquire_seconds_bucket{application=~"auth-api|agents-api"}[5m])
+            )
+          ) > 1
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: '{{ $labels.application }} ({{ $labels.instance }}): Hikari acquire p95 > 1s'
+          description: Time waiting for a connection from the pool is dominating request latency.
+  # ───────── JVM services — Garbage collection ─────────
+  - name: platform-jvm-gc
+    rules:
+      - alert: JvmGcPauseLong
+        # ZGC pauses are supposed to be < 1ms. > 500ms is a real
+        # stall (allocation stall / unloading / metaspace) and maps
+        # to multi-hundred-ms gaps inside `pipeline.controller`.
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, application, instance, cause) (
+              rate(jvm_gc_pause_seconds_bucket{application=~"auth-api|agents-api"}[5m])
+            )
+          ) > 0.5
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: '{{ $labels.application }} ({{ $labels.instance }}): GC pause p95 > 500ms ({{ $labels.cause }})'
+          description: Overlay `gc.pause` spans in Tempo with the slow trace to confirm the gap is GC-driven.
+  # ───────── Backups / batch hygiene ─────────
+  # A Job that fails leaves no Pod behind once its pods are reaped, so
+  # PodNotReady and PodCrashLooping never see it. vault-bootstrap-auth sat
+  # Failed for 17h, and knowledge-vault-migrate since May, with nothing
+  # firing -- which is how a Vault auth role added in git silently never
+  # reached the server.
+  - name: platform-batch
+    rules:
+      - alert: KubeJobFailed
+        expr: kube_job_failed{condition="true"} == 1
+        for: 15m
+        labels: {severity: warning}
+        annotations:
+          summary: 'Job {{ $labels.namespace }}/{{ $labels.job_name }} failed'
+          description: >-
+            A failed Job keeps firing until the Job object is deleted, which is deliberate: a one-shot Job that failed has work that never happened. Fix the cause or delete the Job to clear it.
+      - alert: BackupNeverSucceeded
+        expr: |
+          kube_cronjob_info{cronjob=~".*(backup|snapshot).*"}
+            unless on (namespace, cronjob) kube_cronjob_status_last_successful_time
+        for: 1h
+        labels: {severity: critical}
+        annotations:
+          summary: 'Backup {{ $labels.namespace }}/{{ $labels.cronjob }} has never succeeded'
+          description: >-
+            The CronJob exists but kube-state-metrics records no successful completion, so no backup of this data has ever been taken.
+      - alert: BackupStale
+        expr: |
+          time() - kube_cronjob_status_last_successful_time{cronjob=~".*(backup|snapshot).*"}
+            > (48 * 3600)
+        for: 1h
+        labels: {severity: critical}
+        annotations:
+          summary: 'Backup {{ $labels.namespace }}/{{ $labels.cronjob }} is stale'
+          description: Last successful run is older than 48h, so the newest restore point is stale.
+      - alert: BackupCronJobSuspended
+        expr: kube_cronjob_spec_suspend{cronjob=~".*(backup|snapshot).*"} == 1
+        for: 1h
+        labels: {severity: warning}
+        annotations:
+          summary: 'Backup {{ $labels.namespace }}/{{ $labels.cronjob }} is suspended'
+          description: >-
+            A suspended backup takes no restore points. Resume it or delete it, but do not leave it suspended silently.
