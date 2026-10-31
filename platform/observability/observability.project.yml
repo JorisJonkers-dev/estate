@@ -412,6 +412,8 @@ applications:
           cpu: 100m
         # Single binary, without profiling itself into itself.
         args: [-config.file=/etc/pyroscope/config.yaml, -target=all, -self-profiling.disable-push=true]
+        # The compaction worker makes /tmp/pyroscope-compactor on start.
+        writablePaths: [/tmp]
         probes:
           readiness: { path: /ready, port: 4040 }
           liveness: { path: /ready, port: 4040 }
@@ -458,7 +460,7 @@ applications:
         sidecars:
           - name: checks
             image: gatus-checks
-            memory: 64Mi
+            memory: 256Mi # OOM-killed at 64Mi: it caches every ConfigMap in the cluster
             cpu: 10m
             volumes:
               - { claim: gatus-data, mountAt: /data }
