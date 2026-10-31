@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.1](https://github.com/JorisJonkers-dev/estate/compare/v0.36.0...v0.36.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **release:** refuse a Publish Fragment pin whose toolkit minor differs from toolkit.yml's ([#281](https://github.com/JorisJonkers-dev/estate/issues/281)) ([2575239](https://github.com/JorisJonkers-dev/estate/commit/257523926c947c2c43e28db65547d79192506164))
+
 ## [0.36.0](https://github.com/JorisJonkers-dev/estate/compare/v0.35.0...v0.36.0) (2026-10-31)
 
 
