@@ -45,6 +45,18 @@ jobs:
           version="$(yq -er '."deploy-kit"' toolkit.yml)"
           npm install --no-save --ignore-scripts "@jorisjonkers-dev/deploy-kit@${version}"
           test "$(node -p "require('@jorisjonkers-dev/deploy-kit/package.json').version")" = "$version"
+      # Publish Fragment validates and packs with its own toolkit. An older minor
+      # refuses fields this one added (release 0.36.0, #279); a newer one is
+      # isolated by composition. So the two share a minor.
+      - name: Publish Fragment packs at the toolkit's minor
+        run: |
+          ref="$(grep -oE 'publish-fragment\.yml@[0-9a-f]{40}' .github/workflows/release.yml | cut -d@ -f2)"
+          [ -n "$ref" ] || { echo "::error::release.yml pins no Publish Fragment commit"; exit 1; }
+          packs="$(curl -fsSL "https://raw.githubusercontent.com/JorisJonkers-dev/github-workflows/${ref}/tools/deploy-kit/package.json" \
+            | jq -er '.devDependencies["@jorisjonkers-dev/deploy-kit"]')"
+          composes="$(yq -er '."deploy-kit"' toolkit.yml)"
+          [ "${packs%.*}" = "${composes%.*}" ] \
+            || { echo "::error::Publish Fragment packs with deploy-kit ${packs}, toolkit.yml composes with ${composes}: move release.yml's pin to a github-workflows release on ${composes%.*}"; exit 1; }
       - name: Pull every other participant's newest fragment
         env:
           OWNER: jorisjonkers-dev
