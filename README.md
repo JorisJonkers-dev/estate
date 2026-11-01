@@ -90,7 +90,9 @@ composed
   inputs gave 15 of its 21 artifacts another content hash;
 - **the clock stopped at the lock's `generatedAt`**
   ([`compose-at.mjs`](.github/scripts/compose-at.mjs)): a participant's age is
-  measured against it, so a fragment fresh then may be stale now;
+  measured against it, so a fragment fresh then may be stale now. From
+  deploy-kit 1.7.0 the replay passes it as `deploy-kit compose --now`; a lock an
+  older release wrote is replayed through that release's own entry point;
 - **the lock itself as the previous lock**, so each Project composes at the
   fragment the lock records, as the one isolated at an earlier fragment did.
 
