@@ -11,6 +11,8 @@
 #   bootstrap/retire.sh                 every retirement
 #   bootstrap/retire.sh --list          the retirements, one line each
 #   bootstrap/retire.sh downloads       one (several may be named)
+#   bootstrap/retire.sh postgres rabbitmq stalwart auth-api
+#                                       the old path's roles for Projects now on the estate path
 #
 # A one-off, not a secrets.sh section: secrets.sh puts values in a Vault and is
 # re-run on every new cluster, and a fresh Vault never holds what is retired
@@ -30,9 +32,13 @@ source "$here/lib/estate.sh"
 # name|what it removes: the order a full run takes.
 RETIREMENTS=(
   "downloads|the downloads Kubernetes auth role and policy, bound to a namespace that no longer exists (estate#227)"
+  "postgres|the old path's postgres role and policy, which data's handover replaced (deploy-kit#661)"
+  "rabbitmq|the old path's rabbitmq role and policy, which data's handover replaced (deploy-kit#661)"
+  "stalwart|the old path's stalwart role and policy, which mail's handover replaced"
+  "auth-api|the old path's auth-api role and policy, which auth's handover replaced"
 )
 
-usage() { sed -n '/^#   bootstrap/,/^#   bootstrap\/retire.sh downloads/p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '/^#   bootstrap/,/^#.*the old path.s roles/p' "$0" | sed 's/^# \{0,1\}//'; }
 
 SELECTED=()
 while (( $# )); do
@@ -342,6 +348,133 @@ downloads_report() {
   done
 }
 
+# ── the old path's roles ─────────────────────────────────────────────────
+# fleet-infra's vault-bootstrap-auth Job wrote one Kubernetes auth role and one
+# policy per old-path workload, each reading that workload's platform document.
+# A Project on the estate path logs in with roles its own vault-policy Job
+# writes (<namespace>-<process>), so the old pair serves nothing once its
+# Project has handed over. The ServiceAccount a role binds may still exist,
+# under the same name, as the estate path's own: what matters is that nothing
+# logs in with the old role.
+#
+# name|role|policy|ServiceAccount|namespace|the one path the policy reads
+OLD_ROLES=(
+  "postgres|postgres|postgres|postgres|data-system|secret/data/platform/postgres"
+  "rabbitmq|rabbitmq|rabbitmq|rabbitmq|data-system|secret/data/platform/rabbitmq"
+  "stalwart|stalwart|stalwart|stalwart|mail-system|secret/data/platform/mail"
+  "auth-api|auth-api|auth-api|auth-api|auth-system|"
+)
+
+# old_role_live_check ROLE prints, one a line, anything in the cluster that
+# would log in as ROLE or write it again. Read-only.
+old_role_live_check() {
+  local role="$1"
+  # The injector's annotation, a VaultAuth, or a script that logs in by name.
+  $KUBECTL get pods,deployments,statefulsets,daemonsets,jobs,cronjobs -A -o json \
+    | jq -r --arg r "$role" '.items[]
+        | select(
+            ([.metadata, .spec.template.metadata?, .spec.jobTemplate.spec.template.metadata?]
+             | any(.annotations?["vault.hashicorp.com/role"]? == $r))
+            or ([.. | strings] | any(test("(^|[^a-z-])role=\"?" + $r + "(\"|\\s|$)"))))
+        | "\(.kind) \(.metadata.namespace)/\(.metadata.name) logs in as role \($r)"' \
+    || die "could not read the cluster's workloads"
+  $KUBECTL get vaultauths.secrets.hashicorp.com -A -o json \
+    | jq -r --arg r "$role" '.items[] | select(.spec.kubernetes.role? == $r)
+        | "VaultAuth \(.metadata.namespace)/\(.metadata.name) logs in as role \($r)"' \
+    || die "could not read the cluster's VaultAuths"
+  # The old bootstrap Job's script, while fleet-infra still applies it, writes the role
+  # again on its next run.
+  $KUBECTL get configmaps -A -o json \
+    | jq -r --arg r "$role" '.items[] | select(.metadata.name | startswith("vault-bootstrap-auth"))
+        | select([.data[]?] | any(contains("auth/kubernetes/role/" + $r + " ")))
+        | "ConfigMap \(.metadata.namespace)/\(.metadata.name) writes role \($r) again"' \
+    || die "could not read the cluster's ConfigMaps"
+}
+
+# retire_old_role NAME: one entry of OLD_ROLES.
+retire_old_role() {
+  local entry name="" role policy sa ns reads doc rules bound holders live p
+  for entry in "${OLD_ROLES[@]}"; do [[ "${entry%%|*}" == "$1" ]] && IFS='|' read -r name role policy sa ns reads <<<"$entry"; done
+  [[ -n "$name" ]] || die "no old role named $1"
+  local path="auth/kubernetes/role/$role"
+  doc=$(vault_get "$path")
+  rules=$(policy_get "$policy")
+  if [[ -z "$doc" && -z "$rules" ]]; then
+    ok "role $path and policy $policy are already gone"
+    result "$name" "already gone"
+    return 0
+  fi
+  if [[ -n "$doc" ]]; then
+    bound=$(jq -c '.data | [.bound_service_account_names, .bound_service_account_namespaces, ((.token_policies // []) + (.policies // []) | unique)]' <<<"$doc")
+    if [[ "$bound" != "[[\"$sa\"],[\"$ns\"],[\"$policy\"]]" ]]; then
+      say "$path binds [names, namespaces, policies] $bound,"
+      say "not ServiceAccount $sa in $ns to policy $policy alone, as the old path wrote it."
+      refuse "$path is not the old path's role: nothing deleted"
+      result "$name" refused
+      return 0
+    fi
+    ok "$path binds ServiceAccount $sa in $ns to policy $policy, as the old path wrote it"
+  else
+    ok "$path is already gone"
+  fi
+  if [[ -n "$rules" ]]; then
+    say "policy $policy reads:"
+    while IFS= read -r p; do note "    $p"; done <<<"$(flat_rules <<<"$rules" | sed 's/} /}\n/g')"
+    if [[ -n "$reads" && "$(flat_rules <<<"$rules" | tr -d ' ')" != "path\"$reads\"{capabilities=[\"read\"]}" ]]; then
+      refuse "policy $policy grants more than a read on $reads: nothing deleted"
+      result "$name" refused
+      return 0
+    fi
+  fi
+
+  if [[ -n "$LOCAL_VAULT" ]]; then
+    note "ESTATE_VAULT_ADDR: the cluster is not checked for a workload using role $role"
+  else
+    say "Checking the cluster, read-only, for anything that logs in as $role or writes it again…"
+    live=$(old_role_live_check "$role")
+    if [[ -n "$live" ]]; then
+      while IFS= read -r p; do say "$p"; done <<<"$live"
+      refuse "something in the cluster still uses or writes $path: nothing deleted"
+      result "$name" refused
+      return 0
+    fi
+    ok "no workload, VaultAuth or bootstrap script uses role $role"
+  fi
+  if [[ -n "$rules" ]]; then
+    say "Checking every auth role, token role, identity group and entity for policy ${policy}…"
+    holders=$(policy_holders "$policy" "$path")
+    if [[ -n "$holders" ]]; then
+      while IFS= read -r p; do say "$p hands out policy $policy"; done <<<"$holders"
+      refuse "policy $policy is still handed out: nothing deleted"
+      result "$name" refused
+      return 0
+    fi
+    ok "nothing but $path hands out policy $policy"
+  fi
+
+  say "This deletes, in this order:"
+  [[ -z "$doc" ]] || step "role $path (ServiceAccount $sa in $ns, policy $policy)"
+  [[ -z "$rules" ]] || step "policy $policy"
+  note "No pod logs in with either, so nothing restarts."
+  if ! confirm "Delete them?"; then
+    later "role and policy $policy are not deleted: re-run bootstrap/retire.sh $name"
+    result "$name" "not deleted"
+    return 0
+  fi
+  if [[ -n "$doc" ]]; then
+    vault delete "$path" </dev/null >/dev/null || die "deleting $path failed"
+  fi
+  if [[ -n "$rules" ]]; then
+    vault policy delete "$policy" </dev/null >/dev/null || die "deleting policy $policy failed"
+  fi
+  doc=$(vault_get "$path")
+  rules=$(policy_get "$policy")
+  [[ -z "$doc" ]] || die "$path still reads back after the delete"
+  [[ -z "$rules" ]] || die "policy $policy still reads back after the delete"
+  ok "role $path and policy $policy read back as gone"
+  result "$name" deleted
+}
+
 # ── run ───────────────────────────────────────────────────────────────────
 TOTAL_STAGES=$(( 1 + ${#SELECTED[@]} ))
 banner "Estate: retire what nothing uses from Vault"
@@ -354,6 +487,7 @@ for CURRENT in "${SELECTED[@]}"; do
   for entry in "${RETIREMENTS[@]}"; do [[ "${entry%%|*}" == "$CURRENT" ]] && section "$CURRENT: ${entry#*|}"; done
   case "$CURRENT" in
     downloads) retire_downloads ;;
+    *) retire_old_role "$CURRENT" ;;
   esac
 done
 
