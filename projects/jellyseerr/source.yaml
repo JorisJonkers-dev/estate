@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/jellyseerr
   ref:
-    digest: sha256:2cdeae56b441c2c6159ea12dfe70a4f56a566dca7edab13a893f1759e4665fea
+    digest: sha256:a843078a153fe6b41338cc5ec4bbab3928f8278723ec9ac51c12c450a7d5c8b1
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,10 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/jellyseerr
-    event.toolkit.fluxcd.io/sha: caf4602d3243cf1a1f9fd566a87b5abcb0846b53
+    event.toolkit.fluxcd.io/sha: 536f8bfeeabaddb5983ed0395bbaef3fd4f6df19
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 3.6.1
+    event.toolkit.fluxcd.io/version: 3.7.0
+    event.toolkit.fluxcd.io/url: https://jellyseerr.jorisjonkers.dev
 spec:
   interval: 10m
   prune: true
@@ -44,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-jellyseerr
   path: ./apps/jellyseerr
+  dependsOn:
+    - name: apps-edge

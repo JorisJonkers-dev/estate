@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/mail
   ref:
-    digest: sha256:d70fbb102adca4b7ea393d79a64f9ec1f91421d2186217e3021ec88a1d0b0c25
+    digest: sha256:45b61f152fd4b670952152a767a26ece440fb346aea953c8cc27ab1bc40321a4
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/estate
-    event.toolkit.fluxcd.io/sha: c501f4fe48acfd3c4eae2aefb2968c4665d26965
+    event.toolkit.fluxcd.io/sha: 00ef545373c0b668498b6b9d92c5c67fec49d3dc
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.32.0
+    event.toolkit.fluxcd.io/version: 0.37.0
     event.toolkit.fluxcd.io/url: https://stalwart.jorisjonkers.dev
 spec:
   interval: 10m
@@ -45,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-mail
   path: ./apps/mail
+  dependsOn:
+    - name: apps-edge
