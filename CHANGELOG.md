@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.1](https://github.com/JorisJonkers-dev/estate/compare/v0.37.0...v0.37.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* **edge:** compose and publish with deploy-kit 1.7.1, which writes each container port once ([#294](https://github.com/JorisJonkers-dev/estate/issues/294)) ([9038df1](https://github.com/JorisJonkers-dev/estate/commit/9038df1f567beeff68de887dc8d697802920e2f6))
+
 ## [0.37.0](https://github.com/JorisJonkers-dev/estate/compare/v0.36.4...v0.37.0) (2026-11-01)
 
 
