@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.40.0](https://github.com/JorisJonkers-dev/estate/compare/v0.39.0...v0.40.0) (2026-11-01)
+
+
+### Features
+
+* **bootstrap:** retire the old path's postgres, rabbitmq, stalwart and auth-api roles ([#299](https://github.com/JorisJonkers-dev/estate/issues/299)) ([e139ba8](https://github.com/JorisJonkers-dev/estate/commit/e139ba842d5f8506022dd677056c2bed1c620277))
+
 ## [0.39.0](https://github.com/JorisJonkers-dev/estate/compare/v0.38.0...v0.39.0) (2026-11-01)
 
 
