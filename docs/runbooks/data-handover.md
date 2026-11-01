@@ -160,8 +160,10 @@ flux get kustomizations -n flux-system --watch
    metadata: {name: garage-meta, namespace: data-system}
    spec: {accessModes: [ReadWriteOnce], resources: {requests: {storage: 2Gi}}}
    EOF
+   # nodeSelector, not nodeName: local-path binds WaitForFirstConsumer, and a pod that
+   # skips the scheduler leaves garage-meta Pending and itself unable to mount it.
    kubectl -n data-system run garage-split --restart=Never --image=alpine:3.24 \
-     --overrides='{"spec":{"nodeName":"frankfurt-contabo-1","containers":[{"name":"garage-split","image":"alpine:3.24",
+     --overrides='{"spec":{"nodeSelector":{"kubernetes.io/hostname":"frankfurt-contabo-1"},"containers":[{"name":"garage-split","image":"alpine:3.24",
        "command":["sh","-ec","cp -a /old/meta/. /new/ && chown -R 1000:1000 /new /old/data && sync && du -s /old/meta /new && find /old/meta -type f | wc -l && find /new -type f | wc -l"],
        "volumeMounts":[{"name":"old","mountPath":"/old"},{"name":"new","mountPath":"/new"}]}],
        "volumes":[{"name":"old","persistentVolumeClaim":{"claimName":"garage-data"}},{"name":"new","persistentVolumeClaim":{"claimName":"garage-meta"}}]}}'
