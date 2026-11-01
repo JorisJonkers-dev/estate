@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.2](https://github.com/JorisJonkers-dev/estate/compare/v0.41.1...v0.41.2) (2026-11-01)
+
+
+### Bug Fixes
+
+* **observability:** lift the config-reloader's CPU limit, which throttled it most periods ([#306](https://github.com/JorisJonkers-dev/estate/issues/306)) ([d359290](https://github.com/JorisJonkers-dev/estate/commit/d35929049041363cd40cbe87f689fc3590f344fb))
+
 ## [0.41.1](https://github.com/JorisJonkers-dev/estate/compare/v0.41.0...v0.41.1) (2026-11-01)
 
 
