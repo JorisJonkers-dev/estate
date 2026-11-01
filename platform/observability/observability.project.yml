@@ -126,6 +126,9 @@ applications:
         lifecycle: application
         image: prometheus-operator
         runtime: none
+        # The config-reloader sidecar it adds to Prometheus and Alertmanager defaults to a 10m CPU
+        # limit, under which it is throttled most periods; 0 lifts the limit and keeps the request.
+        args: [--config-reloader-cpu-limit=0]
         provides:
           http: 8080
         placement:
