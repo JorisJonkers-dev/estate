@@ -29,10 +29,8 @@ participants:
     dormant: true
     owner: joris
     reason: publishes with the Platform document, on this repository's releases
-  # The datastores, still delivered by fleet-infra, and the mail server,
-  # delivered by its pin. Both fragments publish from this repository, with
-  # the Platform document; composition delivers nothing for data while the
-  # handover ledger keeps it `legacy`.
+  # The datastores and the mail server, each delivered by its pin. Both
+  # fragments publish from this repository, with the Platform document.
   data:
     dormant: true
     owner: joris

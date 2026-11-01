@@ -42,6 +42,16 @@ substrate:
 
 # What must exist before the first rendered object can apply.
 bootstrap:
+  # Where k3s serves its own metrics, as its install sets them: the metrics
+  # stack scrapes the kubelet (with cAdvisor and probes), the API server and
+  # CoreDNS there, replacing kube-prometheus-stack's kubelet, apiserver and
+  # coredns monitors (deploy-kit spec/v1/14-platform-intent.md#k3ss-metrics).
+  # etcd is not recorded: this k3s runs on sqlite, so there is none.
+  k3s:
+    metrics:
+      kubelet: {port: 10250}
+      apiServer: {service: default/kubernetes, port: https}
+      coreDns: {port: 9153}
   flux:
     # The GitRepository that reads this repository, declared in fleet-infra's
     # flux-system while fleet-infra still owns the Flux controllers.
@@ -57,13 +67,26 @@ bootstrap:
       # The render packages are private: every pin source pulls with this
       # Secret, which the bootstrap wrote into flux-system for the canary.
       pullSecret: render-pull
+    # Where Flux's controllers serve their metrics, as fleet-infra's Flux
+    # install sets them: the metrics stack scrapes them there with the
+    # `flux-controllers` PodMonitor observability renders, which replaces
+    # fleet-infra's observability/flux-monitoring
+    # (deploy-kit spec/v1/14-platform-intent.md#fluxs-metrics).
+    metrics: {port: 8080, path: /metrics}
   vault:
     unsealed: true
   crds:
     - traefik.io/v1alpha1
     - secrets.hashicorp.com/v1beta1
-    - monitoring.coreos.com/v1
+    - monitoring.coreos.com/v1 # the monitors and rules every Project renders
+    - monitoring.coreos.com/v1alpha1 # the AlertmanagerConfig the monitoring block renders
+    - grafana.integreatly.org/v1beta1 # the dashboards every Project renders
     - flagger.app/v1beta1 # the Canary every blue-green Process renders; bootstrap/cluster.sh applies it, Flagger's binary never does
+    # The pools and advertisements the l4-speaker Node Agent renders. MetalLB's
+    # chart installed them on the old path; bootstrap/cluster.sh adopts them at
+    # v0.15.3, the speaker's release, with bgppeers' conversion webhook dropped:
+    # no webhook is rendered, and the estate holds no BGPPeer to convert.
+    - metallb.io/v1beta1
 
 # Where the edge terminates. A route's audience is the only way it reaches a tier.
 # Each fact states the edge fleet-infra runs today (read 2026-10-29), so a route
@@ -89,20 +112,26 @@ tiers:
     # agents-ws and jellyfin publish unproxied records, and the node's own
     # address answers on 443 directly, so a client could write
     # CF-Connecting-IP itself.
-    traefik: edge/traefik-public # declared in platform/edge.project.yml, placed on the public-ingress node
+    traefik: edge/traefik-public # declared in platform/edge/edge.project.yml, placed on the public-ingress node
     ingressClass: traefik-public # the class the live public Traefik admits, and external-dns filters on
-    # Where the live public routes' records point, proxied by Cloudflare.
-    dns: {target: ingress.jorisjonkers.dev, proxied: true}
+    # Where the live public routes' records point, proxied by Cloudflare, and
+    # where a grey-cloud host points instead: frankfurt-contabo-1's own address,
+    # which edge-frankfurt names. hermes and agents-ws publish unproxied
+    # records there today (their exposures' `proxied: false`).
+    dns: {target: ingress.jorisjonkers.dev, proxied: true, direct: 167.86.79.203}
     # Host ports 80 and 443 on the Frankfurt node, which Cloudflare forwards to.
     address: edge-frankfurt
   - name: lan
     audiences: [lan]
     # The live LAN Traefik serves every route on websecure.
     listener: tls
-    # It serves the wildcard the proxy already holds: the default TLSStore's,
-    # which fleet-infra's cert-manager issues. It cannot issue its own: it runs
-    # in Enschede, and the Cloudflare token only answers from Frankfurt.
+    # It cannot issue its own: it runs in Enschede, and the Cloudflare token
+    # only answers from Frankfurt. It serves the wildcard read from the Secret
+    # Store instead, from the default TLS store every proxy serves, which
+    # replaces fleet-infra's cert-manager wildcard (keys tls.crt and tls.key;
+    # JorisJonkers-dev/deploy-kit#726).
     certificates: none
+    certificateFrom: secret/data/platform/tls/jorisjonkers-dev
     traefik: edge/traefik-lan # placed on a LAN node
     ingressClass: traefik-lan # the class the live LAN Traefik admits
     # No `dns`: AdGuard answers the LAN's names, and external-dns writes no
@@ -214,19 +243,24 @@ gpus:
 
 # The Node Agents the node facts derive (deploy-kit
 # spec/v1/14-platform-intent.md#node-agents), at the images fleet-infra runs
-# today. They are the `node` Project, legacy until its handover: fleet-infra
-# still delivers them, and composition delivers none.
+# today, by digest. They are the `node` Project, in `node-system`
+# (JorisJonkers-dev/deploy-kit#659). Each memory is the request and the limit
+# both, so each sits above what the live copy uses (read 2026-10-29 with
+# `kubectl top`):
+#   - gpu-metrics: dcgm-exporter holds 407-415Mi once DCGM has initialised,
+#     and was OOM-killed at 256Mi; 1Gi is the live limit.
+#   - l4-speaker: the speaker container peaks at 73Mi, the controller at 61Mi.
+#   - gpu-device and node-metrics: 22Mi and 11Mi.
 nodeAgents:
   gpu-device: { image: nvidia-device-plugin, memory: 64Mi, cpu: 10m }
-  gpu-metrics: { image: dcgm-exporter, memory: 256Mi, cpu: 50m }
+  gpu-metrics: { image: dcgm-exporter, memory: 1Gi, cpu: 50m }
   node-metrics: { image: node-exporter, memory: 64Mi, cpu: 20m }
-  # MetalLB, which announces `lan-edge` from the Enschede nodes. Live, it
-  # requests nothing; these are the worked example's requests.
+  # MetalLB, which announces each pool-kind L4 Address from its site's nodes.
   l4-speaker:
     image: metallb-speaker
-    memory: 64Mi
+    memory: 128Mi
     cpu: 20m
-    controller: { image: metallb-controller, memory: 64Mi, cpu: 10m }
+    controller: { image: metallb-controller, memory: 128Mi, cpu: 10m }
 
 # The VPN every attached Process's traffic leaves through (deploy-kit
 # spec/v1/14-platform-intent.md#vpn): gluetun on ProtonVPN WireGuard, on
@@ -266,6 +300,9 @@ engines:
   postgres: { backup: postgres-backup, surface: postgres, catalog: postgres-catalog }
   rabbitmq: { backup: rabbitmq-backup, surface: management }
   files: { backup: file-backup }
+  # `catalog` applies the bucket catalog of the estate path's projects over Garage's admin API.
+  # No edge names a bucket yet, so it derives nothing until one does.
+  s3: { backup: file-backup, catalog: garage-catalog, catalogSurface: admin }
 
 # One cadence for every rendered monitor.
 monitors:
@@ -274,10 +311,38 @@ monitors:
 
 # The collector every exporting Runtime Profile sends to, and the metrics
 # stack every declared scrape surface admits: both declared in
-# platform/observability.project.yml.
+# platform/observability/observability.project.yml.
 telemetry:
   collector: observability/otel-collector
   metrics: observability/prometheus
+  # The Grafana every Application's dashboards ship to: the labels its
+  # instance carries, as fleet-infra's Grafana object carries them today, and
+  # the data source a vendored dashboard's inputs map to.
+  dashboards:
+    instance: {dashboards: grafana}
+    datasource: prometheus
+
+# The monitoring stack by role, and the one routing of every alert
+# (deploy-kit spec/v1/14-platform-intent.md#monitoring): fleet-infra's
+# alertmanager-discord routing, unchanged. The webhook is the key
+# fleet-infra's alertmanager-discord VaultStaticSecret reads today.
+monitoring:
+  grafana: observability/grafana
+  prometheus: observability/prometheus
+  alertmanager: observability/alertmanager
+  # The stores Grafana reads beside them: each is a data source, derived from
+  # Grafana's edge to it (deploy-kit spec/v1/14-platform-intent.md#grafanas-instance-and-data-sources).
+  stores:
+    loki: observability/loki
+    tempo: observability/tempo
+    pyroscope: observability/pyroscope
+  receivers:
+    - name: discord
+      discord:
+        webhook: {path: secret/data/platform/observability, key: discord.alert_webhook_url}
+  routes:
+    - {severity: critical, receiver: discord, repeat: 4h}
+    - {severity: warning, receiver: discord, repeat: 12h}
 
 # The Secret Store every grant is read from: declared in
 # platform/secrets/secrets.project.yml. Every Project's VaultConnection and
@@ -332,16 +397,37 @@ delivery:
     latency: 1000ms
 
 # The Applications whose Processes may hold Kubernetes API access, and where
-# the API server answers. Each is in the delivery Project, save four: the
+# the API server answers: the delivery Project's machinery, the
 # estate-dashboard, which reads Flux's sources and units and Flagger's Canaries
-# and writes nothing (JorisJonkers-dev/estate-dashboard); headlamp, which
-# holds no rule and acts with each signed-in user's own token; Vault, which
-# reviews every kubernetes login's token with its own; and the Vault Secrets
-# Operator, which writes every grant's Secret and restarts its Process. This
-# document validates only beside their fragments: alone it refuses
-# E_UNKNOWN_API_HOLDER.
+# and writes nothing (JorisJonkers-dev/estate-dashboard), headlamp, which
+# holds no rule and acts with each signed-in user's own token, the
+# observability Project's monitoring stack, operators and collectors,
+# edge's external-dns, which reads every public route and the Services behind
+# it, Vault, which reviews every kubernetes login's token with its own, and the
+# Vault Secrets Operator, which writes every grant's Secret and restarts its
+# Process. The tiers' two proxies need no place here: their tiers derive their
+# access (JorisJonkers-dev/deploy-kit#727). This document validates only beside
+# their fragments: alone it refuses E_UNKNOWN_API_HOLDER.
 apiAccess:
-  holders: [delivery/flagger, delivery/release-gate, delivery/collector, delivery/reporter, estate-dashboard/estate-dashboard, utility/headlamp, secrets/vault, secrets/vault-secrets-operator]
+  holders:
+    - delivery/flagger
+    - delivery/release-gate
+    - delivery/collector
+    - delivery/reporter
+    - estate-dashboard/estate-dashboard
+    - utility/headlamp
+    # The monitoring stack's Prometheus, operators and collectors, each
+    # reading the cluster for what it monitors.
+    - observability/prometheus
+    - observability/prometheus-operator
+    - observability/kube-state-metrics
+    - observability/grafana-operator
+    - observability/gatus
+    - observability/alloy
+    # Reads every public route and the Services behind it.
+    - edge/external-dns
+    - secrets/vault
+    - secrets/vault-secrets-operator
   server:
     - { cidr: 10.43.0.1/32, port: 443 } # Service default/kubernetes, read 2026-10-07
 
@@ -354,6 +440,23 @@ humanGrants:
   - group: oidc:k8s-admin
     clusterRole: cluster-admin
     reason: the platform owner administers the cluster with kubectl and headlamp over OIDC
+
+# The scheduling priority each Process runs at, derived and never authored
+# (deploy-kit spec/v1/14-platform-intent.md#priority): a Process whose engine
+# derives a backup at the data class, so it schedules before what reads it;
+# the foundation, every privileged role's holder and the Applications named
+# here at the critical class, so they keep scheduling when a node is short.
+# The names and values are the live classes fleet-infra's apps-data created
+# (read 2026-10-30): a class's value cannot change once it exists, so the
+# render takes them over as they are. It lands ahead of the secrets handover,
+# since Vault on the estate path comes back sealed from an eviction. Valkey
+# runs at the data class live, but is a cache with no engine, so the data
+# class cannot reach it; it is named here instead, so it ranks with auth,
+# which reads it.
+priority:
+  data: {name: platform-data, value: 1000000}
+  critical: {name: platform-critical-app, value: 100000}
+  criticalApplications: [auth/auth, data/platform-valkey]
 
 # The job that writes every rendered Vault policy and role into the Secret
 # Store, from each Project's own namespace. Its role, policy-admin, binds the
@@ -387,20 +490,20 @@ seeder:
 # was never on the old path: its Applications (the Release Gate, Flagger, the
 # Collector) are born on the estate path, and so is `estate-dashboard`.
 # `mail` moved in JorisJonkers-dev/deploy-kit#656, adopted in place on its
-# live claim. A Project that retires leaves the ledger: `knowledge` was
-# retired with the old knowledge stack (fleet-infra#495), `knowledge-platform`
-# and `media` were split into the Projects that now run their apps under
-# `estate`, and `agents` is deprecated and never ported: it stays on the old
-# path until it is retired there (JorisJonkers-dev/deploy-kit#658).
+# live claim, and `node`, which declares nothing (its Node Agents are derived
+# from `nodeAgents`, the node contract and the pools), in
+# JorisJonkers-dev/deploy-kit#659 (docs/runbooks/node-handover.md). A Project
+# that retires leaves the ledger: `knowledge` was retired with the old
+# knowledge stack (fleet-infra#495), `knowledge-platform` and `media` were
+# split into the Projects that now run their apps under `estate`, and `agents`
+# is deprecated and never ported: it stays on the old path until it is retired
+# there (JorisJonkers-dev/deploy-kit#658).
 handover:
   retireBy: 2027-03-31
-  legacy:
-    - edge
-    - observability
-    - data
-    - node
+  legacy: []
   estate:
     - delivery
+    - edge
     - estate-dashboard
     - home-portal
     - tribelt
@@ -420,6 +523,9 @@ handover:
     - auth
     - mail
     - utility
+    - node
+    - observability
+    - data
     # The last handover (JorisJonkers-dev/deploy-kit#663): Vault restored
     # from a raft snapshot into secrets-system, and VSO with it.
     - secrets
@@ -428,19 +534,7 @@ handover:
   # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). A statement
   # goes in the change that hands its Project over: `vault`'s, which sent
   # every VaultConnection and policy job to data-system, went with secrets.
-  serving:
-    # The old path's Postgres, and where it keeps the administrative login the
-    # catalog method applies the estate path's databases with.
-    - application: platform-postgres
-      namespace: data-system
-      admin: { path: secret/data/platform/postgres, user: postgres.user, password: postgres.password }
-    # The old path's collector: Grafana Alloy, whose Service and pods carry the
-    # instance alloy, with an OTLP gRPC receiver on 4317. Without this every
-    # exporting Runtime Profile (auth-api's jvm, the first on the estate path)
-    # is handed otel-collector.observability-system, which does not exist.
-    - application: otel-collector
-      namespace: observability
-      instance: alloy
+  serving: []
 
 # No `providers`: everything an Application depends on today runs in the
 # cluster and is declared by some Project. The worked example's `stalwart`

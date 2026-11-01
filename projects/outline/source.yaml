@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/outline
   ref:
-    digest: sha256:1855bbaea36687a693e84311a8411c855dad46e05df4a085b14e32c15fb2816d
+    digest: sha256:982b6236b8f6a63f56eaa062a40f36b9e9a4a96d2410bf22d20ab909e05a83ca
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/estate
-    event.toolkit.fluxcd.io/sha: c501f4fe48acfd3c4eae2aefb2968c4665d26965
+    event.toolkit.fluxcd.io/sha: 00ef545373c0b668498b6b9d92c5c67fec49d3dc
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.32.0
+    event.toolkit.fluxcd.io/version: 0.37.0
     event.toolkit.fluxcd.io/url: https://notes.jorisjonkers.dev
 spec:
   interval: 10m
@@ -47,4 +47,6 @@ spec:
   path: ./apps/outline
   dependsOn:
     - name: apps-auth
+    - name: apps-data
+    - name: apps-edge
     - name: apps-mail
