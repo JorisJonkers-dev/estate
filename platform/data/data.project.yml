@@ -109,8 +109,7 @@ applications:
         path: /metrics
 
     # The management UI signs in through auth's OAuth issuer at its public host, which it
-    # reaches through the edge like a browser, so it is no `dependsOn` edge. While the edge is
-    # `legacy`, the route itself stays fleet-infra's IngressRoute.
+    # reaches through the edge like a browser, so it is no `dependsOn` edge.
     exposure:
       - name: management
         host: rabbitmq.jorisjonkers.dev
@@ -222,6 +221,15 @@ applications:
         surface: admin
         path: /metrics
 
+    # The public asset host: the bucket is named for the host, so the edge forwards the Host
+    # unchanged and Garage's web endpoint serves the bucket it names, with no credential.
+    exposure:
+      - name: assets
+        host: assets.jorisjonkers.dev
+        audience: anonymous
+        routes:
+          - { path: /, match: prefix, process: garage, surface: web }
+
     processes:
       - name: garage
         lifecycle: application
@@ -231,7 +239,7 @@ applications:
 
         # `s3` is what a consumer's edge names; `admin` is the admin API the catalog method
         # applies the catalog over, and where Prometheus reads the metrics; `web` serves the
-        # website buckets behind fleet-infra's assets route.
+        # website buckets behind the assets exposure.
         provides:
           s3: 3900
           web: 3902
