@@ -150,6 +150,13 @@ applications:
             - group: apps
               objects: [statefulsets]
               verbs: [get, list, watch, create, update, delete]
+            # The kubelet scrapes are ScrapeConfigs; the storage class sizes a claim.
+            - group: monitoring.coreos.com
+              objects: [scrapeconfigs]
+              verbs: [get, list, watch]
+            - group: storage.k8s.io
+              objects: [storageclasses]
+              verbs: [get]
 
   # The cluster's object state as metrics, and Flux's readiness beside it.
   - id: kube-state-metrics
