@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.0](https://github.com/JorisJonkers-dev/estate/compare/v0.38.0...v0.39.0) (2026-11-01)
+
+
+### Features
+
+* **data:** hand the data Project over to the estate path ([#216](https://github.com/JorisJonkers-dev/estate/issues/216)) ([3a1669f](https://github.com/JorisJonkers-dev/estate/commit/3a1669fc5f09850f214c168ae72fe92d6d4632bd))
+
 ## [0.38.0](https://github.com/JorisJonkers-dev/estate/compare/v0.37.1...v0.38.0) (2026-11-01)
 
 
