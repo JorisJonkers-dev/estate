@@ -47,10 +47,10 @@ jobs:
   # JorisJonkers-dev/delivery declares, and the estate-dashboard fragment,
   # since it admits that Application to the Kubernetes API, with auth's, which
   # the dashboard signs in through. `data` and `mail` are delivered by their
-  # pins. Validation reads only what it is handed, so `data` and `mail` are
-  # handed the config their Assets mount and their env scopes, and `utility`
-  # its Asset, its env scope and auth's fragment, which headlamp signs in
-  # through.
+  # pins. Validation reads only what it is handed, so `data`, `mail` and
+  # `secrets` are handed the config their Assets mount and their env scopes,
+  # and `utility` its Asset, its env scope and auth's fragment, which headlamp
+  # signs in through.
   fragment:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
@@ -65,7 +65,8 @@ jobs:
             validate-with: platform/edge/env
           - project-file: platform/observability/observability.project.yml
             validate-with: platform/observability/config platform/observability/env platform/observability/rules platform/observability/dashboards
-          - project-file: platform/secrets.project.yml
+          - project-file: platform/secrets/secrets.project.yml
+            validate-with: platform/secrets/config platform/secrets/env
           - project-file: platform/data/data.project.yml
             validate-with: platform/data/config platform/data/env
           - project-file: platform/mail/mail.project.yml
