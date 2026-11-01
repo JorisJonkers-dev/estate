@@ -46,4 +46,5 @@ spec:
     name: project-immich
   path: ./apps/immich
   dependsOn:
+    - name: apps-data
     - name: apps-edge

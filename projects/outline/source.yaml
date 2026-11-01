@@ -47,5 +47,6 @@ spec:
   path: ./apps/outline
   dependsOn:
     - name: apps-auth
+    - name: apps-data
     - name: apps-edge
     - name: apps-mail

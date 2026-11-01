@@ -47,4 +47,5 @@ spec:
   path: ./apps/n8n
   dependsOn:
     - name: apps-auth
+    - name: apps-data
     - name: apps-edge

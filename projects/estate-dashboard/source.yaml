@@ -47,5 +47,6 @@ spec:
   path: ./apps/estate-dashboard
   dependsOn:
     - name: apps-auth
+    - name: apps-data
     - name: apps-delivery
     - name: apps-edge

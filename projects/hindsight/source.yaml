@@ -46,4 +46,5 @@ spec:
     name: project-hindsight
   path: ./apps/hindsight
   dependsOn:
+    - name: apps-data
     - name: apps-edge

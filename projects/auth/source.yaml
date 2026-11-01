@@ -46,5 +46,6 @@ spec:
     name: project-auth
   path: ./apps/auth
   dependsOn:
+    - name: apps-data
     - name: apps-edge
     - name: apps-mail
