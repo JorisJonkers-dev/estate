@@ -164,7 +164,7 @@ applications:
   # The cluster's object state as metrics, and Flux's readiness beside it.
   - id: kube-state-metrics
     observability:
-      scrape: { process: kube-state-metrics, surface: http, path: /metrics }
+      scrape: { process: kube-state-metrics, surface: http, path: /metrics, honorLabels: true } # each series names its object
     processes:
       - name: kube-state-metrics
         lifecycle: application
