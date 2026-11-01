@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.0](https://github.com/JorisJonkers-dev/estate/compare/v0.40.0...v0.41.0) (2026-11-01)
+
+
+### Features
+
+* **secrets:** hand the secrets Project over to the estate path ([#262](https://github.com/JorisJonkers-dev/estate/issues/262)) ([adc2d9b](https://github.com/JorisJonkers-dev/estate/commit/adc2d9bc5122513d6ad17ccf9bca0355ea5e8aa6))
+
 ## [0.40.0](https://github.com/JorisJonkers-dev/estate/compare/v0.39.0...v0.40.0) (2026-11-01)
 
 
