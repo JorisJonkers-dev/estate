@@ -142,7 +142,7 @@ applications:
             the operator reconciles every monitor, rule and Alertmanager routing object into the Prometheus and Alertmanager configuration, cluster-wide
           rules:
             - group: monitoring.coreos.com
-              objects: [prometheuses, prometheuses/status, alertmanagers, alertmanagers/status, servicemonitors, podmonitors, prometheusrules, alertmanagerconfigs]
+              objects: [prometheuses, prometheuses/status, alertmanagers, alertmanagers/status, servicemonitors, podmonitors, probes, prometheusrules, alertmanagerconfigs]
               verbs: [get, list, watch, create, update, patch, delete]
             - group: core
               objects: [services, endpoints, pods, nodes, namespaces, configmaps, secrets]
@@ -417,7 +417,7 @@ applications:
         probes:
           readiness: { path: /ready, port: 4040 }
           liveness: { path: /ready, port: 4040 }
-        startupBudget: 30s
+        startupBudget: 120s # ready about 50s after start: metastore, then ingester
         cutover: interrupted
         volumes:
           # The image works in /, so its default ./data is this claim.
