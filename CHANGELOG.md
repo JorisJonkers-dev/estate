@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.0](https://github.com/JorisJonkers-dev/estate/compare/v0.37.1...v0.38.0) (2026-11-01)
+
+
+### Features
+
+* **data:** declare Garage and the datastores as the estate path will run them ([#215](https://github.com/JorisJonkers-dev/estate/issues/215)) ([d80c53f](https://github.com/JorisJonkers-dev/estate/commit/d80c53fce4cfcbc078d6cdaa10d0b18976951d34))
+
 ## [0.37.1](https://github.com/JorisJonkers-dev/estate/compare/v0.37.0...v0.37.1) (2026-11-01)
 
 
