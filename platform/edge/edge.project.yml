@@ -24,7 +24,7 @@ applications:
     # Its request metrics, as the old path's PodMonitor scraped them; Traefik
     # serves them on its own entry point, beside /ping.
     observability:
-      scrape: { process: traefik-public, surface: admin, path: /metrics }
+      scrape: { process: traefik-public, surface: admin, path: /metrics, honorLabels: true } # keeps its own `service` label
     processes:
       - name: traefik-public
         lifecycle: application
@@ -51,7 +51,7 @@ applications:
     # Its request metrics, as the old path's PodMonitor scraped them; Traefik
     # serves them on its own entry point, beside /ping.
     observability:
-      scrape: { process: traefik-lan, surface: admin, path: /metrics }
+      scrape: { process: traefik-lan, surface: admin, path: /metrics, honorLabels: true } # keeps its own `service` label
     processes:
       - name: traefik-lan
         lifecycle: application

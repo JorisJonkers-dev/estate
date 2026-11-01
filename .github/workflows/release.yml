@@ -81,7 +81,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/publish-fragment.yml@e67c96c429ddb24f20304e075e3aca54f82c20be # v0.40.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/publish-fragment.yml@3bffe319de9d22cd4fa3abeaad3f0b397f63f8f2 # v0.41.0
     with:
       project-file: ${{ matrix.project-file }}
       version: ${{ needs.release-please.outputs.tag_name }}
