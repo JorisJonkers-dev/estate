@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.0](https://github.com/JorisJonkers-dev/estate/compare/v0.41.2...v0.42.0) (2026-11-01)
+
+
+### Features
+
+* **observability:** keep kube-state-metrics' and Traefik's own labels, on deploy-kit 1.8.0 ([#308](https://github.com/JorisJonkers-dev/estate/issues/308)) ([7f30178](https://github.com/JorisJonkers-dev/estate/commit/7f30178bd9a5545f98ccfee9119aff69b7bca9e0))
+
 ## [0.41.2](https://github.com/JorisJonkers-dev/estate/compare/v0.41.1...v0.41.2) (2026-11-01)
 
 
