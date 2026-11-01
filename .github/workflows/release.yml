@@ -62,8 +62,10 @@ jobs:
           - project-file: platform.intent.yml
             validate-with: platform node-contract.yml images.lock.yml
             validate-with-fragments: delivery estate-dashboard auth
-          - project-file: platform/edge.project.yml
-          - project-file: platform/observability.project.yml
+          - project-file: platform/edge/edge.project.yml
+            validate-with: platform/edge/env
+          - project-file: platform/observability/observability.project.yml
+            validate-with: platform/observability/config platform/observability/env platform/observability/rules platform/observability/dashboards
           - project-file: platform/secrets.project.yml
           - project-file: platform/data/data.project.yml
             validate-with: platform/data/config platform/data/env
@@ -79,7 +81,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/publish-fragment.yml@f3bb6cabaa6ee33694f8632ce273a4e703d60780 # v0.38.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/publish-fragment.yml@e67c96c429ddb24f20304e075e3aca54f82c20be # v0.40.0
     with:
       project-file: ${{ matrix.project-file }}
       version: ${{ needs.release-please.outputs.tag_name }}

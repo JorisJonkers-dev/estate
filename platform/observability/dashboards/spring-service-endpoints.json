@@ -1,0 +1,160 @@
+{
+  "uid": "spring-service-endpoints",
+  "title": "Spring Service — Endpoint Investigation",
+  "tags": ["spring-boot", "endpoint", "drilldown"],
+  "timezone": "browser",
+  "editable": false,
+  "refresh": "30s",
+  "time": { "from": "now-30m", "to": "now" },
+  "schemaVersion": 39,
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "Service",
+        "type": "custom",
+        "query": "auth-api,agents-api",
+        "current": { "text": "auth-api", "value": "auth-api" },
+        "options": [
+          { "text": "auth-api", "value": "auth-api", "selected": true },
+          { "text": "agents-api", "value": "agents-api", "selected": false }
+        ]
+      },
+      {
+        "name": "route",
+        "label": "Route",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(http_server_requests_seconds_count{service_name=\"$service\"}, uri)",
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": false,
+        "current": { "text": "All", "value": "$__all" }
+      },
+      {
+        "name": "pod",
+        "label": "Pod",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(http_server_requests_seconds_count{service_name=\"$service\"}, instance)",
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    { "id": 1, "type": "row", "title": "Top-line — $service / $route", "gridPos": {"h":1,"w":24,"x":0,"y":0}, "collapsed": false },
+    { "id": 2, "type": "stat", "title": "Requests / sec",
+      "gridPos": {"h":4,"w":6,"x":0,"y":1},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(rate(http_server_requests_seconds_count{service_name=\"$service\", uri=~\"$route\", instance=~\"$pod\"}[5m]))" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    { "id": 3, "type": "stat", "title": "Error rate (5xx)",
+      "gridPos": {"h":4,"w":6,"x":6,"y":1},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(rate(http_server_requests_seconds_count{service_name=\"$service\", uri=~\"$route\", status=~\"5..\", instance=~\"$pod\"}[5m])) / clamp_min(sum(rate(http_server_requests_seconds_count{service_name=\"$service\", uri=~\"$route\", instance=~\"$pod\"}[5m])), 1e-9)" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "thresholds": { "mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.01}, {"color": "red", "value": 0.05}] } } }
+    },
+    { "id": 4, "type": "stat", "title": "p95 latency (5m)",
+      "gridPos": {"h":4,"w":6,"x":12,"y":1},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by(le)(rate(http_server_requests_seconds_bucket{service_name=\"$service\", uri=~\"$route\", instance=~\"$pod\"}[5m])))" }],
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.5}, {"color": "red", "value": 2}] } } }
+    },
+    { "id": 5, "type": "stat", "title": "p99 latency (5m)",
+      "gridPos": {"h":4,"w":6,"x":18,"y":1},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "histogram_quantile(0.99, sum by(le)(rate(http_server_requests_seconds_bucket{service_name=\"$service\", uri=~\"$route\", instance=~\"$pod\"}[5m])))" }],
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 5}] } } }
+    },
+
+    { "id": 10, "type": "row", "title": "Per-pod splits", "gridPos": {"h":1,"w":24,"x":0,"y":5}, "collapsed": false },
+    { "id": 11, "type": "heatmap", "title": "Latency heatmap (exemplars → click to open trace)",
+      "gridPos": {"h":8,"w":12,"x":0,"y":6},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum by(le)(rate(http_server_requests_seconds_bucket{service_name=\"$service\", uri=~\"$route\", instance=~\"$pod\"}[1m]))", "format": "heatmap", "exemplar": true }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    { "id": 12, "type": "timeseries", "title": "p95 latency per pod",
+      "gridPos": {"h":8,"w":12,"x":12,"y":6},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by(le, instance)(rate(http_server_requests_seconds_bucket{service_name=\"$service\", uri=~\"$route\", instance=~\"$pod\"}[5m])))", "legendFormat": "{{instance}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+
+    { "id": 20, "type": "row", "title": "Pipeline breakdown — where the time goes inside one request", "gridPos": {"h":1,"w":24,"x":0,"y":14}, "collapsed": false },
+    { "id": 21, "type": "timeseries", "title": "Avg duration per pipeline.* stage",
+      "gridPos": {"h":8,"w":12,"x":0,"y":15},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum by(span_name)(rate(traces_spanmetrics_latency_sum{service_name=\"$service\", span_name=~\"pipeline\\\\..*\", http_route=~\"$route\"}[5m])) / clamp_min(sum by(span_name)(rate(traces_spanmetrics_latency_count{service_name=\"$service\", span_name=~\"pipeline\\\\..*\", http_route=~\"$route\"}[5m])), 1e-9)", "legendFormat": "{{span_name}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    { "id": 22, "type": "timeseries", "title": "p95 per pipeline.* stage",
+      "gridPos": {"h":8,"w":12,"x":12,"y":15},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by(le, span_name)(rate(traces_spanmetrics_latency_bucket{service_name=\"$service\", span_name=~\"pipeline\\\\..*\", http_route=~\"$route\"}[5m])))", "legendFormat": "{{span_name}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+
+    { "id": 30, "type": "row", "title": "Downstream dependencies (Redis / Postgres / GC)", "gridPos": {"h":1,"w":24,"x":0,"y":23}, "collapsed": false },
+    { "id": 31, "type": "timeseries", "title": "Lettuce avg per-command duration",
+      "gridPos": {"h":8,"w":8,"x":0,"y":24},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum by(db_operation)(rate(lettuce_seconds_sum{service_name=\"$service\"}[5m])) / clamp_min(sum by(db_operation)(rate(lettuce_seconds_count{service_name=\"$service\"}[5m])), 1e-9)", "legendFormat": "{{db_operation}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    { "id": 32, "type": "timeseries", "title": "Lettuce CancellationException (Redis timeouts)",
+      "gridPos": {"h":8,"w":8,"x":8,"y":24},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum by(db_operation)(rate(lettuce_seconds_count{service_name=\"$service\", error=\"CancellationException\"}[5m]))", "legendFormat": "{{db_operation}}" }],
+      "fieldConfig": { "defaults": { "unit": "ops" } }
+    },
+    { "id": 33, "type": "timeseries", "title": "JVM GC pause p95",
+      "gridPos": {"h":8,"w":8,"x":16,"y":24},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by(le, instance, cause)(rate(jvm_gc_pause_seconds_bucket{application=\"$service\", instance=~\"$pod\"}[5m])))", "legendFormat": "{{instance}} / {{cause}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    { "id": 34, "type": "timeseries", "title": "Hikari connections pending (DB pool exhaustion)",
+      "gridPos": {"h":8,"w":12,"x":0,"y":32},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "hikaricp_connections_pending{application=\"$service\", instance=~\"$pod\"}", "legendFormat": "{{instance}}" }],
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    },
+    { "id": 35, "type": "timeseries", "title": "Hikari acquire p95",
+      "gridPos": {"h":8,"w":12,"x":12,"y":32},
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by(le, instance)(rate(hikaricp_connections_acquire_seconds_bucket{application=\"$service\", instance=~\"$pod\"}[5m])))", "legendFormat": "{{instance}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+
+    { "id": 40, "type": "row", "title": "Slow-request leaderboard — click a trace to open in Drilldown", "gridPos": {"h":1,"w":24,"x":0,"y":40}, "collapsed": false },
+    { "id": 41, "type": "table", "title": "Slowest traces in window (TraceQL)",
+      "gridPos": {"h":10,"w":24,"x":0,"y":41},
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [{
+        "queryType": "traceql",
+        "query": "{ resource.service.name=\"$service\" && span.http.route =~ \"$route\" && duration > 1s }",
+        "tableType": "traces",
+        "limit": 50,
+        "filters": []
+      }]
+    },
+
+    { "id": 50, "type": "row", "title": "Error log feed (Loki) — trace_id rendered as a clickable link", "gridPos": {"h":1,"w":24,"x":0,"y":51}, "collapsed": false },
+    { "id": 51, "type": "logs", "title": "Errors in window for $service",
+      "gridPos": {"h":10,"w":24,"x":0,"y":52},
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [{ "expr": "{service_name=\"$service\"} | json | level=~\"ERROR|WARN\"" }],
+      "options": { "showTime": true, "showLabels": false, "wrapLogMessage": true, "enableLogDetails": true, "sortOrder": "Descending" }
+    }
+  ]
+}
+

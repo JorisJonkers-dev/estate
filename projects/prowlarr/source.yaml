@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/prowlarr
   ref:
-    digest: sha256:84472b2e6e18cb340466822e07340b527d54372ce21a47dc044944e7374cc1f5
+    digest: sha256:70a953a5ffc6497a4a56f6f56c8228b096ef970800d9bd9952c153c883ca2649
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,10 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/prowlarr
-    event.toolkit.fluxcd.io/sha: e696776b983d9b7c408ce4b8e3ce19765c6e7740
+    event.toolkit.fluxcd.io/sha: ee7c3e62a2a7e684997460c75200765693738803
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 2.6.1
+    event.toolkit.fluxcd.io/version: 2.7.0
+    event.toolkit.fluxcd.io/url: https://prowlarr.jorisjonkers.dev
 spec:
   interval: 10m
   prune: true
@@ -44,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-prowlarr
   path: ./apps/prowlarr
+  dependsOn:
+    - name: apps-edge
