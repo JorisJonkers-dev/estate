@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.4](https://github.com/JorisJonkers-dev/estate/compare/v0.36.3...v0.36.4) (2026-11-01)
+
+
+### Bug Fixes
+
+* **observability:** let the operator read ScrapeConfigs, so the kubelet is scraped ([#288](https://github.com/JorisJonkers-dev/estate/issues/288)) ([dc12471](https://github.com/JorisJonkers-dev/estate/commit/dc12471ab4e3ddfb780266f2b210dde81e74a4a9))
+
 ## [0.36.3](https://github.com/JorisJonkers-dev/estate/compare/v0.36.2...v0.36.3) (2026-11-01)
 
 
