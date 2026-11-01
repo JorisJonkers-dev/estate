@@ -529,12 +529,11 @@ handover:
     # The last handover (JorisJonkers-dev/deploy-kit#663): Vault restored
     # from a raft snapshot into secrets-system, and VSO with it.
     - secrets
-  # Where the old path runs a legacy Application that the estate path
-  # reaches, rather than where its declaration puts it
-  # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). A statement
-  # goes in the change that hands its Project over: `vault`'s, which sent
-  # every VaultConnection and policy job to data-system, went with secrets.
-  serving: []
+  # Where the old path ran a legacy Application that the estate path
+  # reached, rather than where its declaration put it
+  # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger): none since
+  # secrets handed over, and `vault`'s, which sent every VaultConnection and
+  # policy job to data-system, went with it, so there is no `serving`.
 
 # No `providers`: everything an Application depends on today runs in the
 # cluster and is declared by some Project. The worked example's `stalwart`
