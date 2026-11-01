@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.43.0](https://github.com/JorisJonkers-dev/estate/compare/v0.42.0...v0.43.0) (2026-11-01)
+
+
+### Features
+
+* **data:** serve the public asset host from Garage's own exposure ([#313](https://github.com/JorisJonkers-dev/estate/issues/313)) ([ef563d8](https://github.com/JorisJonkers-dev/estate/commit/ef563d8fc11ea5ddf3f83e51b2e9845753ffed0a))
+
+
+### Bug Fixes
+
+* **deploy:** order the secrets unit after nothing, on deploy-kit 1.8.1 ([#310](https://github.com/JorisJonkers-dev/estate/issues/310)) ([da9d264](https://github.com/JorisJonkers-dev/estate/commit/da9d2640f1677536b1397f354e280b368a599671))
+* **secrets:** declare VSO's deletecollection and turn its leader election off, on deploy-kit 1.9.0 ([#314](https://github.com/JorisJonkers-dev/estate/issues/314)) ([6bed513](https://github.com/JorisJonkers-dev/estate/commit/6bed51345c6049d827016d8e2719e0a5e1b15b97))
+
 ## [0.42.0](https://github.com/JorisJonkers-dev/estate/compare/v0.41.2...v0.42.0) (2026-11-01)
 
 
