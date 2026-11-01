@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.41.1](https://github.com/JorisJonkers-dev/estate/compare/v0.41.0...v0.41.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* **bootstrap:** retire the old stalwart policy with both reads the old path wrote ([#303](https://github.com/JorisJonkers-dev/estate/issues/303)) ([9d03963](https://github.com/JorisJonkers-dev/estate/commit/9d039638507de70c12c11cffc5e6d84a051a3e22))
+* **observability:** read kube-state-metrics' exported labels, and measure SLOs on server spans ([#305](https://github.com/JorisJonkers-dev/estate/issues/305)) ([f3517fc](https://github.com/JorisJonkers-dev/estate/commit/f3517fc1ec44a616700b9a09eb2ceb7c7a77450c))
+
 ## [0.41.0](https://github.com/JorisJonkers-dev/estate/compare/v0.40.0...v0.41.0) (2026-11-01)
 
 
