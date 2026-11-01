@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/observability
   ref:
-    digest: sha256:d21a070855e300f95b1ee0ec5615bcfedff4b6adc3af9551d165e1ca33fe68ee
+    digest: sha256:8c3ec268185ea8b474750a881a59e3e06a56bc3d5077a273ea187bc85f6e496d
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/estate
-    event.toolkit.fluxcd.io/sha: 38b768a02db7071ac3cb0abc17fda94be4993efd
+    event.toolkit.fluxcd.io/sha: 3ead80f37a97b5a9078cd573e167cfe8c78b53f0
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.41.1
+    event.toolkit.fluxcd.io/version: 0.41.2
     event.toolkit.fluxcd.io/url: https://grafana.jorisjonkers.dev
 spec:
   interval: 10m
