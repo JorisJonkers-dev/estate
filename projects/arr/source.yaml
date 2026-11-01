@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/arr
   ref:
-    digest: sha256:a961f1af67ffabb6e97253bc58770f2e080f47f11de32b4ffbd85dcb47c4ef6d
+    digest: sha256:ebf389edbbcf93a17d9ceddbd6e45e818f2bdd47c69f2521c925b33068221acd
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,10 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/arr
-    event.toolkit.fluxcd.io/sha: 00c4c3a3d34f502828572251da473c4b59f147fa
+    event.toolkit.fluxcd.io/sha: 4c5e7be2cb24965c842b39a7d98f249c5466df61
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 1.2.1
+    event.toolkit.fluxcd.io/version: 1.3.0
+    event.toolkit.fluxcd.io/url: https://sonarr.jorisjonkers.dev
 spec:
   interval: 10m
   prune: true
