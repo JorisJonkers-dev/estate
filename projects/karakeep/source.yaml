@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/karakeep
   ref:
-    digest: sha256:efca7f9a842158e051fb9732404bdcef2bde5bfc32b6e949bf588f4ceb12b8e7
+    digest: sha256:116dff7f8ac1753f14d3f7830fe3a48ef44649ccb12d417d12406060adfc7f94
   secretRef:
     name: render-pull
   verify:
@@ -47,3 +47,4 @@ spec:
   path: ./apps/karakeep
   dependsOn:
     - name: apps-edge
+    - name: apps-secrets

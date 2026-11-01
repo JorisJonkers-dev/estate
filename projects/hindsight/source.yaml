@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/hindsight
   ref:
-    digest: sha256:1886d991beb79e7038859a2a91b91280050137910c0a95d4b46ec61e0647414e
+    digest: sha256:3235967280a135a33bdcb31ecc8599d0523f9df4e74c99dc46628e053d53dee0
   secretRef:
     name: render-pull
   verify:
@@ -48,3 +48,4 @@ spec:
   dependsOn:
     - name: apps-data
     - name: apps-edge
+    - name: apps-secrets

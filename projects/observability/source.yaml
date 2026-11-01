@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/observability
   ref:
-    digest: sha256:68f9b9bacbb33d9c2099df6579a52fea2ed6ecba1bfc9c6589951a41d6ec4818
+    digest: sha256:e83ef6623e5414b79bc1d714a7d535777d29f9cf994b08fa78fbd52fc0353ba2
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/estate
-    event.toolkit.fluxcd.io/sha: 3675b136770f4d5b9e62e4e38203eaa87bf84460
+    event.toolkit.fluxcd.io/sha: 78350b536011f9d00dfb1ef153854f1308cb3f09
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.38.0
+    event.toolkit.fluxcd.io/version: 0.41.0
     event.toolkit.fluxcd.io/url: https://grafana.jorisjonkers.dev
 spec:
   interval: 10m
@@ -47,3 +47,4 @@ spec:
   path: ./apps/observability
   dependsOn:
     - name: apps-edge
+    - name: apps-secrets

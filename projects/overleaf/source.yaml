@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/overleaf
   ref:
-    digest: sha256:fca411ff61e67be4e6565df18dd2f2ece5c11b400fad502ee21df8680e1e6cbf
+    digest: sha256:a4a1a2b5599c348fc778515e6987fbe9360f6c1eddc720d60ea06eaf93ce0fbe
   secretRef:
     name: render-pull
   verify:
@@ -48,3 +48,4 @@ spec:
   dependsOn:
     - name: apps-edge
     - name: apps-mail
+    - name: apps-secrets

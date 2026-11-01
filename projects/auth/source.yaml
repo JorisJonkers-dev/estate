@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/auth
   ref:
-    digest: sha256:b747c2677ed4b74545ae31522c6bde15994b5d702701b5c4516a294f1ced0a34
+    digest: sha256:53cbd7b48d15d78df1d9d6af2e8c82578c23d425aed1bb6953760366a3f8de21
   secretRef:
     name: render-pull
   verify:
@@ -49,3 +49,4 @@ spec:
     - name: apps-data
     - name: apps-edge
     - name: apps-mail
+    - name: apps-secrets

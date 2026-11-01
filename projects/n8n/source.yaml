@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/n8n
   ref:
-    digest: sha256:ce48567f733a4e8d9bd889242a937bcda554a03f656fb50569dee6e04b993998
+    digest: sha256:83549b8eb1006aff3e62c648c1897f7398c3c4119595f61a259c0dc681a28119
   secretRef:
     name: render-pull
   verify:
@@ -49,3 +49,4 @@ spec:
     - name: apps-auth
     - name: apps-data
     - name: apps-edge
+    - name: apps-secrets

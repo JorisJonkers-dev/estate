@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/edge
   ref:
-    digest: sha256:0a447a2cbf29127b96b2f3c0edcec8582df53877460c1e62f54a29c9ede66aba
+    digest: sha256:5a1e78ef1d8b06f7d0cd3c4175abf67fce9f9886c8990053e5e894caf6c9e50c
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/estate
-    event.toolkit.fluxcd.io/sha: de74fb909773047d4b141a54d8cee7cdc8ac763c
+    event.toolkit.fluxcd.io/sha: 78350b536011f9d00dfb1ef153854f1308cb3f09
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.37.1
+    event.toolkit.fluxcd.io/version: 0.41.0
 spec:
   interval: 10m
   prune: true
@@ -44,3 +44,5 @@ spec:
     kind: OCIRepository
     name: project-edge
   path: ./apps/edge
+  dependsOn:
+    - name: apps-secrets
