@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/immich
   ref:
-    digest: sha256:89decbbe38ae6997933f04097af0e9a1358e82dff7566bc9b13b28b778824098
+    digest: sha256:6908fd95af8f91757fb7a71588c7b7653fe1e6595cfc371e2e67b0f7f7ae2879
   secretRef:
     name: render-pull
   verify:
@@ -45,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-immich
   path: ./apps/immich
+  dependsOn:
+    - name: apps-edge

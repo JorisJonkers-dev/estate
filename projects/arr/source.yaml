@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/arr
   ref:
-    digest: sha256:ebf389edbbcf93a17d9ceddbd6e45e818f2bdd47c69f2521c925b33068221acd
+    digest: sha256:1a577e568ce6954c89e087ef39720552423e752dc7119147ac1317f027606dc3
   secretRef:
     name: render-pull
   verify:
@@ -45,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-arr
   path: ./apps/arr
+  dependsOn:
+    - name: apps-edge

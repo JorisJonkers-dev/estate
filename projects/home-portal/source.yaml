@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/home-portal
   ref:
-    digest: sha256:d848e0d23fce954dd14ab6ced20c9ecce47d4731cd1dad1746ae1f53113669a1
+    digest: sha256:23401e71891e3a2596e6785f6ff60a2a2b9ffaae5be01c9933ba3d54572933f9
   secretRef:
     name: render-pull
   verify:
@@ -45,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-home-portal
   path: ./apps/home-portal
+  dependsOn:
+    - name: apps-edge

@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/jellyseerr
   ref:
-    digest: sha256:c465b03551a04e3980fd9a42c52c266c4b84d5a26914a264faa0a666a7d988f9
+    digest: sha256:a843078a153fe6b41338cc5ec4bbab3928f8278723ec9ac51c12c450a7d5c8b1
   secretRef:
     name: render-pull
   verify:
@@ -45,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-jellyseerr
   path: ./apps/jellyseerr
+  dependsOn:
+    - name: apps-edge

@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/jellyfin
   ref:
-    digest: sha256:e2ede90daff6dc50221f663164a5e3b487bcb892dde87ad95ff89059aafa2ed4
+    digest: sha256:aa5a0e6f17376bf74e6a92efcf67fc30266609330c71309a9bbecc49ccd48b8a
   secretRef:
     name: render-pull
   verify:
@@ -45,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-jellyfin
   path: ./apps/jellyfin
+  dependsOn:
+    - name: apps-edge

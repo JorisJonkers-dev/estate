@@ -17,7 +17,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/findability-explorer
   ref:
-    digest: sha256:64ea7d35ae36399b0cd75d4270a2c94edbf3298cd50e7741540771b77296c25b
+    digest: sha256:2be475dc07effed37345a56e24c3a8230ee035c362bf2c27135b3bda300adbe0
   secretRef:
     name: render-pull
   verify:
@@ -51,3 +51,5 @@ spec:
     kind: OCIRepository
     name: project-findability-explorer
   path: ./apps/findability-explorer
+  dependsOn:
+    - name: apps-edge

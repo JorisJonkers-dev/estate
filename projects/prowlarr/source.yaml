@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/prowlarr
   ref:
-    digest: sha256:e93ed2ab00a88d787fd030b57452038ff779aa8916fa172a879eb25e33a9746a
+    digest: sha256:70a953a5ffc6497a4a56f6f56c8228b096ef970800d9bd9952c153c883ca2649
   secretRef:
     name: render-pull
   verify:
@@ -45,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-prowlarr
   path: ./apps/prowlarr
+  dependsOn:
+    - name: apps-edge

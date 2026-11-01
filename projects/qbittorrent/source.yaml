@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/qbittorrent
   ref:
-    digest: sha256:19ecfd850f173cd6f8adec80789a0b466fcbb30d12b5f2ecb5bee37a4476fc61
+    digest: sha256:391c7eeb0f244c23266e0f74ae61902bb58cd5d5f2e1d8d810d8c72f8244ab4a
   secretRef:
     name: render-pull
   verify:
@@ -45,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-qbittorrent
   path: ./apps/qbittorrent
+  dependsOn:
+    - name: apps-edge
