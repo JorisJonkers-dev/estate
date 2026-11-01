@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.3](https://github.com/JorisJonkers-dev/estate/compare/v0.36.2...v0.36.3) (2026-11-01)
+
+
+### Bug Fixes
+
+* **observability:** give pyroscope time to start, move the checks sidecar off 8080, let the operator list Probes ([#285](https://github.com/JorisJonkers-dev/estate/issues/285)) ([6d53c16](https://github.com/JorisJonkers-dev/estate/commit/6d53c1626d3a692975df51fd3273ba2a6379e2e3))
+
 ## [0.36.2](https://github.com/JorisJonkers-dev/estate/compare/v0.36.1...v0.36.2) (2026-10-31)
 
 
