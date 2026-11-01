@@ -51,9 +51,9 @@ groups:
         # >14.4× budget over 1h (Google SRE multi-window-multi-burn-rate).
         expr: |
           (
-            sum by (service) (rate(traces_spanmetrics_calls_total{status_code="STATUS_CODE_ERROR",service!="traefik"}[1h]))
+            sum by (service) (rate(traces_spanmetrics_calls_total{status_code="STATUS_CODE_ERROR",service!="traefik",span_kind="SPAN_KIND_SERVER"}[1h]))
             /
-            sum by (service) (rate(traces_spanmetrics_calls_total{service!="traefik"}[1h]))
+            sum by (service) (rate(traces_spanmetrics_calls_total{service!="traefik",span_kind="SPAN_KIND_SERVER"}[1h]))
           ) > (14.4 * 0.001)
         for: 5m
         labels: {severity: critical}
@@ -63,9 +63,9 @@ groups:
       - alert: ServiceErrorBudgetSlowBurn
         expr: |
           (
-            sum by (service) (rate(traces_spanmetrics_calls_total{status_code="STATUS_CODE_ERROR",service!="traefik"}[6h]))
+            sum by (service) (rate(traces_spanmetrics_calls_total{status_code="STATUS_CODE_ERROR",service!="traefik",span_kind="SPAN_KIND_SERVER"}[6h]))
             /
-            sum by (service) (rate(traces_spanmetrics_calls_total{service!="traefik"}[6h]))
+            sum by (service) (rate(traces_spanmetrics_calls_total{service!="traefik",span_kind="SPAN_KIND_SERVER"}[6h]))
           ) > (1 * 0.001)
         for: 30m
         labels: {severity: warning}
@@ -80,7 +80,7 @@ groups:
         for: 10m
         labels: {severity: warning}
         annotations:
-          summary: 'Pod restarting frequently: {{ $labels.namespace }}/{{ $labels.pod }}'
+          summary: 'Pod restarting frequently: {{ $labels.exported_namespace }}/{{ $labels.exported_pod }}'
           description: '{{ $labels.container }} has restarted >3 times in 15m.'
       - alert: PodOOMKilled
         expr: increase(container_oom_events_total[10m]) > 0
@@ -90,11 +90,13 @@ groups:
           summary: 'OOM kill: {{ $labels.namespace }}/{{ $labels.pod }}'
           description: Pod was OOM killed at least once in the last 10 minutes.
       - alert: PodNotReady
-        expr: kube_pod_status_ready{condition="true"} == 0 and on (namespace, pod) kube_pod_status_phase{phase="Running"} == 1
+        # kube-state-metrics' labels arrive as exported_namespace and exported_pod (deploy-kit#783):
+        # joined on its own namespace and pod, every finished Job pod matched some Running pod.
+        expr: kube_pod_status_ready{condition="true"} == 0 and on (exported_namespace, exported_pod) kube_pod_status_phase{phase="Running"} == 1
         for: 10m
         labels: {severity: warning}
         annotations:
-          summary: 'Pod not ready: {{ $labels.namespace }}/{{ $labels.pod }}'
+          summary: 'Pod not ready: {{ $labels.exported_namespace }}/{{ $labels.exported_pod }}'
           description: Pod is Running but not Ready for 10 minutes.
   # ───────── JVM ─────────
   - name: platform-jvm
@@ -533,17 +535,19 @@ groups:
         for: 15m
         labels: {severity: warning}
         annotations:
-          summary: 'Job {{ $labels.namespace }}/{{ $labels.job_name }} failed'
+          summary: 'Job {{ $labels.exported_namespace }}/{{ $labels.job_name }} failed'
           description: >-
             A failed Job keeps firing until the Job object is deleted, which is deliberate: a one-shot Job that failed has work that never happened. Fix the cause or delete the Job to clear it.
       - alert: BackupNeverSucceeded
         expr: |
           kube_cronjob_info{cronjob=~".*(backup|snapshot).*"}
-            unless on (namespace, cronjob) kube_cronjob_status_last_successful_time
+            unless on (exported_namespace, cronjob) kube_cronjob_status_last_successful_time
+            # A CronJob younger than a day and a bit has not had its first run yet.
+            and on (exported_namespace, cronjob) (time() - kube_cronjob_created > 26 * 3600)
         for: 1h
         labels: {severity: critical}
         annotations:
-          summary: 'Backup {{ $labels.namespace }}/{{ $labels.cronjob }} has never succeeded'
+          summary: 'Backup {{ $labels.exported_namespace }}/{{ $labels.cronjob }} has never succeeded'
           description: >-
             The CronJob exists but kube-state-metrics records no successful completion, so no backup of this data has ever been taken.
       - alert: BackupStale
@@ -553,13 +557,13 @@ groups:
         for: 1h
         labels: {severity: critical}
         annotations:
-          summary: 'Backup {{ $labels.namespace }}/{{ $labels.cronjob }} is stale'
+          summary: 'Backup {{ $labels.exported_namespace }}/{{ $labels.cronjob }} is stale'
           description: Last successful run is older than 48h, so the newest restore point is stale.
       - alert: BackupCronJobSuspended
         expr: kube_cronjob_spec_suspend{cronjob=~".*(backup|snapshot).*"} == 1
         for: 1h
         labels: {severity: warning}
         annotations:
-          summary: 'Backup {{ $labels.namespace }}/{{ $labels.cronjob }} is suspended'
+          summary: 'Backup {{ $labels.exported_namespace }}/{{ $labels.cronjob }} is suspended'
           description: >-
             A suspended backup takes no restore points. Resume it or delete it, but do not leave it suspended silently.
