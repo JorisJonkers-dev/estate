@@ -357,11 +357,12 @@ downloads_report() {
 # under the same name, as the estate path's own: what matters is that nothing
 # logs in with the old role.
 #
-# name|role|policy|ServiceAccount|namespace|the one path the policy reads
+# name|role|policy|ServiceAccount|namespace|the paths the policy reads, in order, space-separated
 OLD_ROLES=(
   "postgres|postgres|postgres|postgres|data-system|secret/data/platform/postgres"
   "rabbitmq|rabbitmq|rabbitmq|rabbitmq|data-system|secret/data/platform/rabbitmq"
-  "stalwart|stalwart|stalwart|stalwart|mail-system|secret/data/platform/mail"
+  # Stalwart also read the Cloudflare DNS token the old path kept in platform/edge.
+  "stalwart|stalwart|stalwart|stalwart|mail-system|secret/data/platform/mail secret/data/platform/edge"
   "auth-api|auth-api|auth-api|auth-api|auth-system|"
 )
 
@@ -420,7 +421,9 @@ retire_old_role() {
   if [[ -n "$rules" ]]; then
     say "policy $policy reads:"
     while IFS= read -r p; do note "    $p"; done <<<"$(flat_rules <<<"$rules" | sed 's/} /}\n/g')"
-    if [[ -n "$reads" && "$(flat_rules <<<"$rules" | tr -d ' ')" != "path\"$reads\"{capabilities=[\"read\"]}" ]]; then
+    local expected="" r
+    for r in $reads; do expected+="path\"$r\"{capabilities=[\"read\"]}"; done
+    if [[ -n "$reads" && "$(flat_rules <<<"$rules" | tr -d ' ')" != "$expected" ]]; then
       refuse "policy $policy grants more than a read on $reads: nothing deleted"
       result "$name" refused
       return 0
