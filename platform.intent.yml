@@ -494,7 +494,6 @@ handover:
   retireBy: 2027-03-31
   legacy:
     - secrets
-    - data
   estate:
     - delivery
     - edge
@@ -519,6 +518,7 @@ handover:
     - utility
     - node
     - observability
+    - data
   # Where the old path runs a legacy Application that the estate path
   # reaches, rather than where its declaration puts it
   # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). Live Vault is
@@ -528,15 +528,6 @@ handover:
   serving:
     - application: vault
       namespace: data-system
-    # The old path's Postgres, and where it keeps the administrative login the
-    # catalog method applies the estate path's databases with.
-    - application: platform-postgres
-      namespace: data-system
-      admin: { path: secret/data/platform/postgres, user: postgres.user, password: postgres.password }
-    # The old path's Garage, and the admin token its bucket catalog would sign in with.
-    - application: platform-garage
-      namespace: data-system
-      admin: { path: secret/data/platform/garage, token: admin_token }
 
 # No `providers`: everything an Application depends on today runs in the
 # cluster and is declared by some Project. The worked example's `stalwart`
