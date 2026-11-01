@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/qbittorrent
   ref:
-    digest: sha256:54e859214f45ad6acbc6aac7acf23037b4b99338c05aa0099ce9360835f0de5a
+    digest: sha256:19ecfd850f173cd6f8adec80789a0b466fcbb30d12b5f2ecb5bee37a4476fc61
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,10 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/qbittorrent
-    event.toolkit.fluxcd.io/sha: c35f233a20e7dab43a0f78c7d2c12e1cd8aa3f75
+    event.toolkit.fluxcd.io/sha: b0f1cac1b7ad9f6bd4882db043c968d59fd917f1
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 5.3.1
+    event.toolkit.fluxcd.io/version: 5.4.0
+    event.toolkit.fluxcd.io/url: https://qbittorrent.jorisjonkers.dev
 spec:
   interval: 10m
   prune: true

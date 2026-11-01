@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.36.4](https://github.com/JorisJonkers-dev/estate/compare/v0.36.3...v0.36.4) (2026-11-01)
+
+
+### Bug Fixes
+
+* **observability:** let the operator read ScrapeConfigs, so the kubelet is scraped ([#288](https://github.com/JorisJonkers-dev/estate/issues/288)) ([dc12471](https://github.com/JorisJonkers-dev/estate/commit/dc12471ab4e3ddfb780266f2b210dde81e74a4a9))
+
+## [0.36.3](https://github.com/JorisJonkers-dev/estate/compare/v0.36.2...v0.36.3) (2026-11-01)
+
+
+### Bug Fixes
+
+* **observability:** give pyroscope time to start, move the checks sidecar off 8080, let the operator list Probes ([#285](https://github.com/JorisJonkers-dev/estate/issues/285)) ([6d53c16](https://github.com/JorisJonkers-dev/estate/commit/6d53c1626d3a692975df51fd3273ba2a6379e2e3))
+
+## [0.36.2](https://github.com/JorisJonkers-dev/estate/compare/v0.36.1...v0.36.2) (2026-10-31)
+
+
+### Bug Fixes
+
+* **observability:** give pyroscope a writable /tmp and gatus's checks sidecar the memory it needs ([#283](https://github.com/JorisJonkers-dev/estate/issues/283)) ([07ca610](https://github.com/JorisJonkers-dev/estate/commit/07ca6109d1a3d96694ef9551d8a4261fbbd6b067))
+
+## [0.36.1](https://github.com/JorisJonkers-dev/estate/compare/v0.36.0...v0.36.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **release:** refuse a Publish Fragment pin whose toolkit minor differs from toolkit.yml's ([#281](https://github.com/JorisJonkers-dev/estate/issues/281)) ([2575239](https://github.com/JorisJonkers-dev/estate/commit/257523926c947c2c43e28db65547d79192506164))
+
+## [0.36.0](https://github.com/JorisJonkers-dev/estate/compare/v0.35.0...v0.36.0) (2026-10-31)
+
+
+### Features
+
+* **bootstrap:** pin the monitoring stack's CRDs in the bootstrap set ([#259](https://github.com/JorisJonkers-dev/estate/issues/259)) ([dc23656](https://github.com/JorisJonkers-dev/estate/commit/dc23656f1f75b3eef5f5ebbf0ba7f458899cd7a6))
+* hand the observability Project over to the estate path ([#260](https://github.com/JorisJonkers-dev/estate/issues/260)) ([dd83e6a](https://github.com/JorisJonkers-dev/estate/commit/dd83e6ad62386d33683fe000b9716bda097fc738))
+
+## [0.35.0](https://github.com/JorisJonkers-dev/estate/compare/v0.34.0...v0.35.0) (2026-10-30)
+
+
+### Features
+
+* hand the node Project over to the estate path ([#261](https://github.com/JorisJonkers-dev/estate/issues/261)) ([517a1a5](https://github.com/JorisJonkers-dev/estate/commit/517a1a5626345c74ee7cb890863bf0772f56fc6e))
+
 ## [0.34.0](https://github.com/JorisJonkers-dev/estate/compare/v0.33.0...v0.34.0) (2026-10-30)
 
 

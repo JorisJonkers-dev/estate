@@ -8,7 +8,7 @@ this repository's shape is deploy-kit's `spec/v1/60-setup.md#the-estate-reposito
 | path | what it is | who writes it |
 |---|---|---|
 | [`platform.intent.yml`](platform.intent.yml) | the Platform document: what the estate offers, and the handover ledger | a human, by pull request |
-| [`platform/`](platform/) | the platform's own project files, `<project>.project.yml`: `observability`, `secrets`; `data`, in its own directory beside its config, still delivered by fleet-infra; `edge`, in its own directory beside external-dns's env file; `mail`, in its own directory beside its config and env file; and `outline` and `utility`, third-party applications, each in its own directory beside its env files and config | a human, by pull request |
+| [`platform/`](platform/) | the platform's own project files, `<project>.project.yml`: `secrets`; `edge`, in its own directory beside external-dns's env file; `observability` in its own directory beside its config, rules, dashboards and env files; `data`, in its own directory beside its config, still delivered by fleet-infra; `mail`, in its own directory beside its config and env file; and `outline` and `utility`, third-party applications, each in its own directory beside its env files and config | a human, by pull request |
 | [`node-contract.yml`](node-contract.yml) | what each node offers a placement, which the Platform document pins by digest | copied from JorisJonkers-dev/nix-config, which generates it from its node files |
 | [`images.lock.yml`](images.lock.yml) | every image the platform's own projects and policies name, by digest and user | a human, by pull request |
 | [`participants.yml`](participants.yml) | every Project composition expects a fragment from, and how stale each may be | a human, by pull request |
@@ -61,6 +61,64 @@ migration, not a rename.
   or stale fragment), on its last step, so everything else was delivered
   first. Each repository's commit then carries the `estate/production` status,
   and the condition's issue is open here.
+
+## Replaying a render
+
+[`replay.yml`](.github/workflows/replay.yml), **Replay production renders**,
+proves every pinned render reproduces from the inputs its artifact names
+(deploy-kit `spec/v1/55-delivery.md#rendered-artifacts-and-pins`). It runs
+nightly after the delivery safety net, by hand from the Actions tab, and on a
+pull request that changes it. It only reads: `contents: read` and
+`packages: read`, no environment, no App key, and nothing signed, pushed,
+tagged or committed.
+
+For each pin under [`projects/`](projects/), the artifact's
+`dev.jorisjonkers.lock-digest` names the composed artifact holding the lock of
+the composition that rendered it, and the estate commit it ran at. Each such
+lock is replayed once, as [`compose.yml`](.github/workflows/compose.yml)
+composed
+([`replay.sh`](.github/scripts/replay.sh)):
+
+- **every fragment the lock records**, by digest, with the push time the
+  registry recorded for it;
+- **`participants.yml`, `cluster-state.yml` and the pin sources** at that
+  commit, and the pins composition built from them;
+- **the toolkit release the lock records**, not the one
+  [`toolkit.yml`](toolkit.yml) names now. A pin a later composition left in
+  place still names a render an earlier release made: on 2026-11-01 the pins
+  named renders by 1.4.0, 1.5.0 and 1.6.0, and 1.6.0 rendering a 1.4.0 lock's
+  inputs gave 15 of its 21 artifacts another content hash;
+- **the clock stopped at the lock's `generatedAt`**
+  ([`compose-at.mjs`](.github/scripts/compose-at.mjs)): a participant's age is
+  measured against it, so a fragment fresh then may be stale now;
+- **the lock itself as the previous lock**, so each Project composes at the
+  fragment the lock records, as the one isolated at an earlier fragment did.
+
+Then the artifact the pin names is pulled and compared with the replay's share
+for its Project, byte for byte
+([`compare-render.sh`](.github/scripts/compare-render.sh); its fixtures run
+with `bash .github/scripts/test-compare-render.sh`, and in the job before the
+replay). The run fails naming every differing path, and its job summary has
+one row per Project. Beside the files, the replay must give the lock's
+`composedDigest` and `clusterStateDigest`, and each artifact's
+`dev.jorisjonkers.content-hash` and `dev.jorisjonkers.render-hash`.
+
+What is not compared, and why:
+
+- **The artifact's digest.** `oras push` packs the tree into a gzipped tar
+  whose headers carry each file's time, owner and mode, and the manifest
+  carries the push time (`org.opencontainers.image.created`), the estate
+  commit and the lock digest. None of that is the render, and none of it can
+  come out the same twice, so the unpacked files are compared instead, by
+  their bytes alone: no mode, owner or time, and no empty directory.
+- **The signature.** A keyless signature holds a certificate issued for that
+  run and a transparency log entry made at that moment; it says who published
+  the artifact, never what it holds.
+- **The rest of the lock.** Replayed against itself, the lock's
+  `previousLockDigest` and `lockChain` differ by construction, and a Project
+  isolated in the recorded run is isolated, if at all, on the fragment it
+  composed at rather than the one it refused. What the lock says of the render,
+  `composedDigest` and `clusterStateDigest`, is compared.
 
 ## How Flux reads it
 
