@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.0](https://github.com/JorisJonkers-dev/estate/compare/v0.36.4...v0.37.0) (2026-11-01)
+
+
+### Features
+
+* **edge:** hand the edge Project over to the estate path ([#257](https://github.com/JorisJonkers-dev/estate/issues/257)) ([fc07e50](https://github.com/JorisJonkers-dev/estate/commit/fc07e50f191eb36477833c6d530708b40677f676))
+
 ## [0.36.4](https://github.com/JorisJonkers-dev/estate/compare/v0.36.3...v0.36.4) (2026-11-01)
 
 
