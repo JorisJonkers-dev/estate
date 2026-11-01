@@ -482,58 +482,10 @@ seeder:
   memory: 16Mi
   cpu: 10m
 
-# Which delivery path each Project is on while the estate moves off
-# fleet-infra's deploy/production branch, one Project at a time
-# (deploy-kit spec/v1/60-setup.md#handing-over-one-project-at-a-time).
-# Every Project fleet-infra still delivers is named under `legacy`, so its
-# project file is read rather than refused as E_HANDOVER_UNLISTED. `delivery`
-# was never on the old path: its Applications (the Release Gate, Flagger, the
-# Collector) are born on the estate path, and so is `estate-dashboard`.
-# `mail` moved in JorisJonkers-dev/deploy-kit#656, adopted in place on its
-# live claim, and `node`, which declares nothing (its Node Agents are derived
-# from `nodeAgents`, the node contract and the pools), in
-# JorisJonkers-dev/deploy-kit#659 (docs/runbooks/node-handover.md). A Project
-# that retires leaves the ledger: `knowledge` was retired with the old
-# knowledge stack (fleet-infra#495), `knowledge-platform` and `media` were
-# split into the Projects that now run their apps under `estate`, and `agents`
-# is deprecated and never ported: it stays on the old path until it is retired
-# there (JorisJonkers-dev/deploy-kit#658).
-handover:
-  retireBy: 2027-03-31
-  legacy: []
-  estate:
-    - delivery
-    - edge
-    - estate-dashboard
-    - home-portal
-    - tribelt
-    - grimoire
-    - findability-explorer
-    - outline
-    - overleaf
-    - hindsight
-    - karakeep
-    - immich
-    - arr
-    - jellyfin
-    - jellyseerr
-    - qbittorrent
-    - prowlarr
-    - n8n
-    - auth
-    - mail
-    - utility
-    - node
-    - observability
-    - data
-    # The last handover (JorisJonkers-dev/deploy-kit#663): Vault restored
-    # from a raft snapshot into secrets-system, and VSO with it.
-    - secrets
-  # Where the old path ran a legacy Application that the estate path
-  # reached, rather than where its declaration put it
-  # (deploy-kit spec/v1/14-platform-intent.md#handover-ledger): none since
-  # secrets handed over, and `vault`'s, which sent every VaultConnection and
-  # policy job to data-system, went with it, so there is no `serving`.
+# No handover ledger: secrets was the last Project the old path delivered
+# (JorisJonkers-dev/deploy-kit#663), and the block is removed once `legacy` is
+# empty (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). Every Project
+# is delivered by its pin.
 
 # No `providers`: everything an Application depends on today runs in the
 # cluster and is declared by some Project. The worked example's `stalwart`
