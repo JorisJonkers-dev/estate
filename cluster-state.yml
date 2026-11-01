@@ -10,7 +10,7 @@ apiVersion: state.jorisjonkers.dev/v1
 kind: ClusterState
 schemaVersion: 1.0.0
 cluster: "production"
-capturedAt: "2026-11-01T11:22:02Z"
+capturedAt: "2026-11-01T11:32:02Z"
 bindings:
   - { claim: "acme", node: "frankfurt-contabo-1" }
   - { claim: "alertmanager-data", node: "frankfurt-contabo-1" }
@@ -66,6 +66,7 @@ bindings:
   - { claim: "tei-reranker-models", node: "enschede-t1000-1" }
   - { claim: "tempo-data", node: "enschede-t1000-1" }
   - { claim: "valkey-data", node: "frankfurt-contabo-1" }
+  - { claim: "vault-data", node: "frankfurt-contabo-1" }
   - { claim: "workspace-378e7098", node: "enschede-gtx-960m-1" }
   - { claim: "workspace-94d22967", node: "enschede-gtx-960m-1" }
   - { claim: "workspace-d4b41a9a", node: "enschede-gtx-960m-1" }
@@ -103,7 +104,6 @@ placements:
   - { process: "jellyseerr", node: "enschede-gtx-960m-1" }
   - { process: "karakeep", node: "frankfurt-contabo-1" }
   - { process: "karakeep-chrome-primary", node: "enschede-t1000-1" }
-  - { process: "karakeep-search", node: "frankfurt-contabo-1" }
   - { process: "kube-state-metrics-primary", node: "enschede-gtx-960m-1" }
   - { process: "l4-controller", node: "enschede-gtx-960m-1" }
   - { process: "l4-speaker", node: "enschede-gtx-960m-1" }
@@ -142,4 +142,6 @@ placements:
   - { process: "traefik-public", node: "frankfurt-contabo-1" }
   - { process: "tribelt-primary", node: "enschede-gtx-960m-1" }
   - { process: "valkey", node: "frankfurt-contabo-1" }
+  - { process: "vault", node: "frankfurt-contabo-1" }
   - { process: "vault-policy", node: "frankfurt-contabo-1" }
+  - { process: "vault-secrets-operator", node: "enschede-t1000-1" }
