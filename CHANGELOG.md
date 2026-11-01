@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.43.1](https://github.com/JorisJonkers-dev/estate/compare/v0.43.0...v0.43.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* **deploy:** relabel only the Applications a release changes, on deploy-kit 1.9.1 ([#319](https://github.com/JorisJonkers-dev/estate/issues/319)) ([339890b](https://github.com/JorisJonkers-dev/estate/commit/339890b9b5522446c328f9d5d6dc8c67cb526072))
+
 ## [0.43.0](https://github.com/JorisJonkers-dev/estate/compare/v0.42.0...v0.43.0) (2026-11-01)
 
 
