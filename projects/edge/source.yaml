@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/edge
   ref:
-    digest: sha256:62a2b76328219f913103b92a3eeb8767a5b8510a858c8b457286daccb94bf1e4
+    digest: sha256:acb74dc3215558df9694662ecd533bbd3dd379af8078569961b5dd8dca140f26
   secretRef:
     name: render-pull
   verify:
