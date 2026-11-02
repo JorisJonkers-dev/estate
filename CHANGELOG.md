@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.0](https://github.com/JorisJonkers-dev/estate/compare/v0.43.3...v0.44.0) (2026-11-02)
+
+
+### Features
+
+* **edge:** issue the LAN tier's certificates from traefik-lan's own resolver ([#321](https://github.com/JorisJonkers-dev/estate/issues/321)) ([bc7535d](https://github.com/JorisJonkers-dev/estate/commit/bc7535d7e9f9bafdd072e484fbfdbc4f0f5eb9c1)), closes [#276](https://github.com/JorisJonkers-dev/estate/issues/276) [#292](https://github.com/JorisJonkers-dev/estate/issues/292)
+
 ## [0.43.3](https://github.com/JorisJonkers-dev/estate/compare/v0.43.2...v0.43.3) (2026-11-02)
 
 
