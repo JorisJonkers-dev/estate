@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.43.2](https://github.com/JorisJonkers-dev/estate/compare/v0.43.1...v0.43.2) (2026-11-02)
+
+
+### Bug Fixes
+
+* **edge:** start traefik-public's resolver on deploy-kit 1.9.3 ([#322](https://github.com/JorisJonkers-dev/estate/issues/322)) ([da70a3d](https://github.com/JorisJonkers-dev/estate/commit/da70a3de0e4da8e4306a939c111f6a1fb1e52abc))
+
 ## [0.43.1](https://github.com/JorisJonkers-dev/estate/compare/v0.43.0...v0.43.1) (2026-11-01)
 
 
