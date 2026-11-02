@@ -245,9 +245,9 @@ applications:
           web: 3902
           admin: 3903
 
-        # The live pod requests 256Mi and is limited at 1Gi.
+        # It peaked at 20Mi over 14 days (2026-11-02).
         placement:
-          memory: 1Gi
+          memory: 256Mi
           cpu: 100m
           site: frankfurt
 

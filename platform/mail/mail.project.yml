@@ -64,9 +64,10 @@ applications:
           pop3s: 995
           sieve: 4190
 
-        # The live pod requests 1536Mi and is limited at 3Gi; the model sets request to limit.
+        # It peaked at 171Mi over 14 days (2026-11-02). The model sets request to
+        # limit, so the old 3Gi limit reserved 3Gi of Frankfurt.
         placement:
-          memory: 3Gi
+          memory: 768Mi
           cpu: 300m
 
         # The server delivers to every other domain's MX on port 25, fetches its web admin
