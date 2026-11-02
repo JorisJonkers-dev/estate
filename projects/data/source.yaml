@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/data
   ref:
-    digest: sha256:225eb6ae746a17242e5cfa61e382f1324ba97ebf4976d058dbd9186ae1c3cbc6
+    digest: sha256:0dccc87d4150d5efa2956cb1dd8c339db151d6665b899b844ac43010d9baf31a
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/estate
-    event.toolkit.fluxcd.io/sha: 8ff26d21cd8dcc8e7f56981d65b24db8db37dc2f
+    event.toolkit.fluxcd.io/sha: 29f2115742d0da1375085839189757acb80b8aba
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.43.3
+    event.toolkit.fluxcd.io/version: 0.44.1
     event.toolkit.fluxcd.io/url: https://rabbitmq.jorisjonkers.dev
 spec:
   interval: 10m
