@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.1](https://github.com/JorisJonkers-dev/estate/compare/v0.44.0...v0.44.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **data,observability:** reserve what the datastores use, and give Prometheus room ([#327](https://github.com/JorisJonkers-dev/estate/issues/327)) ([dbcb2f1](https://github.com/JorisJonkers-dev/estate/commit/dbcb2f12bd3679a839601c042497c74c2e87aa1c))
+
 ## [0.44.0](https://github.com/JorisJonkers-dev/estate/compare/v0.43.3...v0.44.0) (2026-11-02)
 
 
