@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.43.3](https://github.com/JorisJonkers-dev/estate/compare/v0.43.2...v0.43.3) (2026-11-02)
+
+
+### Bug Fixes
+
+* **data,mail:** reserve what stalwart and garage use, so overleaf's redis fits on Frankfurt ([#324](https://github.com/JorisJonkers-dev/estate/issues/324)) ([67f1120](https://github.com/JorisJonkers-dev/estate/commit/67f1120da96edfe5335a168a61fd574c3363ae5d))
+
 ## [0.43.2](https://github.com/JorisJonkers-dev/estate/compare/v0.43.1...v0.43.2) (2026-11-02)
 
 
