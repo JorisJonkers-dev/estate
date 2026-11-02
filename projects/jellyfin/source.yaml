@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/jellyfin
   ref:
-    digest: sha256:aa5a0e6f17376bf74e6a92efcf67fc30266609330c71309a9bbecc49ccd48b8a
+    digest: sha256:368c1e3aea4d530c92b598c0c8d600cc1ea8e2d236b84deba3afb75ad3df4eb0
   secretRef:
     name: render-pull
   verify:
