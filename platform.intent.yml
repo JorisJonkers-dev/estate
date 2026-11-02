@@ -96,10 +96,8 @@ tiers:
     audiences: [anonymous, authenticated]
     # websecure on 443, with web on 80 beside it.
     listener: tls
-    # Its own resolver, once edge hands over: the Cloudflare token below only
-    # answers from frankfurt-contabo-1's address, and `address` holds this
-    # proxy there. Until then the wildcard comes from fleet-infra's
-    # cert-manager, through the same account.
+    # Its own resolver: traefik-public issues each public host's certificate
+    # by DNS-01 at Cloudflare.
     certificates: acme
     # auth-api's forward-auth endpoint (AuthVerificationController), and the
     # headers the live forward-auth Middleware hands on to the route.
@@ -125,23 +123,20 @@ tiers:
     audiences: [lan]
     # The live LAN Traefik serves every route on websecure.
     listener: tls
-    # It cannot issue its own: it runs in Enschede, and the Cloudflare token
-    # only answers from Frankfurt. It serves the wildcard read from the Secret
-    # Store instead, from the default TLS store every proxy serves, which
-    # replaces fleet-infra's cert-manager wildcard (keys tls.crt and tls.key;
-    # JorisJonkers-dev/deploy-kit#726).
-    certificates: none
-    certificateFrom: secret/data/platform/tls/jorisjonkers-dev
+    # Its own resolver, as the public tier's: the Cloudflare token answers from
+    # Enschede's address too, so traefik-lan issues each LAN host's certificate
+    # by DNS-01 (JorisJonkers-dev/estate#276).
+    certificates: acme
     traefik: edge/traefik-lan # placed on a LAN node
     ingressClass: traefik-lan # the class the live LAN Traefik admits
     # No `dns`: AdGuard answers the LAN's names, and external-dns writes no
     # record for this class.
     address: lan-edge
 
-# How the public tier's proxy registers with Let's Encrypt and proves its names
-# (deploy-kit spec/v1/14-platform-intent.md#tiers). The account is the live
-# ClusterIssuer's. The token's document holds `CF_DNS_API_TOKEN`; it is written
-# before edge hands over, and nothing reads it while edge is legacy.
+# How both tiers' proxies register with Let's Encrypt and prove their names
+# (deploy-kit spec/v1/14-platform-intent.md#tiers). The token's document holds
+# `CF_DNS_API_TOKEN`; the token answers from Frankfurt's and Enschede's
+# addresses.
 acme:
   email: postmaster@jorisjonkers.dev
   dnsProvider: cloudflare
