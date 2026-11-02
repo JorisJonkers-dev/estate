@@ -10,7 +10,7 @@ apiVersion: state.jorisjonkers.dev/v1
 kind: ClusterState
 schemaVersion: 1.0.0
 cluster: "production"
-capturedAt: "2026-11-01T21:13:37Z"
+capturedAt: "2026-11-02T01:53:36Z"
 bindings:
   - { claim: "acme", node: "frankfurt-contabo-1" }
   - { claim: "alertmanager-data", node: "frankfurt-contabo-1" }
@@ -68,6 +68,7 @@ bindings:
   - { claim: "tempo-data", node: "enschede-t1000-1" }
   - { claim: "valkey-data", node: "frankfurt-contabo-1" }
   - { claim: "vault-data", node: "frankfurt-contabo-1" }
+  - { claim: "vault-data-backup", node: "frankfurt-contabo-1" }
   - { claim: "workspace-378e7098", node: "enschede-gtx-960m-1" }
   - { claim: "workspace-94d22967", node: "enschede-gtx-960m-1" }
   - { claim: "workspace-d4b41a9a", node: "enschede-gtx-960m-1" }
