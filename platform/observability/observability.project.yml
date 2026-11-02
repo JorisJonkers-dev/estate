@@ -81,7 +81,7 @@ applications:
           http: 9090
         placement:
           site: frankfurt # live: the metrics stack runs on Frankfurt
-          memory: 3Gi # live working set 2.2Gi, read 2026-10-29
+          memory: 4Gi # peaked at 3018Mi over 14 days (2026-11-02), against a 3Gi limit
           cpu: 200m
         # What kube-prometheus-stack's values set: 15 days kept, Tempo's
         # metrics generator remote-writes span and service-graph metrics

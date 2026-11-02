@@ -45,9 +45,10 @@ applications:
           postgres: 5432
           metrics: 9187 # the exporter sidecar's listener
 
-        # The live pod requests 1536Mi and is limited at 4Gi; the model sets request to limit.
+        # shared_buffers is 512MB (config/postgresql.conf); it peaked at 588Mi
+        # over 14 days (2026-11-02).
         placement:
-          memory: 4Gi
+          memory: 1536Mi
           cpu: 300m
 
         writablePaths: [/var/run/postgresql, /tmp]
@@ -130,7 +131,7 @@ applications:
           metrics: 15692 # the prometheus plugin's own listener
 
         placement:
-          memory: 1Gi
+          memory: 512Mi # peaked at 116Mi over 14 days (2026-11-02)
           cpu: 200m
 
         # Erlang refuses a cookie file anyone but its owner can read, and the claim's fsGroup
@@ -185,7 +186,7 @@ applications:
           metrics: 9121 # the exporter sidecar's listener
 
         placement:
-          memory: 768Mi
+          memory: 512Mi # peaked at 241Mi over 14 days (2026-11-02)
           cpu: 150m
 
         # The exporter's default address is redis://localhost:6379, the one the old path names.
