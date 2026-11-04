@@ -160,7 +160,7 @@ groups:
         annotations:
           summary: Valkey above 80% of maxmemory
           description: >-
-            Policy is noeviction, so writes start failing at 100% rather than older keys being dropped. Sessions live here.
+            Policy is volatile-lru, so at 100% keys with a TTL (sessions, cache entries) are evicted and sign-ins are lost; if only keys without a TTL remain, writes fail. Sessions live here.
       - alert: PostgresConnectionsHigh
         # sum(): pg_stat_activity_count is split per database AND per state,
         # so comparing each series to max_connections only fires if one
