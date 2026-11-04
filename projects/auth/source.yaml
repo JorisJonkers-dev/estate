@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/auth
   ref:
-    digest: sha256:8541d01710232074026237e36038fc25500e8705857a637cad9e8892e2a263ed
+    digest: sha256:15911b323d848438c33dfd9057f2ca6e39c377cf415879b3a2b07cf02827e6c7
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/auth-api
-    event.toolkit.fluxcd.io/sha: fa48300ded62d96e3d4018c4d281243682780739
+    event.toolkit.fluxcd.io/sha: 881dcdf64256c51bdeb18bc1b375acb898222fa1
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.21.5
+    event.toolkit.fluxcd.io/version: 0.21.6
     event.toolkit.fluxcd.io/url: https://auth.jorisjonkers.dev
 spec:
   interval: 10m
