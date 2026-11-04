@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.2](https://github.com/JorisJonkers-dev/estate/compare/v0.44.1...v0.44.2) (2026-11-04)
+
+
+### Bug Fixes
+
+* **data:** let valkey evict expiring keys instead of refusing writes ([#331](https://github.com/JorisJonkers-dev/estate/issues/331)) ([3053d3c](https://github.com/JorisJonkers-dev/estate/commit/3053d3cdfffaf2ccafe50214346ec7406225033a))
+
 ## [0.44.1](https://github.com/JorisJonkers-dev/estate/compare/v0.44.0...v0.44.1) (2026-11-02)
 
 
