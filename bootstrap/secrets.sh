@@ -14,6 +14,7 @@
 #   bootstrap/secrets.sh --only hermes --replace          rewrite secret/agents/hermes whole
 #   bootstrap/secrets.sh --only overleaf --rollback       restore an earlier version
 #   bootstrap/secrets.sh --only data                      the data Project's copied logins
+#   bootstrap/secrets.sh --only mongo                     MongoDB's logins and users, for its handover
 #
 # Flags:
 #   --only S[,S]           run these sections (and the auth-api stage, when one is a client)
@@ -76,11 +77,12 @@ SECTIONS=(
   "mistral|the Mistral API keys Hindsight and Karakeep read"
   "backup-off-cluster|the S3 credential irreplaceable volumes' backups copy off-cluster with"
   "data|the Postgres catalog and backup logins and the RabbitMQ backup login, copied from their admin logins"
+  "mongo|MongoDB's admin, backup and Overleaf logins and its member certificate, minted for its handover; acts only when named"
   "garage-keys|optional: the Garage web and archive keys, pre-generated so a rebuild reproduces them"
   "agents-github-app|optional: the agents GitHub App's id, key and runner bearer"
   "agents-deploy-key|optional: the shared read-only deploy key agent workspaces fall back to"
 )
-# The three optional sections only report in a full run, and act when --only names them.
+# The optional sections, and mongo, only report in a full run, and act when --only names them.
 
 usage() { sed -n '/^#   bootstrap/,/^#   --test-alert/p' "$0" | sed 's/^# \{0,1\}//'; }
 
@@ -1540,6 +1542,206 @@ section_data() {
   result data "$DATA_STATE"
 }
 
+# ── mongo (acts only when named) ──────────────────────────────────────────
+# MongoDB's handover to the estate path turns authentication on
+# (JorisJonkers-dev/deploy-kit#748, docs/runbooks/mongo-handover.md). The live
+# replica set runs without it, so there is no login to copy: this section mints
+# each document where it is missing, never replaces one that is there, then
+# makes MongoDB's users match Vault and proves each login. Run before the
+# window, while MongoDB still accepts anyone: a user made then authenticates
+# at once, and only the window enforces it.
+#   path|its user key|its password key|the MongoDB user|its roles, as JSON
+MONGO_LOGINS=(
+  'data/mongo/admin|user|password|admin|[{"role":"root","db":"admin"}]'
+  'data/mongo/backup|MONGO_USERNAME|MONGO_PASSWORD|backup|[{"role":"backup","db":"admin"}]'
+  'overleaf-system/mongo|user|password|overleaf|[{"role":"readWrite","db":"sharelatex"},{"role":"dbAdmin","db":"sharelatex"}]'
+)
+# Overleaf reads one variable, OVERLEAF_MONGO_URL, and a secret placeholder is a
+# whole value, so its document also holds the URL its login makes.
+MONGO_OVERLEAF_PATH="overleaf-system/mongo"
+MONGO_SERVICE="mongo.data-system.svc.cluster.local"
+mongo_url() { printf 'mongodb://%s:%s@%s:27017/sharelatex?replicaSet=overleaf&authSource=admin' "$1" "$2" "$MONGO_SERVICE"; }
+# The replica set member's x.509 key and self-signed certificate, its own CA:
+# membership authentication without a keyFile, which mongod refuses unless its
+# own user alone may read it, and a Secret mounted under fsGroup never is.
+MONGO_MEMBERSHIP_PATH="data/mongo/membership"
+MONGO_NS=data-system
+
+# mongo_login PATH USER_KEY PASS_KEY USER: mint the login where it is missing.
+mongo_login() {
+  local path="$1" ukey="$2" pkey="$3" user="$4" doc have_user have_password password url="" extra=""
+  doc=$(kv_load "$path")
+  have_user=$(kv_field "$doc" "$ukey")
+  have_password=$(kv_field "$doc" "$pkey")
+  if [[ -n "$have_user" && -n "$have_password" ]]; then
+    [[ "$have_user" == "$user" ]] || die "secret/$path names user $have_user, not $user: fix it by hand"
+    if [[ "$path" == "$MONGO_OVERLEAF_PATH" && "$(kv_field "$doc" url)" != "$(mongo_url "$user" "$have_password")" ]]; then
+      die "secret/$path holds a url that is not its own login's at $MONGO_SERVICE: fix it by hand"
+    fi
+    ok "secret/$path → $ukey $user, $pkey $(fp "$have_password")"
+    return 0
+  fi
+  if ! named mongo; then
+    note "secret/$path does not exist yet (secrets.sh --only mongo mints it)"
+    MONGO_STATE="not written"
+    return 0
+  fi
+  [[ "$doc" == "{}" ]] || die "secret/$path exists without $ukey and $pkey (keys $(jq -c 'keys' <<<"$doc")): fix it by hand"
+  password=$(openssl rand -hex 32)
+  if [[ "$path" == "$MONGO_OVERLEAF_PATH" ]]; then
+    url=$(mongo_url "$user" "$password")
+    extra=", and url, that login at $MONGO_SERVICE"
+  fi
+  confirm "Write $ukey $user and a new $pkey $(fp "$password")$extra to secret/$path?" \
+    || { later "secret/$path is not written"; MONGO_STATE="not written"; return 0; }
+  mongo_write "$path" "$(jq -n --arg u "$ukey" --arg p "$pkey" --arg user "$user" --arg pw "$password" \
+    --arg url "$url" \
+    '{($u): $user, ($p): $pw} + (if $url == "" then {} else {url: $url} end)')"
+  doc=$(kv_load "$path")
+  [[ "$(kv_field "$doc" "$pkey")" == "$password" ]] || die "secret/$path does not read back"
+  ok "secret/$path → $ukey $user, $pkey $(fp "$password")"
+  unset password url
+  MONGO_STATE=written
+}
+
+# mongo_write PATH JSON: a new document, checked against the version read, so
+# a racing write is refused. The JSON reaches vault on stdin.
+mongo_write() {
+  local cas
+  cas=$(vault kv metadata get -mount=secret -format=json "$1" 2>/dev/null </dev/null \
+    | jq -r '.data.current_version // 0' || true)
+  printf '%s' "$2" | vault kv put -mount=secret -cas="${cas:-0}" "$1" - >/dev/null || die "writing secret/$1 failed"
+}
+
+mongo_membership() {
+  local doc pem until
+  doc=$(kv_load "$MONGO_MEMBERSHIP_PATH")
+  pem=$(kv_field "$doc" pem)
+  if [[ -n "$pem" ]]; then
+    until=$(openssl x509 -noout -enddate <<<"$pem" 2>/dev/null | cut -d= -f2) \
+      || die "secret/$MONGO_MEMBERSHIP_PATH holds no certificate: fix it by hand"
+    grep -q 'PRIVATE KEY-----' <<<"$pem" || die "secret/$MONGO_MEMBERSHIP_PATH holds no key: fix it by hand"
+    ok "secret/$MONGO_MEMBERSHIP_PATH → pem $(fp "$pem"), valid until $until"
+    return 0
+  fi
+  if ! named mongo; then
+    note "secret/$MONGO_MEMBERSHIP_PATH does not exist yet (secrets.sh --only mongo mints it)"
+    MONGO_STATE="not written"
+    return 0
+  fi
+  [[ "$doc" == "{}" ]] || die "secret/$MONGO_MEMBERSHIP_PATH exists without pem: fix it by hand"
+  # Made in the run's own directory (umask 077), and gone with it.
+  openssl req -x509 -newkey rsa:3072 -nodes -days 36500 \
+    -keyout "$WORK/membership.key" -out "$WORK/membership.crt" \
+    -subj "/O=jorisjonkers-dev/OU=data/CN=$MONGO_SERVICE" \
+    -addext "subjectAltName=DNS:$MONGO_SERVICE" \
+    -addext "extendedKeyUsage=serverAuth,clientAuth" \
+    -addext "basicConstraints=critical,CA:TRUE" 2>/dev/null || die "openssl could not make the member's certificate"
+  pem=$(cat "$WORK/membership.key" "$WORK/membership.crt")
+  rm -f "$WORK/membership.key" "$WORK/membership.crt"
+  until=$(openssl x509 -noout -enddate <<<"$pem" | cut -d= -f2)
+  confirm "Write a new member key and self-signed certificate, pem $(fp "$pem"), valid until $until, to secret/$MONGO_MEMBERSHIP_PATH?" \
+    || { later "secret/$MONGO_MEMBERSHIP_PATH is not written"; MONGO_STATE="not written"; return 0; }
+  mongo_write "$MONGO_MEMBERSHIP_PATH" "$(jq -Rs '{pem: .}' <<<"$pem")"
+  [[ "$(kv_field "$(kv_load "$MONGO_MEMBERSHIP_PATH")" pem)" == "$pem" ]] || die "secret/$MONGO_MEMBERSHIP_PATH does not read back"
+  ok "secret/$MONGO_MEMBERSHIP_PATH → pem $(fp "$pem"), valid until $until"
+  MONGO_STATE=written
+}
+
+# mongo_eval POD SCRIPT: run mongosh in MongoDB's own pod, the script on stdin,
+# where no process list sees the passwords it holds. Prints the line the script
+# marks as its result, or else the last line mongosh wrote, an error.
+mongo_eval() {
+  local out
+  out=$(printf '%s\n' "$2" | $KUBECTL -n "$MONGO_NS" exec -i "$1" -c mongo -- mongosh --quiet --norc --file /dev/stdin 2>&1 || true)
+  if grep -q '^MONGO-RESULT ' <<<"$out"; then sed -n 's/^MONGO-RESULT //p' <<<"$out" | tail -n 1; else tail -n 1 <<<"$out"; fi
+}
+
+# The logins, as the JSON the mongosh scripts read: [{user, pwd, roles}].
+mongo_wanted() {
+  local entry fields doc out="[]"
+  for entry in "${MONGO_LOGINS[@]}"; do
+    IFS='|' read -r -a fields <<<"$entry"
+    doc=$(kv_load "${fields[0]}")
+    out=$(jq -c --arg u "${fields[3]}" --arg p "$(kv_field "$doc" "${fields[2]}")" --argjson r "${fields[4]}" \
+      '. + [{user: $u, pwd: $p, roles: $r}]' <<<"$out")
+  done
+  printf '%s' "$out"
+}
+
+# The mongosh scripts, after `const want = [...]`. The prelude signs in as
+# admin where admin already is a user, needed once auth is on and harmless
+# before it; the report prints each wanted user's state as the result line.
+# shellcheck disable=SC2016 # JavaScript, expanded by mongosh, never the shell
+MONGO_JS_PRELUDE='
+const a = db.getSiblingDB("admin");
+const admin = want.find((u) => u.user === "admin");
+try { a.auth(admin.user, admin.pwd); } catch (e) {}
+const signsIn = (u) => { try { new Mongo("mongodb://127.0.0.1:27017/?directConnection=true").getDB("admin").auth(u.user, u.pwd); return true; } catch (e) { return false; } };
+const norm = (roles) => JSON.stringify(roles.map((r) => `${r.role}@${r.db}`).sort());
+const stateOf = (u) => { const has = a.getUser(u.user); return has === null ? "absent" : !signsIn(u) ? "password" : norm(has.roles) !== norm(u.roles) ? "roles" : "right"; };
+'
+MONGO_JS_REPORT='print("MONGO-RESULT " + JSON.stringify(Object.fromEntries(want.map((u) => [u.user, stateOf(u)]))));'
+# After `const fix = [...]`, the users to create or align.
+MONGO_JS_FIX='
+for (const u of want.filter((w) => fix.includes(w.user))) {
+  if (a.getUser(u.user) === null) a.createUser({ user: u.user, pwd: u.pwd, roles: u.roles });
+  else a.updateUser(u.user, { pwd: u.pwd, roles: u.roles });
+}
+'
+
+mongo_users() {
+  local pod ready want states user state fix=() fixed line
+  pod=$($KUBECTL -n "$MONGO_NS" get pod -l app.kubernetes.io/name=mongo -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+  [[ -n "$pod" ]] || { later "no MongoDB pod in $MONGO_NS: re-run --only mongo once it runs"; MONGO_STATE="users not checked"; return 0; }
+  ready=$($KUBECTL -n "$MONGO_NS" get pod "$pod" -o jsonpath='{.status.containerStatuses[?(@.name=="mongo")].ready}')
+  [[ "$ready" == true ]] || { later "$MONGO_NS/$pod is not ready: re-run --only mongo once it is"; MONGO_STATE="users not checked"; return 0; }
+  want=$(mongo_wanted)
+  states=$(mongo_eval "$pod" "const want = $want;$MONGO_JS_PRELUDE$MONGO_JS_REPORT")
+  jq -e 'type == "object"' >/dev/null 2>&1 <<<"$states" || die "mongosh in $MONGO_NS/$pod did not report the users: $states"
+  for user in $(jq -r 'keys[]' <<<"$states"); do
+    state=$(jq -r --arg u "$user" '.[$u]' <<<"$states")
+    case "$state" in
+      right) ok "MongoDB user $user signs in with Vault's password and holds its roles" ;;
+      absent) say "MongoDB has no user $user."; fix+=("$user") ;;
+      roles) say "MongoDB user $user holds other roles than $(jq -c --arg u "$user" '.[] | select(.user == $u) | .roles' <<<"$want")."; fix+=("$user") ;;
+      password) warn "MongoDB user $user does not sign in with Vault's password $(fp "$(jq -r --arg u "$user" '.[] | select(.user == $u) | .pwd' <<<"$want")")."
+        note "  Whatever signs in as $user today stops when its password is set."; fix+=("$user") ;;
+    esac
+  done
+  (( ${#fix[@]} )) || return 0
+  named mongo || { note "secrets.sh --only mongo makes them match"; MONGO_STATE="users not right"; return 0; }
+  confirm "Make MongoDB's users ${fix[*]} match Vault, in $MONGO_NS/$pod?" \
+    || { later "MongoDB's users ${fix[*]} are not changed"; MONGO_STATE="users not right"; return 0; }
+  fixed=$(printf '%s\n' "${fix[@]}" | jq -R . | jq -sc .)
+  line=$(mongo_eval "$pod" "const want = $want; const fix = $fixed;$MONGO_JS_PRELUDE$MONGO_JS_FIX$MONGO_JS_REPORT")
+  jq -e 'type == "object" and all(.[]; . == "right")' >/dev/null 2>&1 <<<"$line" \
+    || die "MongoDB's users do not sign in with Vault's passwords after the change: $line"
+  ok "MongoDB's users ${fix[*]} match Vault: each signs in with its password and holds its roles"
+  MONGO_STATE=written
+}
+
+section_mongo() {
+  local entry fields readers line path
+  MONGO_STATE="already right"
+  for entry in "${MONGO_LOGINS[@]}"; do
+    IFS='|' read -r -a fields <<<"$entry"
+    mongo_login "${fields[@]:0:4}"
+  done
+  mongo_membership
+  if [[ "$MONGO_STATE" == "not written" ]]; then
+    result mongo "not written"
+    return 0
+  fi
+  [[ -n "$LOCAL_VAULT" ]] || mongo_users
+  for path in data/mongo/backup "$MONGO_OVERLEAF_PATH" "$MONGO_MEMBERSHIP_PATH"; do
+    readers=$(vso_readers "$path")
+    [[ -z "$readers" ]] && { note "nothing reads secret/$path yet: the handover's render does"; continue; }
+    while IFS= read -r line; do step "$line"; done <<<"$readers"
+  done
+  result mongo "$MONGO_STATE"
+}
+
 # ── garage-keys (optional) ────────────────────────────────────────────────
 # fleet-infra cluster/flux/apps/data/garage (README.md, vault-secrets.yaml):
 # keys pre-generated in Vault so a rebuild reproduces them. web.* is the key CI
@@ -1747,6 +1949,7 @@ for CURRENT_SECTION in "${SELECTED[@]}"; do
     mistral) section_mistral ;;
     backup-off-cluster) section_backup_off_cluster ;;
     data) section_data ;;
+    mongo) section_mongo ;;
     garage-keys) section_garage_keys ;;
     agents-github-app) section_agents_github_app ;;
     agents-deploy-key) section_agents_deploy_key ;;
