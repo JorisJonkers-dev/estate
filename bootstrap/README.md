@@ -14,9 +14,11 @@ is safe to re-run.
 
 ## On a new cluster
 
-1. Install Flux and unseal Vault, restoring it if there is a backup:
+1. Install Flux, restoring Vault if there is a backup:
    `JorisJonkers-dev/fleet-infra`'s `cluster/bootstrap/flux-bootstrap-playbook.md`
-   and the Vault playbooks beside it.
+   and the Vault playbooks beside it. Then unseal Vault with
+   [`ops/unseal-vault.sh`](../ops/unseal-vault.sh), which finds the pod by label
+   and takes the key shares one at a time.
 2. Run `./bootstrap/secrets.sh` against the new cluster's kubectl context. On a
    Vault initialised minutes ago there is no OIDC sign-in yet, so paste the
    root token when it asks. It writes the role the Vault policy job logs in as

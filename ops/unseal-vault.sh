@@ -1,19 +1,30 @@
 #!/usr/bin/env bash
-# Unseal data-system/vault-0.
+# Unseal the running Vault pod, found by label.
 #
 # Usage:
 #   ops/unseal-vault.sh
 #
+#   KUBE_CONTEXT     the kubectl context (default personal)
+#   VAULT_NS         pin the namespace; VAULT_POD pins the pod (see lib/vault.sh)
+#   VAULT_SELECTOR   the label that finds the pod (default app.kubernetes.io/name=vault)
+#   LOCAL_PORT       local end of the port-forward when a vault CLI is installed (default 8200)
+#
 # There is no auto-unseal. A sealed Vault does not fail loudly on its own:
-# vault-0 stays up while unrelated pods across the cluster hang in Init or
+# the pod stays up while unrelated pods across the cluster hang in Init or
 # Unknown waiting on secrets they can no longer read, so the symptom rarely
-# points at Vault. Check vault-0 first when several unconnected workloads stall
+# points at Vault. Check Vault first when several unconnected workloads stall
 # at once.
+#
+# Nothing here names Vault's namespace or pod: it has moved before, and a name
+# that is wrong makes every share go to a connection that cannot answer. The
+# pod is found by label (lib/vault.sh), shown before any share is asked for, and
+# the script stops unless exactly one running pod matches.
 #
 # Reads key shares one at a time with hidden input (no $(cat) whitespace
 # mangling), resets any half-finished progress first, and stops as soon as Vault
-# reports Sealed: false. Works with a local `vault` CLI over a port-forward, or
-# falls back to `kubectl exec`.
+# reports Sealed false. It exits 0 only after reading that back; running out of
+# shares exits 1. Works with a local `vault` CLI over a port-forward, or falls
+# back to `kubectl exec`.
 #
 # The share is passed to `vault operator unseal` as an argument, which puts it in
 # the process list for the life of the call. That is deliberate and should not be
@@ -28,37 +39,53 @@
 
 set -uo pipefail
 
-NS=data-system
-POD=vault-0
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/vault.sh
+source "$here/lib/vault.sh"
+
 LOCAL_PORT="${LOCAL_PORT:-8200}"
 CTX="${KUBE_CONTEXT:-personal}"
 
-kubectl config use-context "$CTX" >/dev/null 2>&1 || true
+# --context rather than `kubectl config use-context`: a script that unseals
+# should not change which cluster the caller's next command talks to.
+k() { kubectl --context "$CTX" "$@"; }
 
 PF_PID=""
 cleanup() { [[ -n "$PF_PID" ]] && kill "$PF_PID" 2>/dev/null || true; }
 trap cleanup EXIT
 
+vault_locate || exit 1
+TARGET="pod/$VAULT_POD"
+echo ">> vault pod: ${VAULT_NS}/${VAULT_POD} (context ${CTX})"
+
 # --- pick transport -------------------------------------------------------
 if command -v vault >/dev/null 2>&1; then
-  echo ">> using local 'vault' CLI via port-forward localhost:${LOCAL_PORT} -> ${POD}:8200"
-  kubectl -n "$NS" port-forward "pod/$POD" "${LOCAL_PORT}:8200" >/dev/null 2>&1 &
+  echo ">> using local 'vault' CLI via port-forward localhost:${LOCAL_PORT} -> ${TARGET}:8200"
+  k -n "$VAULT_NS" port-forward "$TARGET" "${LOCAL_PORT}:8200" >/dev/null 2>&1 &
   PF_PID=$!
   export VAULT_ADDR="http://127.0.0.1:${LOCAL_PORT}"
-  export VAULT_SKIP_VERIFY=true
   # wait for the forward to answer (sealed vault => 503 normally; sealedcode=200 makes it 200)
+  forwarded=no
   for _ in $(seq 1 30); do
-    curl -s -o /dev/null "${VAULT_ADDR}/v1/sys/health?sealedcode=200&uninitcode=200" && break
+    if curl -s -o /dev/null "${VAULT_ADDR}/v1/sys/health?sealedcode=200&uninitcode=200"; then
+      forwarded=yes
+      break
+    fi
     sleep 0.5
   done
-  v()        { vault "$@"; }
+  if [[ "$forwarded" != yes ]]; then
+    echo "!! the port-forward to ${VAULT_NS}/${VAULT_POD} never answered; no share was asked for." >&2
+    exit 1
+  fi
+  v() { vault "$@"; }
 else
-  echo ">> 'vault' CLI not found locally — using kubectl exec into ${POD}"
-  v()        { kubectl -n "$NS" exec -i "$POD" -- vault "$@"; }
+  echo ">> 'vault' CLI not found locally — using kubectl exec into ${TARGET}"
+  v() { k -n "$VAULT_NS" exec -i "$TARGET" -- vault "$@"; }
 fi
 
-# `vault status` aligns its columns with spaces, not a colon.
-sealed() { v status 2>/dev/null | awk '$1 == "Sealed" {print $2; exit}'; }
+# `vault status` prints a Key/Value table and exits 2 while sealed, so read the
+# second column of the Sealed row and ignore the exit code.
+sealed() { v status 2>/dev/null | awk '$1 == "Sealed" { print $2; exit }' | tr -d '[:space:]'; }
 
 echo
 echo "=== current status ==="
@@ -78,6 +105,7 @@ echo "Enter unseal key shares one at a time (input hidden)."
 echo "Blank line aborts. It will stop automatically once unsealed."
 echo
 attempt=0
+opened=no
 while :; do
   printf "Unseal key share #%d: " "$((attempt + 1))"
   IFS= read -rs KEY
@@ -98,6 +126,7 @@ while :; do
     continue
   fi
   if [[ "$(sealed)" == "false" ]]; then
+    opened=yes
     echo
     echo "=== VAULT IS UNSEALED ==="
     break
@@ -107,3 +136,4 @@ done
 echo
 echo "=== final status ==="
 v status || true
+[[ "$opened" == yes ]]
