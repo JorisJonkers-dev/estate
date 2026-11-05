@@ -20,6 +20,7 @@ this repository's shape is deploy-kit's `spec/v1/60-setup.md#the-estate-reposito
 | [`drills/`](drills/) | the live drills that settle a claim deploy-kit's decisions rest on: each makes and checks its own changes in a throwaway namespace, removes them, and posts its result on its issue | a human, by pull request |
 | [`HANDOVER.md`](HANDOVER.md) | what each Project's handover changes here, what it waits on, and what is left to delete by hand | a human, by pull request |
 | [`docs/runbooks/`](docs/runbooks/) | the steps of a live change a person runs, such as handing a Project over | a human, by pull request |
+| [`ops/`](ops/README.md) | the scripts a person runs against the live cluster when something is wrong: unsealing Vault, a wedged control plane, proving and restoring backups, handover dumps | a human, by pull request |
 
 **A rendered tree is never committed here.** Each Project's render is a signed
 OCI artifact at `ghcr.io/jorisjonkers-dev/render/<project>`, and a deploy is a

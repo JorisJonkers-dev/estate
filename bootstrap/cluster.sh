@@ -2,8 +2,8 @@
 #
 # Everything a cluster needs, outside git and outside Vault, before the estate
 # path can deliver to it: run once per cluster, after Flux is installed and
-# Vault is unsealed (fleet-infra cluster/bootstrap/flux-bootstrap-playbook.md,
-# and its Vault unseal and restore playbooks), and again after any move.
+# Vault is unsealed (ops/unseal-vault.sh; Flux itself: fleet-infra
+# cluster/bootstrap/flux-bootstrap-playbook.md), and again after any move.
 #
 #   Flux       Secret flux-system/estate, an SSH key pair generated in the
 #              cluster whose public half is a read-only deploy key on estate,
