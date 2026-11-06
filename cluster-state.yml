@@ -10,7 +10,7 @@ apiVersion: state.jorisjonkers.dev/v1
 kind: ClusterState
 schemaVersion: 1.0.0
 cluster: "production"
-capturedAt: "2026-11-06T13:59:07Z"
+capturedAt: "2026-11-06T14:09:08Z"
 bindings:
   - { claim: "alertmanager-data", node: "frankfurt-contabo-1" }
   - { claim: "alertmanager-metrics-stack-alertmanager-db-alertmanager-metrics-stack-alertmanager-0", node: "frankfurt-contabo-1" }
@@ -85,7 +85,7 @@ placements:
   - { process: "auth-ui-primary", node: "enschede-gtx-960m-1" }
   - { process: "bazarr", node: "enschede-t1000-1" }
   - { process: "collector", node: "enschede-gtx-960m-1" }
-  - { process: "estate-dashboard-primary", node: "enschede-t1000-1" }
+  - { process: "estate-dashboard-primary", node: "enschede-gtx-960m-1" }
   - { process: "external-dns", node: "frankfurt-contabo-1" }
   - { process: "findability-explorer-primary", node: "frankfurt-contabo-1" }
   - { process: "flagger", node: "enschede-gtx-960m-1" }
@@ -101,7 +101,7 @@ placements:
   - { process: "headlamp-primary", node: "frankfurt-contabo-1" }
   - { process: "hindsight-api-primary", node: "enschede-gtx-960m-1" }
   - { process: "hindsight-control-plane-primary", node: "enschede-t1000-1" }
-  - { process: "hindsight-worker-primary", node: "frankfurt-contabo-1" }
+  - { process: "hindsight-worker-primary", node: "enschede-gtx-960m-1" }
   - { process: "home-portal-primary", node: "enschede-pi-2" }
   - { process: "immich-ml", node: "enschede-t1000-1" }
   - { process: "immich-postgres", node: "frankfurt-contabo-1" }
@@ -147,7 +147,7 @@ placements:
   - { process: "tempo", node: "enschede-t1000-1" }
   - { process: "traefik-lan", node: "enschede-gtx-960m-1" }
   - { process: "traefik-public", node: "frankfurt-contabo-1" }
-  - { process: "tribelt-primary", node: "enschede-gtx-960m-1" }
+  - { process: "tribelt-primary", node: "frankfurt-contabo-1" }
   - { process: "valkey", node: "frankfurt-contabo-1" }
   - { process: "vault", node: "frankfurt-contabo-1" }
   - { process: "vault-secrets-operator", node: "frankfurt-contabo-1" }
