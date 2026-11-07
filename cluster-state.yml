@@ -10,7 +10,7 @@ apiVersion: state.jorisjonkers.dev/v1
 kind: ClusterState
 schemaVersion: 1.0.0
 cluster: "production"
-capturedAt: "2026-11-07T13:39:07Z"
+capturedAt: "2026-11-07T13:59:07Z"
 bindings:
   - { claim: "alertmanager-data", node: "frankfurt-contabo-1" }
   - { claim: "alertmanager-metrics-stack-alertmanager-db-alertmanager-metrics-stack-alertmanager-0", node: "frankfurt-contabo-1" }
@@ -99,7 +99,7 @@ placements:
   - { process: "grafana-operator", node: "enschede-gtx-960m-1" }
   - { process: "grimoire", node: "enschede-gtx-960m-1" }
   - { process: "headlamp-primary", node: "frankfurt-contabo-1" }
-  - { process: "hindsight-api-primary", node: "frankfurt-contabo-1" }
+  - { process: "hindsight-api-primary", node: "enschede-gtx-960m-1" }
   - { process: "hindsight-control-plane-primary", node: "enschede-t1000-1" }
   - { process: "hindsight-worker-primary", node: "enschede-gtx-960m-1" }
   - { process: "home-portal-primary", node: "enschede-pi-2" }
