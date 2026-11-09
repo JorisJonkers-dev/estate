@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.45.2](https://github.com/JorisJonkers-dev/estate/compare/v0.45.1...v0.45.2) (2026-11-09)
+
+
+### Bug Fixes
+
+* **packages:** fetch Maven Central from Google's mirror ([#340](https://github.com/JorisJonkers-dev/estate/issues/340)) ([a754bef](https://github.com/JorisJonkers-dev/estate/commit/a754bef10f7edac5bf304b577a24079326d4ca46))
+* **packages:** fetch Maven Central from Google's mirror, which does n… ([a754bef](https://github.com/JorisJonkers-dev/estate/commit/a754bef10f7edac5bf304b577a24079326d4ca46))
+
 ## [0.45.1](https://github.com/JorisJonkers-dev/estate/compare/v0.45.0...v0.45.1) (2026-11-09)
 
 
