@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/packages
   ref:
-    digest: sha256:864b3a0e11e2a8d90aef0478aa2b20e42839e32dd481790d80e8c8329211463a
+    digest: sha256:ac68265197c52d72d920841ab11ab93995d22b63c66a7c3fc0c97ea790f8e410
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/estate
-    event.toolkit.fluxcd.io/sha: 08dc24e2ec27c17cc090a856f586b0b0f8d3f8df
+    event.toolkit.fluxcd.io/sha: 6c8dc1d918f2466c1d378e66b3035d5681174c56
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.45.0
+    event.toolkit.fluxcd.io/version: 0.45.1
     event.toolkit.fluxcd.io/url: https://packages.jorisjonkers.dev
 spec:
   interval: 10m
@@ -48,13 +48,3 @@ spec:
   dependsOn:
     - name: apps-edge
     - name: apps-secrets
-  patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-          annotations:
-            kustomize.toolkit.fluxcd.io/force: Enabled
-      target:
-        kind: Deployment
