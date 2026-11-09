@@ -280,6 +280,15 @@ images:
     uid: 1000
     gid: 1000
     version: "v0.11.0"
+  # BusyBox 1.37.0 of 2024-09-26, a multi-arch index. Its httpd serves the packages proxy's
+  # Cargo config.json (platform/packages). The image names no user; it runs as nobody, 65534,
+  # under the restricted posture.
+  busybox:
+    repository: docker.io/library/busybox
+    digest: "sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec"
+    uid: 65534
+    gid: 65534
+    version: "1.37.0"
   stalwart: # v0.16.20
     repository: docker.io/stalwartlabs/stalwart
     digest: "sha256:74ca4f7f6885fe302f38a99381f36a208547afce1033d8734d9e6d8d3eba7446"
