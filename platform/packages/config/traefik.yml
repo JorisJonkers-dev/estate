@@ -8,9 +8,12 @@ entryPoints:
     address: ":8081"
     transport:
       respondingTimeouts:
-        # A first fetch of a large artifact streams from upstream as it is cached; do not
-        # cut it off. Traefik's default write timeout is already none.
-        readTimeout: 0s
+        # Reading a request: package managers send small GETs, so a slow sender is cut off.
+        readTimeout: 30s
+        # Writing the response: none, so a large artifact streaming from a slow upstream is
+        # never cut. The proxy's own write_timeout (config/proxy.yaml) bounds it.
+        writeTimeout: 0s
+        idleTimeout: 180s
 
 providers:
   file:

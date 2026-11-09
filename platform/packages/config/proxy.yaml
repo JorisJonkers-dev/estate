@@ -1,9 +1,27 @@
 # git-pkgs/proxy v0.11.0 configuration (docs/configuration.md in git-pkgs/proxy).
 # base_url comes from PROXY_BASE_URL in env/proxy/base.env.
 
-# No Service exposes this port: the gate sidecar reaches it on localhost, and the kubelet's
-# liveness probe on the pod address.
-listen: ":8080"
+# Loopback only: the gate sidecar in the same pod is the one way in. No Service names this port,
+# and the namespace's default-deny NetworkPolicy would refuse it anyway; this keeps it closed
+# even if a policy changes.
+listen: "127.0.0.1:8080"
+
+# A first fetch of a large artifact streams from upstream while it is cached. The defaults, 5
+# minutes for both, would cut a slow upstream's JDK-sized jar or large wheel.
+write_timeout: "30m"
+artifact_timeout: "20m"
+# Nothing the estate builds with is larger; a bigger file is refused and not cached.
+artifact_max_size: "4GB"
+# With the cooldown on, npm metadata is fetched as full packuments, which run past the 100MB
+# default for packages with thousands of versions; such a package would get 502.
+metadata_max_size: "200MB"
+
+# Off for a public instance, stated rather than left to the defaults. The gate routes neither
+# /api nor /gradle, so cache deletion, hosted pushes and Gradle build cache uploads are
+# unreachable in any case.
+cache_delete: false
+ui_request_sources: false
+ui_failure_details: false
 
 storage:
   url: "file:///data/artifacts"
@@ -25,8 +43,9 @@ log:
 cache_metadata: true
 metadata_ttl: "5m"
 
-# The gate sets X-Forwarded-For from the edge's; the proxy is reached through it alone.
-trust_forwarded_for: true
+# The gate does not trust an incoming X-Forwarded-For, so the proxy logs the edge's address for
+# every caller. Trusting the header would let a caller choose the address it is logged as.
+trust_forwarded_for: false
 
 upstream:
   # Maven Central, with the Gradle Plugin Portal as the fallback for plugin markers, at /maven/.
@@ -35,7 +54,8 @@ upstream:
   # The other repositories the estate's Gradle builds name, each at /maven/<name>/.
   maven_repositories:
     spring-milestone: "https://repo.spring.io/milestone"
-    sonatype-snapshots: "https://oss.sonatype.org/content/repositories/snapshots"
+    # The old OSSRH host answers 404; Central Portal serves snapshots now.
+    sonatype-snapshots: "https://central.sonatype.com/repository/maven-snapshots"
     google-maven: "https://maven.google.com"
   go: "https://proxy.golang.org"
   # sum.golang.org is served at /go/sumdb/sum.golang.org/ by default, so Go clients need
