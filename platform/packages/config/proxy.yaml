@@ -50,7 +50,12 @@ trust_forwarded_for: false
 
 upstream:
   # Maven Central, with the Gradle Plugin Portal as the fallback for plugin markers, at /maven/.
-  maven: "https://repo1.maven.org/maven2"
+  # Google's mirror of Central, not repo1.maven.org: the cooldown sends a HEAD per version to read
+  # its POM's Last-Modified, and on 2026-11-09 five Gradle CI jobs at once got this proxy rate
+  # limited by repo1.maven.org (80 requests answered 503 during the hold). The mirror's
+  # Last-Modified is when a file reached it, a few hours after publishing, so versions stay in
+  # cooldown a little longer; that errs on the safe side.
+  maven: "https://maven-central.storage-download.googleapis.com/maven2"
   gradle_plugin_portal: "https://plugins.gradle.org/m2"
   # The other repositories the estate's Gradle builds name, each at /maven/<name>/.
   maven_repositories:
