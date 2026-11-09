@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.45.3](https://github.com/JorisJonkers-dev/estate/compare/v0.45.2...v0.45.3) (2026-11-09)
+
+
+### Bug Fixes
+
+* **packages:** serve Cargo's config.json with auth-required, so crate downloads carry the key ([#343](https://github.com/JorisJonkers-dev/estate/issues/343)) ([d7fb71d](https://github.com/JorisJonkers-dev/estate/commit/d7fb71d39978941258641a94a0b8d8ea46ff0327))
+
 ## [0.45.2](https://github.com/JorisJonkers-dev/estate/compare/v0.45.1...v0.45.2) (2026-11-09)
 
 
