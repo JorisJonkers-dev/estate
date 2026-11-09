@@ -1,0 +1,24 @@
+# Static configuration of the gate sidecar: Traefik v3, one entry point, one file of routes.
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+entryPoints:
+  gate:
+    address: ":8081"
+    transport:
+      respondingTimeouts:
+        # Reading a request: package managers send small GETs, so a slow sender is cut off.
+        readTimeout: 30s
+        # Writing the response: none, so a large artifact streaming from a slow upstream is
+        # never cut. The proxy's own write_timeout (config/proxy.yaml) bounds it.
+        writeTimeout: 0s
+        idleTimeout: 180s
+
+providers:
+  file:
+    filename: /etc/traefik/gate.yml
+    watch: false
+
+log:
+  level: INFO
