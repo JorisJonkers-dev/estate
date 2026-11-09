@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.45.0](https://github.com/JorisJonkers-dev/estate/compare/v0.44.2...v0.45.0) (2026-11-09)
+
+
+### Features
+
+* **packages:** run git-pkgs/proxy with a 7-day cooldown behind an API-key gate ([#336](https://github.com/JorisJonkers-dev/estate/issues/336)) ([01e82d5](https://github.com/JorisJonkers-dev/estate/commit/01e82d54e465f6122a4ac1901840f606ab5cde61)), closes [#334](https://github.com/JorisJonkers-dev/estate/issues/334)
+
 ## [0.44.2](https://github.com/JorisJonkers-dev/estate/compare/v0.44.1...v0.44.2) (2026-11-04)
 
 
