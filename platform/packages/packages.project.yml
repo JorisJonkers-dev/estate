@@ -49,8 +49,10 @@ applications:
         sidecars:
           - name: gate
             image: traefik # the edge's own Traefik image, v3.7.12
-            memory: 96Mi
-            cpu: 50m
+            # 96Mi was OOMKilled under the parallel CI builds of the proxy rollout: every
+            # streamed artifact holds buffers in the gate. 256Mi leaves room for that.
+            memory: 256Mi
+            cpu: 100m
             args: [--configFile=/etc/traefik/traefik.yml]
             assets:
               - { from: config/traefik.yml, mountAt: /etc/traefik/traefik.yml }
