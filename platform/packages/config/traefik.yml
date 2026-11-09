@@ -1,0 +1,21 @@
+# Static configuration of the gate sidecar: Traefik v3, one entry point, one file of routes.
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+entryPoints:
+  gate:
+    address: ":8081"
+    transport:
+      respondingTimeouts:
+        # A first fetch of a large artifact streams from upstream as it is cached; do not
+        # cut it off. Traefik's default write timeout is already none.
+        readTimeout: 0s
+
+providers:
+  file:
+    filename: /etc/traefik/gate.yml
+    watch: false
+
+log:
+  level: INFO

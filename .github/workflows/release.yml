@@ -74,6 +74,8 @@ jobs:
           - project-file: platform/outline/outline.project.yml
             validate-with: platform/outline/env
             validate-with-fragments: auth
+          - project-file: platform/packages/packages.project.yml
+            validate-with: platform/packages/env platform/packages/config
           - project-file: platform/utility/utility.project.yml
             validate-with: platform/utility/env platform/utility/config
             validate-with-fragments: auth

@@ -91,6 +91,12 @@ participants:
     dormant: true
     owner: joris
     reason: publishes with the Platform document, on this repository's releases
+  # packages, the package proxy (JorisJonkers-dev/estate#334). It runs a third-party image, so
+  # it publishes from this repository, on this repository's releases.
+  packages:
+    dormant: true
+    owner: joris
+    reason: publishes with the Platform document, on this repository's releases
   # JorisJonkers-dev/overleaf, moved from fleet-infra's latex-system.
   overleaf:
     dormant: true

@@ -272,6 +272,14 @@ images:
     uid: 1001
     gid: 1001
     version: "1.10.0"
+  # v0.11.0 of 2026-11-02, the newest release at least 7 days old: a multi-arch index. The
+  # image's Dockerfile creates `proxy` as uid 1000 and runs as it (JorisJonkers-dev/estate#334).
+  git-pkgs-proxy:
+    repository: ghcr.io/git-pkgs/proxy
+    digest: "sha256:0899346c9ca7a79e14b4d23f91a43ab40aadb8e6d3b4fb78eeca14dd7a5abefe"
+    uid: 1000
+    gid: 1000
+    version: "v0.11.0"
   stalwart: # v0.16.20
     repository: docker.io/stalwartlabs/stalwart
     digest: "sha256:74ca4f7f6885fe302f38a99381f36a208547afce1033d8734d9e6d8d3eba7446"

@@ -1,0 +1,53 @@
+# git-pkgs/proxy v0.11.0 configuration (docs/configuration.md in git-pkgs/proxy).
+# base_url comes from PROXY_BASE_URL in env/proxy/base.env.
+
+# No Service exposes this port: the gate sidecar reaches it on localhost, and the kubelet's
+# liveness probe on the pod address.
+listen: ":8080"
+
+storage:
+  url: "file:///data/artifacts"
+  # Below the 100Gi volume, which also holds the database.
+  max_size: "85GB"
+  retention:
+    # Evict what nobody fetched for 60 days.
+    default: "60d"
+
+database:
+  driver: "sqlite"
+  path: "/data/proxy.db"
+
+log:
+  level: "info"
+  format: "json"
+
+# Keep the last metadata when an upstream is down, and revalidate after 5 minutes.
+cache_metadata: true
+metadata_ttl: "5m"
+
+# The gate sets X-Forwarded-For from the edge's; the proxy is reached through it alone.
+trust_forwarded_for: true
+
+upstream:
+  # Maven Central, with the Gradle Plugin Portal as the fallback for plugin markers, at /maven/.
+  maven: "https://repo1.maven.org/maven2"
+  gradle_plugin_portal: "https://plugins.gradle.org/m2"
+  # The other repositories the estate's Gradle builds name, each at /maven/<name>/.
+  maven_repositories:
+    spring-milestone: "https://repo.spring.io/milestone"
+    sonatype-snapshots: "https://oss.sonatype.org/content/repositories/snapshots"
+    google-maven: "https://maven.google.com"
+  go: "https://proxy.golang.org"
+  # sum.golang.org is served at /go/sumdb/sum.golang.org/ by default, so Go clients need
+  # no route of their own to it.
+  npm: "https://registry.npmjs.org"
+  pypi: "https://pypi.org"
+  pypi_download: "https://files.pythonhosted.org"
+  cargo: "https://index.crates.io"
+  cargo_download: "https://static.crates.io/crates"
+
+# No version published less than 7 days ago is listed or served, in any ecosystem
+# (JorisJonkers-dev/workspace#167). First-party packages do not come through here: they stay
+# on GitHub Packages, and Go modules under github.com/JorisJonkers-dev are GOPRIVATE.
+cooldown:
+  default: "7d"
