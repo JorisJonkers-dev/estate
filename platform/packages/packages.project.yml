@@ -103,10 +103,10 @@ applications:
 
         egress: { to: internet, reason: fetches packages and their metadata from the public registries }
 
-        # Through the gate's `ready` route (config/gate.yml): it exists only when the gate loaded
-        # its keys, and it answers only while the proxy does. The proxy listens on loopback, so
-        # no probe can reach it directly, and its /health runs a storage round-trip that can
-        # take ten seconds, longer than a probe waits.
+        # Through the gate's `ready` route (config/gate.yml) to the proxy's /health: it exists
+        # only when the gate loaded its keys, and answers 200 only while the proxy's database
+        # and storage work. The proxy listens on loopback, so no probe can reach it directly.
+        # /health caches its storage round-trip for 30 seconds, so a probe rarely waits on it.
         probes:
           readiness: { path: /.gate/ready, port: 8081 }
           liveness: { path: /.gate/ready, port: 8081 }
