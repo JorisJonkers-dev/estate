@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.45.1](https://github.com/JorisJonkers-dev/estate/compare/v0.45.0...v0.45.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **packages:** probe the proxy's /health, which answers without a redirect ([#338](https://github.com/JorisJonkers-dev/estate/issues/338)) ([af1df2b](https://github.com/JorisJonkers-dev/estate/commit/af1df2bce9db45ebd9e4aa28cd561f8392e1f77d)), closes [#334](https://github.com/JorisJonkers-dev/estate/issues/334)
+
 ## [0.45.0](https://github.com/JorisJonkers-dev/estate/compare/v0.44.2...v0.45.0) (2026-11-09)
 
 
