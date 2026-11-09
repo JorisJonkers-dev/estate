@@ -2,8 +2,9 @@
 # base_url comes from PROXY_BASE_URL in env/proxy/base.env.
 
 # Loopback only: the gate sidecar in the same pod is the one way in. No Service names this port,
-# and the namespace's default-deny NetworkPolicy would refuse it anyway; this keeps it closed
-# even if a policy changes.
+# but that alone does not close it: the estate's NetworkPolicies are rendered and not enforced
+# (platform.intent.yml, networkPolicyController), so any pod could otherwise reach the pod's
+# address on 8080 and skip the gate.
 listen: "127.0.0.1:8080"
 
 # A first fetch of a large artifact streams from upstream while it is cached. The defaults, 5

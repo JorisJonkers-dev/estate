@@ -78,6 +78,9 @@ applications:
               - name: workstation
                 generate: { bytes: 32, encoding: hex }
             access: read
+            # The env file reaches every container of the pod, so the proxy holds the keys
+            # too. It never reads or shows them: no endpoint of git-pkgs/proxy exposes its
+            # environment.
             delivery: env
             rotation: { tolerates: restart }
 

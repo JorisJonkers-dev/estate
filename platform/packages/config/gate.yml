@@ -27,7 +27,8 @@ http:
     keyed:
       entryPoints: [gate]
       priority: 100
-      # Only the ecosystems the estate uses, and the web UI.
+      # Only the ecosystems the estate uses, and the web UI. Not /gradle/ (the Gradle build
+      # cache), /api/, /health or /metrics: nothing here needs them from outside the pod.
       rule: "(Path(`/`) || PathPrefix(`/ui`) || PathPrefix(`/go/`) || PathPrefix(`/maven/`) || PathPrefix(`/npm/`) || PathPrefix(`/pypi/`) || PathPrefix(`/cargo/`)) && ({{ range $i, $k := $keys }}{{ if $i }} || {{ end }}Header(`Authorization`, `Bearer {{ env $k }}`) || Header(`Authorization`, `Basic {{ printf "packages:%s" (env $k) | b64enc }}`){{ end }})"
       middlewares: [drop-key]
       service: proxy
