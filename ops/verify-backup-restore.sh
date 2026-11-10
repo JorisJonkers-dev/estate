@@ -42,6 +42,12 @@ die() { printf 'verify-restore: %s\n' "$*" >&2; exit 1; }
 
 command -v kubectl >/dev/null 2>&1 || die "kubectl is not on PATH"
 
+# shellcheck source=../bootstrap/lib/kube.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../bootstrap/lib/kube.sh"
+CTX="$(kube_context "${KUBE_CONTEXT:-}")"
+k() { kubectl ${CTX:+--context "${CTX}"} "$@"; }
+kube_prime "${CTX}" || exit 1
+
 probe_script="$(mktemp)"
 trap 'rm -f "${probe_script}"' EXIT
 
@@ -109,10 +115,10 @@ PROBE
 
 cm="restore-probe-$$"
 log "restoring ${DATABASE} from the nightly dump into ${SCRATCH}"
-kubectl -n "${NAMESPACE}" create configmap "${cm}" \
-  --from-file=probe.sh="${probe_script}" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+k -n "${NAMESPACE}" create configmap "${cm}" \
+  --from-file=probe.sh="${probe_script}" --dry-run=client -o yaml | k apply -f - >/dev/null
 # shellcheck disable=SC2064  # expand now: the names must survive into the trap
-trap "kubectl -n ${NAMESPACE} delete configmap ${cm} >/dev/null 2>&1 || true; rm -f ${probe_script}" EXIT
+trap "k -n ${NAMESPACE} delete configmap ${cm} >/dev/null 2>&1 || true; rm -f ${probe_script}" EXIT
 
 # Distinct names on purpose: a prefix assignment to SITE or BACKUP_PVC would
 # fail with `readonly variable`, and the python then dies on a missing key.
@@ -143,5 +149,5 @@ print(json.dumps({"spec": {
   ],
 }}))')"
 
-kubectl -n "${NAMESPACE}" run "verify-restore-$$" --rm -i --restart=Never \
+k -n "${NAMESPACE}" run "verify-restore-$$" --rm -i --restart=Never \
   --image=postgres:17-alpine --overrides="${overrides}"

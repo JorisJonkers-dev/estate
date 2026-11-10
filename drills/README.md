@@ -13,6 +13,10 @@ the issue that asks it.
 
 ## How a drill runs
 
+A drill creates and deletes, so it uses the `-admin` twin of `DRILL_CONTEXT` (or
+the current context) when one exists, and `ESTATE_KUBE_CONTEXT` names the exact
+one; see [`bootstrap/README.md`](../bootstrap/README.md#which-kubectl-context).
+
 ```bash
 ./drills/<drill>.sh --check   # the preflight alone: reads only, changes nothing
 ./drills/<drill>.sh           # the drill

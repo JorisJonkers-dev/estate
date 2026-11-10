@@ -25,6 +25,8 @@ require_command() {
   }
 }
 
+# shellcheck source=../../bootstrap/lib/kube.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../../bootstrap/lib/kube.sh"
 DEFINITIONS=""
 USERNAME=""
 PASSWORD=""
@@ -79,7 +81,11 @@ require_command curl
   exit 1
 }
 
-kubectl get service -n "${NAMESPACE}" "${SERVICE}" >/dev/null
+CTX="$(kube_context "${KUBE_CONTEXT:-}")"
+k() { kubectl ${CTX:+--context "${CTX}"} "$@"; }
+kube_prime "${CTX}" || exit 1
+
+k get service -n "${NAMESPACE}" "${SERVICE}" >/dev/null
 
 port_forward_log="$(mktemp)"
 cleanup() {
@@ -91,7 +97,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-kubectl -n "${NAMESPACE}" port-forward "svc/${SERVICE}" "${LOCAL_PORT}:15672" >"${port_forward_log}" 2>&1 &
+k -n "${NAMESPACE}" port-forward "svc/${SERVICE}" "${LOCAL_PORT}:15672" <"$KUBE_STDIN" >"${port_forward_log}" 2>&1 &
 PORT_FORWARD_PID=$!
 
 for _ in $(seq 1 30); do

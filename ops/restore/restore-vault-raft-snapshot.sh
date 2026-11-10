@@ -33,7 +33,11 @@ done
 # The namespace and pod default to wherever Vault runs now, found by label
 # (lib/vault.sh), not to a name that was true once. Either flag still wins, and
 # naming one narrows the search for the other.
-k() { kubectl ${KUBE_CONTEXT:+--context "${KUBE_CONTEXT}"} "$@"; }
+# shellcheck source=../../bootstrap/lib/kube.sh
+source "${repo_root}/bootstrap/lib/kube.sh"
+CTX="$(kube_context "${KUBE_CONTEXT:-}")"
+k() { kubectl ${CTX:+--context "${CTX}"} "$@"; }
+kube_prime "${CTX}" || exit 1
 has_namespace=false
 has_pod=false
 for ((i = 0; i < ${#args[@]}; i++)); do

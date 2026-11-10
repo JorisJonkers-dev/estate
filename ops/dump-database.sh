@@ -18,7 +18,9 @@
 # never printed. Restoring later needs only the Garage CLI to read the key again.
 set -euo pipefail
 
-CTX="${KUBE_CONTEXT:-personal}"
+# shellcheck source=../bootstrap/lib/kube.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../bootstrap/lib/kube.sh"
+CTX=""   # set after the arguments are checked: it asks the cluster's kubeconfig
 BUCKET=handover-dumps
 KEY_NAME=handover-dumps
 
@@ -75,7 +77,7 @@ garage_login() {
 
 open_endpoint() {
   if [ -n "${GARAGE_ENDPOINT:-}" ]; then ENDPOINT="$GARAGE_ENDPOINT"; return; fi
-  k -n data-system port-forward svc/garage 13900:3900 >/dev/null 2>&1 &
+  k -n data-system port-forward svc/garage 13900:3900 <"$KUBE_STDIN" >/dev/null 2>&1 &
   PF=$!
   ENDPOINT=http://127.0.0.1:13900
   for _ in $(seq 1 20); do curl -s -o /dev/null "$ENDPOINT" && return; sleep 0.5; done
@@ -133,6 +135,8 @@ sub="${1:-}"
 DATABASE="${2:-}"
 [ -n "$sub" ] && [ -n "$DATABASE" ] || die "usage: $0 run <database>"
 [[ "$DATABASE" =~ ^[a-z_][a-z0-9_]*$ ]] || die "$DATABASE is not a plain database name"
+CTX="$(kube_context "${KUBE_CONTEXT:-personal}")"
+kube_prime "$CTX" || exit 1
 case "$sub" in
   run) cmd_run ;;
   *) die "unknown command $sub" ;;

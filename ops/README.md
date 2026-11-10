@@ -37,7 +37,15 @@ pin it; `VAULT_SELECTOR` changes the label.
 
 `unseal-vault.sh`, `recover-wedged-apiserver-cache.sh`, `dump-database.sh` and
 `resume-mail-provisioner.sh` read the kubectl context from `KUBE_CONTEXT`
-(default `personal`); the others use the current context.
+(default `personal`); the others use the current context. Every script here that
+writes, port-forwards or execs then takes that context's `-admin` twin when one
+exists (`personal-admin`, cluster-admin behind sudo; the read-only context cannot
+port-forward), and `ESTATE_KUBE_CONTEXT` names the exact context. It asks for
+the sudo password up front and needs a terminal; see
+[`bootstrap/README.md`](../bootstrap/README.md#which-kubectl-context).
+`restore-pvc-archive.sh` and `restore-hostpath-archive.sh` hand over to
+flux-modules scripts that use the current context: switch it to `personal-admin`
+first.
 
 ## Checks
 

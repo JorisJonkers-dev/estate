@@ -24,7 +24,9 @@
 # Restart=always, and running pods survive an apiserver bounce.
 set -euo pipefail
 
-CTX="${KUBE_CONTEXT:-personal}"
+# shellcheck source=../bootstrap/lib/kube.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../bootstrap/lib/kube.sh"
+CTX="$(kube_context "${KUBE_CONTEXT:-personal}")"
 CP_HOST="${CP_HOST:-167.86.79.203}"
 CP_SSH_PORT="${CP_SSH_PORT:-2222}"
 CP_SSH_USER="${CP_SSH_USER:-deploy}"
@@ -39,6 +41,7 @@ RESOURCES=("nodes" "pods" "services")
 MODE=diagnose
 
 k() { kubectl --context "$CTX" "$@"; }
+kube_prime "$CTX" || exit 1
 say() { printf '\n== %s\n' "$*"; }
 note() { printf '   %s\n' "$*"; }
 die() { printf '\nFAILED: %s\n' "$*" >&2; exit 1; }
