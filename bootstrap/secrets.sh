@@ -1368,6 +1368,8 @@ section_litellm() {
   WROTE_FIELDS=""
   CHANGED_KEYS=""
   say "salt_key encrypts the upstream keys in LiteLLM's database: never replace it once virtual keys exist."
+  [[ -z "$ROTATE" ]] || [[ -z "$(kv_field "$(kv_load platform/litellm)" salt_key)" ]] \
+    || die "--rotate would offer to replace salt_key, which makes every stored upstream key unreadable; edit the other fields in Vault directly"
   edit_fields platform/litellm \
     "master_key|gen:32|master_key (Enter generates)" \
     "salt_key|gen:32|salt_key (Enter generates; never changes later)" \
