@@ -16,9 +16,11 @@ is safe to re-run.
 
 ## On a new cluster
 
-1. Install Flux and unseal Vault, restoring it if there is a backup:
+1. Install Flux, restoring Vault if there is a backup:
    `JorisJonkers-dev/fleet-infra`'s `cluster/bootstrap/flux-bootstrap-playbook.md`
-   and the Vault playbooks beside it.
+   and the Vault playbooks beside it. Then unseal Vault with
+   [`ops/unseal-vault.sh`](../ops/unseal-vault.sh), which finds the pod by label
+   and takes the key shares one at a time.
 2. Run `./bootstrap/secrets.sh` against the new cluster's kubectl context. On a
    Vault initialised minutes ago there is no OIDC sign-in yet, so paste the
    root token when it asks. It writes the role the Vault policy job logs in as
@@ -44,6 +46,7 @@ client secrets.
 ./bootstrap/secrets.sh --only mail                       # Stalwart's user:password pair, from its admin login
 ./bootstrap/secrets.sh --only data                       # the data Project's catalog and backup logins, copied
 ./bootstrap/secrets.sh --only litellm                    # LiteLLM master and salt keys generated; the four provider keys and the catalogue token pasted
+./bootstrap/secrets.sh --only mongo                      # MongoDB's logins, member certificate and users, minted for its handover
 ./bootstrap/secrets.sh --only backup-off-cluster         # the S3 key pair irreplaceable backups copy off-cluster with
 ./bootstrap/secrets.sh --only grimoire --rerun-garage-bootstrap
 ./bootstrap/secrets.sh --only discord-webhook --rotate --test-alert
@@ -53,9 +56,10 @@ client secrets.
 rotation breaks stored state (a session key, a VAPID or S3 pair), which is
 only ever minted where missing. `--restart-auth-api` restarts auth-api even
 when no secret changed, for a client registered by an auth-api release after
-its secret was written. The `garage-keys`, `agents-github-app` and
-`agents-deploy-key` sections are optional: a full run reports them, and only
-`--only` acts on them.
+its secret was written. The `garage-keys` section is optional: a full run
+reports it, and only `--only` acts on it. So does `mongo`, which mints MongoDB's logins and its
+member certificate where they are missing and creates its users in the live
+MongoDB, for its handover (`docs/runbooks/mongo-handover.md`).
 
 Keys deploy-kit generates (a `generate:` key in a project file, written once by
 the Vault policy job) are never written here; `secrets.sh` only reports
@@ -105,6 +109,29 @@ else in Vault hands out (any auth role, token role, identity group or entity),
 and anything the cluster could still log in with. A read that fails stops the
 run and never passes for "absent". It signs in to Vault the way `secrets.sh`
 does, and `ESTATE_VAULT_ADDR` gives it the same dry run.
+
+## Which kubectl context
+
+A workstation has two contexts per cluster (agent-kit's
+`scripts/workstation-kube.py`): `personal` is read-only (no Secrets, no
+port-forward, no exec) and `personal-admin` is cluster-admin behind `sudo`. The
+scripts write, port-forward and exec, so [`lib/kube.sh`](lib/kube.sh) picks the
+admin one: `ESTATE_KUBE_CONTEXT` if set, else `<current>-admin` when that
+context exists, else the current context. The "Is ... the cluster you mean to
+write to?" question names the context chosen. A `KUBECTL` you set is used as it
+is. So the command for the litellm secrets is just:
+
+```bash
+./bootstrap/secrets.sh --only litellm
+```
+
+It asks for the sudo password once, up front. The admin credential needs a
+terminal, even with sudo cached, so the background port-forward reads its stdin
+from `/dev/tty`; with no terminal the script stops and says so. The fallback
+there: run `kubectl --context personal-admin -n secrets-system port-forward
+svc/vault 8200:8200` in another terminal and run the script with
+`ESTATE_VAULT_ADDR=http://127.0.0.1:8200` (the cluster steps are then skipped,
+as in a dry run).
 
 ## What they need
 

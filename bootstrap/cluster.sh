@@ -2,8 +2,8 @@
 #
 # Everything a cluster needs, outside git and outside Vault, before the estate
 # path can deliver to it: run once per cluster, after Flux is installed and
-# Vault is unsealed (fleet-infra cluster/bootstrap/flux-bootstrap-playbook.md,
-# and its Vault unseal and restore playbooks), and again after any move.
+# Vault is unsealed (ops/unseal-vault.sh; Flux itself: fleet-infra
+# cluster/bootstrap/flux-bootstrap-playbook.md), and again after any move.
 #
 #   Flux       Secret flux-system/estate, an SSH key pair generated in the
 #              cluster whose public half is a read-only deploy key on estate,
@@ -75,7 +75,7 @@ if $KUBECTL -n flux-system get secret estate >/dev/null 2>&1 \
   ok "keeping Secret flux-system/estate"
 else
   confirm "Write Secret flux-system/estate?" || die "stopped"
-  flux create secret git estate --namespace=flux-system \
+  flux ${KUBE_CTX:+--context "$KUBE_CTX"} create secret git estate --namespace=flux-system \
     --url=ssh://git@github.com/JorisJonkers-dev/estate >/dev/null
 fi
 $KUBECTL -n flux-system get secret estate -o jsonpath='{.data.identity\.pub}' | base64 -d > "$WORK/estate.pub"
@@ -227,13 +227,13 @@ if ! $KUBECTL -n flux-system get gitrepository platform >/dev/null 2>&1; then
   warn "GitRepository flux-system/platform is not applied yet (fleet-infra's estate.yaml)"
   SKIPPED+=("prove Flux reads estate once flux-system/platform exists: re-run cluster.sh")
 else
-  flux reconcile source git platform -n flux-system >/dev/null \
+  flux ${KUBE_CTX:+--context "$KUBE_CTX"} reconcile source git platform -n flux-system >/dev/null \
     || die "flux-system/platform did not reconcile: flux get sources git platform -n flux-system"
   ESTATE_HEAD=$(gh api "repos/$ESTATE/commits/main" --jq .sha)
   FETCHED=$($KUBECTL -n flux-system get gitrepository platform -o jsonpath='{.status.artifact.revision}')
   [[ "$FETCHED" == *"$ESTATE_HEAD" ]] || die "Flux fetched $FETCHED, but estate main is $ESTATE_HEAD"
   ok "flux-system/platform fetched estate main at ${ESTATE_HEAD:0:12}"
-  flux reconcile kustomization estate-pins -n flux-system >/dev/null \
+  flux ${KUBE_CTX:+--context "$KUBE_CTX"} reconcile kustomization estate-pins -n flux-system >/dev/null \
     || die "estate-pins did not apply: flux get kustomizations estate-pins -n flux-system"
   ok "estate-pins applied"
 fi

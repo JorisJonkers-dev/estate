@@ -345,16 +345,23 @@ estate_revision() {
 
 # ── The cluster ───────────────────────────────────────────────────────────
 
-kc() { "$KUBECTL" --context "$CTX" --request-timeout=20s "$@"; }
+kc() { $KUBECTL --context "$CTX" --request-timeout=20s "$@"; }
 
 preflight_cluster() {
   require_tools "$KUBECTL" jq
-  CTX=${DRILL_CONTEXT:-$("$KUBECTL" config current-context 2>/dev/null || true)}
-  [[ -n "$CTX" ]] || die "kubectl has no current context: set DRILL_CONTEXT"
+  # The admin context, which a drill needs to create and delete (lib/kube.sh);
+  # DRILL_CONTEXT names the base, ESTATE_KUBE_CONTEXT the exact context.
+  if [[ -n "$_KUBECTL_CUSTOM" ]]; then
+    CTX=${DRILL_CONTEXT:-$KUBE_CTX}
+  else
+    CTX=$(kube_context "${DRILL_CONTEXT:-}")
+    kube_prime "$CTX" || exit 1
+  fi
+  [[ -n "$CTX" ]] || die "kubectl has no current context: set DRILL_CONTEXT or ESTATE_KUBE_CONTEXT"
   local nodes
   nodes=$(kc get nodes -o name 2>/dev/null | wc -l | tr -d ' ')
   ((nodes > 0)) || die "kubectl cannot list the nodes of context $CTX"
-  KC="kubectl --context $CTX"
+  KC="$KUBECTL --context $CTX"
   ok "kubectl reads context $BOLD$CTX$RESET: $nodes nodes"
 }
 

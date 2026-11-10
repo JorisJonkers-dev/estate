@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.48.0](https://github.com/JorisJonkers-dev/estate/compare/v0.47.0...v0.48.0) (2026-11-10)
+
+
+### Features
+
+* **ops:** take over the ops scripts and runbooks from fleet-infra ([#212](https://github.com/JorisJonkers-dev/estate/issues/212)) ([d79a4d4](https://github.com/JorisJonkers-dev/estate/commit/d79a4d4184c6b8c624ea5982032fef06e41b2ca3))
+* **packages:** serve container images, Alpine and Debian from the proxy ([#367](https://github.com/JorisJonkers-dev/estate/issues/367)) ([b1e39c2](https://github.com/JorisJonkers-dev/estate/commit/b1e39c20b1e45ce7af8278d911524a0e622f2753))
+* **packages:** serve Gradle distributions from the proxy ([#368](https://github.com/JorisJonkers-dev/estate/issues/368)) ([68da0bd](https://github.com/JorisJonkers-dev/estate/commit/68da0bd62d91403cc6fc5286b31bbc78d20dcc6d)), closes [#354](https://github.com/JorisJonkers-dev/estate/issues/354)
+
+
+### Bug Fixes
+
+* **bootstrap:** write to the cluster through the admin kubectl context ([#366](https://github.com/JorisJonkers-dev/estate/issues/366)) ([9ef5375](https://github.com/JorisJonkers-dev/estate/commit/9ef5375509da3cdcba9c4ba1513d392565c18f89))
+
+## [0.47.0](https://github.com/JorisJonkers-dev/estate/compare/v0.46.0...v0.47.0) (2026-11-10)
+
+
+### Features
+
+* **bootstrap:** mint MongoDB's logins and member certificate, and create its users, for its handover ([#271](https://github.com/JorisJonkers-dev/estate/issues/271)) ([576624a](https://github.com/JorisJonkers-dev/estate/commit/576624a3cc0bc7e2a1d6dd6bfbc03d38499be8a7))
+
 ## [0.46.0](https://github.com/JorisJonkers-dev/estate/compare/v0.45.4...v0.46.0) (2026-11-10)
 
 

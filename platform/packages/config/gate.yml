@@ -27,9 +27,12 @@ http:
     keyed:
       entryPoints: [gate]
       priority: 100
-      # Only the ecosystems the estate uses, and the web UI. Not /gradle/ (the Gradle build
-      # cache), /api/, /health or /metrics: nothing here needs them from outside the pod.
-      rule: "(Path(`/`) || PathPrefix(`/ui`) || PathPrefix(`/go/`) || PathPrefix(`/maven/`) || PathPrefix(`/npm/`) || PathPrefix(`/pypi/`) || PathPrefix(`/cargo/`)) && ({{ range $i, $k := $keys }}{{ if $i }} || {{ end }}Header(`Authorization`, `Bearer {{ env $k }}`) || Header(`Authorization`, `Basic {{ printf "packages:%s" (env $k) | b64enc }}`){{ end }})"
+      # Only the ecosystems the estate uses, and the web UI: Go, Maven, npm, PyPI, Cargo, the
+      # container registry (/v2/), Alpine (only the repository named alpine) and Debian (only the
+      # archive's pool and dists, and the repository named security) and Gradle distributions
+      # (only /generic/gradle/, no other generic upstream). Not /gradle/ (the Gradle
+      # build cache), /api/, /health or /metrics: nothing here needs them from outside the pod.
+      rule: "(Path(`/`) || PathPrefix(`/ui`) || PathPrefix(`/go/`) || PathPrefix(`/maven/`) || PathPrefix(`/npm/`) || PathPrefix(`/pypi/`) || PathPrefix(`/cargo/`) || PathPrefix(`/v2/`) || PathPrefix(`/apk/alpine/`) || PathPrefix(`/debian/pool/`) || PathPrefix(`/debian/dists/`) || PathPrefix(`/debian/security/`) || PathPrefix(`/generic/gradle/`)) && ({{ range $i, $k := $keys }}{{ if $i }} || {{ end }}Header(`Authorization`, `Bearer {{ env $k }}`) || Header(`Authorization`, `Basic {{ printf "packages:%s" (env $k) | b64enc }}`){{ end }})"
       middlewares: [drop-key]
       service: proxy
 

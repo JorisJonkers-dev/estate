@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/jellyfin
   ref:
-    digest: sha256:368c1e3aea4d530c92b598c0c8d600cc1ea8e2d236b84deba3afb75ad3df4eb0
+    digest: sha256:aec3d96340f4dc236a847c362e6a988aaace5001be2d8874f585b24066470802
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/jellyfin
-    event.toolkit.fluxcd.io/sha: b1d1a68647075216264ee6ffcd373c2176b279cd
+    event.toolkit.fluxcd.io/sha: 1fb736f709e32289fd85ba6078f4832cf6e279b5
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 11.2.0
+    event.toolkit.fluxcd.io/version: 11.3.0
     event.toolkit.fluxcd.io/url: https://jellyfin.jorisjonkers.dev
 spec:
   interval: 10m

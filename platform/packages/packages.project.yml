@@ -2,8 +2,10 @@
 # (JorisJonkers-dev/estate#334, part of JorisJonkers-dev/workspace#167).
 #
 # It runs git-pkgs/proxy, a pull-through proxy for Maven, the Gradle Plugin Portal, Go, npm,
-# PyPI and Cargo that never lists or serves a version published less than 7 days ago. Go and
-# Gradle have no client-side minimum release age, so their builds resolve through it. The image
+# PyPI and Cargo that never lists or serves a version published less than 7 days ago, and for
+# container images (Docker Hub, ghcr.io, gcr.io, quay.io), Alpine and Debian packages, which
+# the proxy's cooldown does not cover. Go and Gradle have no client-side minimum release age,
+# so their builds resolve through it. The image
 # is JorisJonkers-dev/packages-proxy's build of a pinned git-pkgs/proxy release with the
 # estate's patches. This file publishes with the Platform document, on this repository's
 # releases, and its image is in images.lock.yml.

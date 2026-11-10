@@ -6,7 +6,20 @@
 
 ORG="JorisJonkers-dev"
 ESTATE="$ORG/estate"
-KUBECTL=${KUBECTL:-kubectl}
+
+# Writes, port-forwards and execs need the admin context (lib/kube.sh). A
+# KUBECTL set by the caller is used as it is.
+# shellcheck source=kube.sh
+source "$(dirname "${BASH_SOURCE[0]}")/kube.sh"
+_KUBECTL_CUSTOM=""
+if [[ -n "${KUBECTL:-}" ]]; then
+  _KUBECTL_CUSTOM=yes
+  KUBE_CTX=${ESTATE_KUBE_CONTEXT:-$($KUBECTL config current-context 2>/dev/null || true)}
+  [[ -z "${ESTATE_KUBE_CONTEXT:-}" ]] || KUBECTL="$KUBECTL --context $ESTATE_KUBE_CONTEXT"
+else
+  KUBE_CTX=$(kube_context)
+  KUBECTL="kubectl${KUBE_CTX:+ --context $KUBE_CTX}"
+fi
 
 # The App ids are not secret, and the scripts read them, so they are kept
 # outside the repository. The wizard library defaults ENV_FILE to ./.env, so
@@ -59,17 +72,19 @@ fp() {
 require_tools() {
   local tool
   for tool in "$@"; do
-    command -v "$tool" >/dev/null 2>&1 || die "$tool is not on PATH"
+    command -v "${tool%% *}" >/dev/null 2>&1 || die "$tool is not on PATH"
   done
 }
 
 # require_cluster names the kubectl context and stops if Vault is not there.
 require_cluster() {
+  [[ -n "${KUBE_CTX:-}" ]] || die "kubectl has no current context: set ESTATE_KUBE_CONTEXT"
+  [[ -n "${_KUBECTL_CUSTOM:-}" ]] || kube_prime "$KUBE_CTX" || exit 1
   $KUBECTL -n "$VAULT_NAMESPACE" get service vault >/dev/null 2>&1 \
-    || die "cannot see service $VAULT_NAMESPACE/vault (context: $($KUBECTL config current-context 2>/dev/null))"
-  ok "cluster reachable, context $($KUBECTL config current-context)"
-  confirm "Is $($KUBECTL config current-context) the cluster you mean to write to?" \
-    || die "switch the kubectl context and re-run"
+    || die "cannot see service $VAULT_NAMESPACE/vault (context: $KUBE_CTX)"
+  ok "cluster reachable, context $KUBE_CTX"
+  confirm "Is $KUBE_CTX the cluster you mean to write to?" \
+    || die "set ESTATE_KUBE_CONTEXT (or switch the kubectl context) and re-run"
 }
 
 # estate_cleanup is every script's EXIT trap: it revokes a Vault token this
@@ -115,7 +130,7 @@ _vault_port_forward() {
   local port="" _
   VAULT_PF_LOG=$(mktemp)
   # Local port 0: kubectl picks a free one and logs it, so no port ever collides.
-  $KUBECTL -n "$VAULT_NAMESPACE" port-forward svc/vault 0:8200 </dev/null >"$VAULT_PF_LOG" 2>&1 &
+  $KUBECTL -n "$VAULT_NAMESPACE" port-forward svc/vault 0:8200 <"$KUBE_STDIN" >"$VAULT_PF_LOG" 2>&1 &
   VAULT_PF_PID=$!
   for _ in $(seq 1 30); do
     kill -0 "$VAULT_PF_PID" 2>/dev/null || die "the port-forward to svc/vault exited: $(tr '\n' ' ' <"$VAULT_PF_LOG")"
@@ -138,7 +153,7 @@ _vault_health() {
   [[ "$(jq -r .initialized <<<"$health")" == true ]] \
     || die "Vault is not initialised: fleet-infra's Vault playbooks come first"
   [[ "$(jq -r .sealed <<<"$health")" == false ]] \
-    || die "Vault is sealed: run fleet-infra's scripts/ops/unseal-vault.sh first"
+    || die "Vault is sealed: run ops/unseal-vault.sh first"
   ok "Vault answers at $VAULT_ADDR, initialised and unsealed"
 }
 
