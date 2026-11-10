@@ -74,6 +74,7 @@ SECTIONS=(
   "mail|Stalwart's recovery admin, the user:password pair its server reads, from its admin login"
   "hermes|the Hermes Agent's provider keys and its Hindsight token"
   "mistral|the Mistral API keys Hindsight and Karakeep read"
+  "litellm|LiteLLM's master and salt keys and the three upstream provider keys it calls"
   "backup-off-cluster|the S3 credential irreplaceable volumes' backups copy off-cluster with"
   "data|the Postgres catalog and backup logins and the RabbitMQ backup login, copied from their admin logins"
   "garage-keys|optional: the Garage web and archive keys, pre-generated so a rebuild reproduces them"
@@ -1356,6 +1357,27 @@ section_mistral() {
   [[ -z "$any" ]] || note "VSO re-renders both Secrets on its next refresh and restarts the workloads."
 }
 
+# ── litellm ───────────────────────────────────────────────────────────────
+# LiteLLM (JorisJonkers-dev/litellm) reads secret/platform/litellm through its
+# deploy-kit grant. master_key signs the admin calls that mint virtual keys;
+# salt_key encrypts the upstream keys LiteLLM stores in its database, so once a
+# virtual key exists it must never change (replacing it makes every stored key
+# unreadable): both are generated here, only where missing. The three upstream
+# keys are the owner's: Vibe, Vibe-study and OpenCode Go.
+section_litellm() {
+  WROTE_FIELDS=""
+  CHANGED_KEYS=""
+  say "salt_key encrypts the upstream keys in LiteLLM's database: never replace it once virtual keys exist."
+  edit_fields platform/litellm \
+    "master_key|gen:32|master_key (Enter generates)" \
+    "salt_key|gen:32|salt_key (Enter generates; never changes later)" \
+    "vibe_api_key|required|vibe_api_key (the Vibe key)" \
+    "vibe_study_api_key|required|vibe_study_api_key (the Vibe-study key)" \
+    "opencode_go_api_key|required|opencode_go_api_key (the OpenCode Go key)"
+  [[ -n "$WROTE_FIELDS" ]] || return 0
+  note "LiteLLM reads platform/litellm through its deploy-kit grant; VSO refreshes it and restarts LiteLLM."
+}
+
 # ── backup-off-cluster ────────────────────────────────────────────────────
 # The credential an irreplaceable volume's backup copies off-cluster with
 # (estate#228). platform.intent.yml's durability.irreplaceable.offCluster
@@ -1745,6 +1767,7 @@ for CURRENT_SECTION in "${SELECTED[@]}"; do
     mail) section_mail ;;
     hermes) section_hermes ;;
     mistral) section_mistral ;;
+    litellm) section_litellm ;;
     backup-off-cluster) section_backup_off_cluster ;;
     data) section_data ;;
     garage-keys) section_garage_keys ;;
