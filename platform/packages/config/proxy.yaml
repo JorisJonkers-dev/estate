@@ -35,6 +35,10 @@ storage:
       # Image layers are large and an image is pulled again when it is evicted, so layers go
       # sooner than the packages above. Only blobs are evicted; manifests stay cached.
       oci: "30d"
+      # Generic retention is opt-in. A Gradle distribution is kept for 60 days after its last
+      # fetch, like the packages above; services.gradle.org keeps old releases, so an evicted
+      # file can be fetched again.
+      generic: "60d"
 
 database:
   driver: "sqlite"
@@ -91,10 +95,22 @@ upstream:
   debian: "https://deb.debian.org/debian"
   debian_repositories:
     security: "https://security.debian.org/debian-security"
+  # Gradle distributions at /generic/gradle/distributions/. generic_paths limits the upstream
+  # to that directory, so the rest of services.gradle.org is not reachable through the proxy.
+  generic:
+    gradle: "https://services.gradle.org"
+  generic_paths:
+    gradle:
+      - "distributions/**"
+  # A release zip never changes for its version, so it is cached once and never revalidated.
+  generic_artifacts:
+    gradle:
+      - 'distributions/(?P<file>gradle-(?P<version>[0-9][^/]*?)-(?:bin|all)\.zip)'
 
 # No version published less than 7 days ago is listed or served, in every ecosystem the cooldown
 # supports (JorisJonkers-dev/workspace#167). It does not cover container images, Alpine or
-# Debian packages: v0.11.0 has no publish time for them. First-party packages do not come through here: they stay
+# Debian packages, or Gradle distributions: v0.11.0 has no publish time for them. First-party
+# packages do not come through here: they stay
 # on GitHub Packages, and Go modules under github.com/JorisJonkers-dev are GOPRIVATE.
 cooldown:
   default: "7d"
