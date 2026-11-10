@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.0](https://github.com/JorisJonkers-dev/estate/compare/v0.45.4...v0.46.0) (2026-11-10)
+
+
+### Features
+
+* **packages:** run the patched proxy build from packages-proxy ([#350](https://github.com/JorisJonkers-dev/estate/issues/350)) ([bb82ec3](https://github.com/JorisJonkers-dev/estate/commit/bb82ec31eab941082d767df55a85361598a1096c))
+
 ## [0.45.4](https://github.com/JorisJonkers-dev/estate/compare/v0.45.3...v0.45.4) (2026-11-10)
 
 
