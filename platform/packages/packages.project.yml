@@ -4,7 +4,8 @@
 # It runs git-pkgs/proxy, a pull-through proxy for Maven, the Gradle Plugin Portal, Go, npm,
 # PyPI and Cargo that never lists or serves a version published less than 7 days ago. Go and
 # Gradle have no client-side minimum release age, so their builds resolve through it. The image
-# is third-party, so this file publishes with the Platform document, on this repository's
+# is JorisJonkers-dev/packages-proxy's build of a pinned git-pkgs/proxy release with the
+# estate's patches. This file publishes with the Platform document, on this repository's
 # releases, and its image is in images.lock.yml.
 #
 # git-pkgs/proxy has no authentication of its own. Until identity's Gate takes over this host
@@ -37,7 +38,7 @@ applications:
     processes:
       - name: proxy
         lifecycle: application
-        image: git-pkgs-proxy # ghcr.io/git-pkgs/proxy; the lock resolves digest, uid and gid
+        image: git-pkgs-proxy # ghcr.io/jorisjonkers-dev/packages-proxy; the lock resolves digest, uid and gid
         runtime: none
         args: [serve, -config, /etc/proxy/config.yaml]
 

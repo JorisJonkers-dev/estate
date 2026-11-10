@@ -272,14 +272,15 @@ images:
     uid: 1001
     gid: 1001
     version: "1.10.0"
-  # v0.11.0 of 2026-11-02, the newest release at least 7 days old: a multi-arch index. The
-  # image's Dockerfile creates `proxy` as uid 1000 and runs as it (JorisJonkers-dev/estate#334).
+  # git-pkgs/proxy v0.11.0 with the estate's patches, built by JorisJonkers-dev/packages-proxy:
+  # a multi-arch index. Its patch moves npm's dist-tags.latest by semver order when the
+  # cooldown holds latest back. It runs as uid 1000, as upstream's image does.
   git-pkgs-proxy:
-    repository: ghcr.io/git-pkgs/proxy
-    digest: "sha256:0899346c9ca7a79e14b4d23f91a43ab40aadb8e6d3b4fb78eeca14dd7a5abefe"
+    repository: ghcr.io/jorisjonkers-dev/packages-proxy
+    digest: "sha256:0cc3ef8eaae9b70e68a944445cf7a2f7e659ab68f14f2be047ae9d226d389143"
     uid: 1000
     gid: 1000
-    version: "v0.11.0"
+    version: "v0.11.0-jj.1"
   stalwart: # v0.16.20
     repository: docker.io/stalwartlabs/stalwart
     digest: "sha256:74ca4f7f6885fe302f38a99381f36a208547afce1033d8734d9e6d8d3eba7446"
