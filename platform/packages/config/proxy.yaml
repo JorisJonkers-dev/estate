@@ -31,6 +31,10 @@ storage:
   retention:
     # Evict what nobody fetched for 60 days.
     default: "60d"
+    ecosystems:
+      # Image layers are large and an image is pulled again when it is evicted, so layers go
+      # sooner than the packages above. Only blobs are evicted; manifests stay cached.
+      oci: "30d"
 
 database:
   driver: "sqlite"
@@ -71,9 +75,26 @@ upstream:
   pypi_download: "https://files.pythonhosted.org"
   cargo: "https://index.crates.io"
   cargo_download: "https://static.crates.io/crates"
+  # Container images at /v2/. Unprefixed names (library/busybox) come from Docker Hub; the
+  # others are named by upstream/<name>/, for example /v2/upstream/ghcr/owner/app/.
+  oci_default: "https://registry-1.docker.io"
+  oci:
+    ghcr: "https://ghcr.io"
+    gcr: "https://gcr.io"
+    quay: "https://quay.io"
+  # Alpine packages at /apk/alpine/. This is the proxy's default, stated so it is not left to
+  # one.
+  apk:
+    alpine: "https://dl-cdn.alpinelinux.org/alpine"
+  # Debian packages at /debian/ (pool and dists), with the security archive at
+  # /debian/security/, because a Debian suite's updates live on a separate host.
+  debian: "https://deb.debian.org/debian"
+  debian_repositories:
+    security: "https://security.debian.org/debian-security"
 
-# No version published less than 7 days ago is listed or served, in any ecosystem
-# (JorisJonkers-dev/workspace#167). First-party packages do not come through here: they stay
+# No version published less than 7 days ago is listed or served, in every ecosystem the cooldown
+# supports (JorisJonkers-dev/workspace#167). It does not cover container images, Alpine or
+# Debian packages: v0.11.0 has no publish time for them. First-party packages do not come through here: they stay
 # on GitHub Packages, and Go modules under github.com/JorisJonkers-dev are GOPRIVATE.
 cooldown:
   default: "7d"
