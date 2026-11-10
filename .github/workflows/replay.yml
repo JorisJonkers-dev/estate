@@ -1,0 +1,86 @@
+# Proves every production render reproduces: each artifact a pin under
+# projects/ names is rendered again from the lock it names, the way
+# compose.yml composed it, and compared with the published artifact byte for
+# byte (deploy-kit spec/v1/55-delivery.md#rendered-artifacts-and-pins: an
+# artifact "names the inputs that reproduce it"). The README's "Replaying a
+# render" says what is compared and what is not.
+#
+# Read-only against production: it pulls fragments, locks and artifacts from
+# the registry with packages: read, and reads this repository's history. It
+# signs, pushes, tags and commits nothing, holds no App key and uses no
+# environment, so it can run from any ref, a pull request's included.
+#
+# Nightly after the nightly delivery, by hand from the Actions tab, and on a
+# pull request that changes the replay itself, so a change to it is proved
+# against production's own renders before it lands.
+name: Replay production renders
+
+on:
+  schedule:
+    - cron: "17 5 * * *" # after the 02:41 delivery safety net
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/replay.yml
+      - .github/scripts/replay.sh
+      - .github/scripts/compose-at.mjs
+      - .github/scripts/compare-render.sh
+      - .github/scripts/test-compare-render.sh
+
+permissions: {}
+
+concurrency:
+  group: replay-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    name: Replay production renders
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    env:
+      OWNER: jorisjonkers-dev
+      COMPOSED: ghcr.io/jorisjonkers-dev/composed
+      PLATFORM_PROJECT: jorisjonkers.dev
+    steps:
+      # The whole history: each lock names the estate commit it was composed
+      # at, and the replay reads the pin sources, participants and ClusterState
+      # as they were there.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          registry-url: https://npm.pkg.github.com
+          scope: "@jorisjonkers-dev"
+      - uses: oras-project/setup-oras@005458ad77f1c8facd38a094e4af2e69e5607ff4 # v2.0.2
+        with:
+          version: 1.3.4
+
+      # A comparison that has only ever passed is untested: its fixtures fail
+      # on every kind of difference, on the right path, before it is trusted.
+      - name: Prove the comparison can fail
+        run: bash .github/scripts/test-compare-render.sh
+
+      - name: Log in to the registry, read-only
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: echo "$GITHUB_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Replay every pinned render
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/replay.sh "$RUNNER_TEMP/replay"
+
+      - name: Summarize the replay
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f "$RUNNER_TEMP/replay/summary.md" ]; then
+            cat "$RUNNER_TEMP/replay/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
