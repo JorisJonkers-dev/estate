@@ -14,7 +14,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/kube.sh"
 _KUBECTL_CUSTOM=""
 if [[ -n "${KUBECTL:-}" ]]; then
   _KUBECTL_CUSTOM=yes
-  KUBE_CTX=$($KUBECTL config current-context 2>/dev/null || true)
+  KUBE_CTX=${ESTATE_KUBE_CONTEXT:-$($KUBECTL config current-context 2>/dev/null || true)}
+  [[ -z "${ESTATE_KUBE_CONTEXT:-}" ]] || KUBECTL="$KUBECTL --context $ESTATE_KUBE_CONTEXT"
 else
   KUBE_CTX=$(kube_context)
   KUBECTL="kubectl${KUBE_CTX:+ --context $KUBE_CTX}"

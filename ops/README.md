@@ -24,7 +24,7 @@ them when fleet-infra retires. What a person writes to Vault is
 | [`restore/restore-pvc-archive.sh`](restore/restore-pvc-archive.sh) | restoring a tar archive into a claim | the claim's contents |
 | [`restore/restore-hostpath-archive.sh`](restore/restore-hostpath-archive.sh) | restoring a tar archive into a node directory, over SSH | that directory |
 
-`restore-vault-raft-snapshot.sh`, `restore-pvc-archive.sh` and
+`restore-vault-raft-snapshot.sh`, `KUBECTL` is honoured by `bootstrap/` and `drills/` only. `restore-pvc-archive.sh` and
 `restore-hostpath-archive.sh` call the scripts of the same name in
 JorisJonkers-dev/flux-modules, at the tag `FLUX_MODULES_VERSION` names (`v1.4.0`
 by default), through [`lib/flux-modules.sh`](lib/flux-modules.sh).
@@ -43,7 +43,7 @@ exists (`personal-admin`, cluster-admin behind sudo; the read-only context canno
 port-forward), and `ESTATE_KUBE_CONTEXT` names the exact context. It asks for
 the sudo password up front and needs a terminal; see
 [`bootstrap/README.md`](../bootstrap/README.md#which-kubectl-context).
-`restore-pvc-archive.sh` and `restore-hostpath-archive.sh` hand over to
+`KUBECTL` is honoured by `bootstrap/` and `drills/` only. `restore-pvc-archive.sh` and `restore-hostpath-archive.sh` hand over to
 flux-modules scripts that use the current context: switch it to `personal-admin`
 first.
 

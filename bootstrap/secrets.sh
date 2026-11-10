@@ -1853,6 +1853,11 @@ fi
 section "Vault: reach it and sign in"
 require_tools jq curl openssl
 [[ -n "$LOCAL_VAULT" || -n "${_ESTATE_VAULT_INHERITED:-}" ]] || { require_tools "$KUBECTL"; require_cluster; }
+# Inherited from a parent run: no require_cluster here, but a port-forward
+# below still needs the terminal and the sudo cache.
+if [[ -z "$LOCAL_VAULT" && -n "${_ESTATE_VAULT_INHERITED:-}" && -z "$_KUBECTL_CUSTOM" ]]; then
+  kube_prime "$KUBE_CTX" || exit 1
+fi
 vault_connect
 
 for CURRENT_SECTION in "${SELECTED[@]}"; do

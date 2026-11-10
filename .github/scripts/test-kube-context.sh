@@ -28,7 +28,7 @@ expect() { [[ "$2" == "$3" ]] || fail "$1: got '$2', want '$3'"; }
 resolve() { bash -c "source '$root/bootstrap/lib/kube.sh'; kube_context $*"; }
 
 expect "current context gets its admin twin" "$(resolve)" personal-admin
-expect "a base gets its admin twin" "$(resolve blueshell)" blueshell
+expect "a base without a twin stays" "$(resolve blueshell)" blueshell
 expect "an admin context stays" "$(FAKE_CURRENT=personal-admin resolve)" personal-admin
 expect "no admin context: the current one" "$(FAKE_CONTEXTS=personal resolve)" personal
 expect "explicit wins" "$(ESTATE_KUBE_CONTEXT=lab resolve)" lab
@@ -38,6 +38,8 @@ chosen="$(bash -c "source '$root/bootstrap/lib/kube.sh'; KUBECTL=; export HOME='
 expect "estate.sh" "$chosen" "kubectl --context personal-admin|personal-admin"
 chosen="$(KUBECTL=mykubectl bash -c "export HOME='$work'; source '$root/bootstrap/lib/wizard.sh'; source '$root/bootstrap/lib/estate.sh'; echo \"\$KUBECTL\"" 2>/dev/null)"
 expect "caller's KUBECTL" "$chosen" "mykubectl"
+chosen="$(KUBECTL=mykubectl ESTATE_KUBE_CONTEXT=lab bash -c "export HOME='$work'; source '$root/bootstrap/lib/wizard.sh'; source '$root/bootstrap/lib/estate.sh'; echo \"\$KUBECTL|\$KUBE_CTX\"" 2>/dev/null)"
+expect "explicit context with a caller's KUBECTL" "$chosen" "mykubectl --context lab|lab"
 
 # kube_prime runs one foreground call on an admin context, nothing otherwise.
 : > "$FAKE_LOG"

@@ -361,7 +361,7 @@ preflight_cluster() {
   local nodes
   nodes=$(kc get nodes -o name 2>/dev/null | wc -l | tr -d ' ')
   ((nodes > 0)) || die "kubectl cannot list the nodes of context $CTX"
-  KC="kubectl --context $CTX"
+  KC="$KUBECTL --context $CTX"
   ok "kubectl reads context $BOLD$CTX$RESET: $nodes nodes"
 }
 
