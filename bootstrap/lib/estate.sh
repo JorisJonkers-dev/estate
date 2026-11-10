@@ -138,7 +138,7 @@ _vault_health() {
   [[ "$(jq -r .initialized <<<"$health")" == true ]] \
     || die "Vault is not initialised: fleet-infra's Vault playbooks come first"
   [[ "$(jq -r .sealed <<<"$health")" == false ]] \
-    || die "Vault is sealed: run fleet-infra's scripts/ops/unseal-vault.sh first"
+    || die "Vault is sealed: run ops/unseal-vault.sh first"
   ok "Vault answers at $VAULT_ADDR, initialised and unsealed"
 }
 

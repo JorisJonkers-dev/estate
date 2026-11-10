@@ -79,8 +79,6 @@ SECTIONS=(
   "data|the Postgres catalog and backup logins and the RabbitMQ backup login, copied from their admin logins"
   "mongo|MongoDB's admin, backup and Overleaf logins and its member certificate, minted for its handover; acts only when named"
   "garage-keys|optional: the Garage web and archive keys, pre-generated so a rebuild reproduces them"
-  "agents-github-app|optional: the agents GitHub App's id, key and runner bearer"
-  "agents-deploy-key|optional: the shared read-only deploy key agent workspaces fall back to"
 )
 # The optional sections, and mongo, only report in a full run, and act when --only names them.
 
@@ -1775,78 +1773,6 @@ section_garage_keys() {
   fi
 }
 
-# ── agents-github-app (optional) ──────────────────────────────────────────
-# fleet-infra cluster/flux/apps/agents/GITHUB-APP-SETUP.md: the App id, its
-# private key, and the bearer runners present to its token endpoint.
-section_agents_github_app() {
-  local doc path=agents/github-app pem="" app_id=""
-  doc=$(kv_load "$path")
-  if [[ -n "$(kv_field "$doc" app-id)" && "$(kv_field "$doc" private-key)" == *"PRIVATE KEY"* && -n "$(kv_field "$doc" token-bearer)" ]]; then
-    ok "secret/$path holds the App id, key and bearer"
-    result agents-github-app "already right"
-    return 0
-  fi
-  if ! named agents-github-app; then
-    note "secret/$path is incomplete (optional: secrets.sh --only agents-github-app)"
-    result agents-github-app "optional, not set"
-    return 0
-  fi
-  if [[ -z "$(kv_field "$doc" app-id)" || "$(kv_field "$doc" private-key)" != *"PRIVATE KEY"* ]]; then
-    open_url "https://github.com/$ORG/fleet-infra/blob/main/cluster/flux/apps/agents/GITHUB-APP-SETUP.md"
-    step "Create and install the App as that page says, and generate a private key."
-    ask app_id "The App's id:"
-    [[ "$app_id" =~ ^[0-9]+$ ]] || die "an App id is a number"
-    ask pem "Full path of the downloaded .pem:"
-    grep -q "PRIVATE KEY" "$pem" 2>/dev/null || die "$pem is not a private key"
-  fi
-  confirm "Write the App id, key and a missing bearer to secret/$path?" \
-    || { later "secret/$path not written"; result agents-github-app "not written"; return 0; }
-  [[ -z "$app_id" ]] || printf '%s' "$app_id" | kv_set "$path" app-id
-  [[ -z "$pem" ]] || kv_set "$path" private-key < "$pem"
-  [[ -n "$(kv_field "$doc" token-bearer)" ]] || hex32 | kv_set "$path" token-bearer
-  doc=$(kv_load "$path")
-  [[ -n "$(kv_field "$doc" app-id)" && "$(kv_field "$doc" private-key)" == *"PRIVATE KEY"* && -n "$(kv_field "$doc" token-bearer)" ]] \
-    || die "secret/$path does not read back whole"
-  ok "secret/$path holds the App id, key ($(fp "$(kv_field "$doc" private-key)")) and bearer"
-  result agents-github-app "written"
-  if [[ -n "$pem" ]] && confirm "Delete $pem now that Vault holds it?"; then rm -f "$pem"; fi
-}
-
-# ── agents-deploy-key (optional) ──────────────────────────────────────────
-# fleet-infra cluster/flux/apps/agents/SETUP.md: the shared read-only deploy
-# key ad-hoc "Repo URL" workspaces fall back to. Project-backed workspaces do
-# not need it. Generated here, so the private key never leaves $WORK.
-section_agents_deploy_key() {
-  local doc path=agents/github-deploy-key key="$WORK/agents-deploy"
-  doc=$(kv_load "$path")
-  if [[ -n "$(kv_field "$doc" private_key)" && -n "$(kv_field "$doc" public_key)" && -n "$(kv_field "$doc" known_hosts)" ]]; then
-    ok "secret/$path holds a deploy key ($(fp "$(kv_field "$doc" public_key)")) and known_hosts"
-    result agents-deploy-key "already right"
-    return 0
-  fi
-  if ! named agents-deploy-key; then
-    note "secret/$path is incomplete (optional: secrets.sh --only agents-deploy-key)"
-    result agents-deploy-key "optional, not set"
-    return 0
-  fi
-  require_tools ssh-keygen ssh-keyscan
-  ssh-keygen -q -t ed25519 -f "$key" -C "agents-shared-deploy-key" -N "" </dev/null
-  ssh-keyscan github.com 2>/dev/null > "$key.known_hosts"
-  [[ -s "$key.known_hosts" ]] || die "ssh-keyscan github.com returned nothing"
-  say "Add this public key as a deploy key, write access unchecked, on a sandbox repository:"
-  printf '\n    %s\n\n' "$(cat "$key.pub")"
-  pause "Press Enter once GitHub shows the deploy key"
-  confirm "Write the key pair and known_hosts to secret/$path?" \
-    || { later "secret/$path not written"; result agents-deploy-key "not written"; return 0; }
-  kv_set "$path" private_key < "$key"
-  kv_set "$path" public_key < "$key.pub"
-  kv_set "$path" known_hosts < "$key.known_hosts"
-  doc=$(kv_load "$path")
-  [[ "$(kv_field "$doc" public_key)" == "$(cat "$key.pub")" ]] || die "secret/$path does not read back"
-  ok "secret/$path holds the deploy key ($(fp "$(cat "$key.pub")")); the local copy goes with \$WORK"
-  result agents-deploy-key "written"
-}
-
 # ── auth-api ──────────────────────────────────────────────────────────────
 # After every client section: restart auth-api once if it must read a new
 # secret, then prove each client. The token endpoint is asked to redeem a
@@ -1951,8 +1877,6 @@ for CURRENT_SECTION in "${SELECTED[@]}"; do
     data) section_data ;;
     mongo) section_mongo ;;
     garage-keys) section_garage_keys ;;
-    agents-github-app) section_agents_github_app ;;
-    agents-deploy-key) section_agents_deploy_key ;;
   esac
 done
 if [[ -n "$any_client" ]]; then
