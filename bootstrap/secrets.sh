@@ -74,7 +74,7 @@ SECTIONS=(
   "mail|Stalwart's recovery admin, the user:password pair its server reads, from its admin login"
   "hermes|the Hermes Agent's provider keys and its Hindsight token"
   "mistral|the Mistral API keys Hindsight and Karakeep read"
-  "litellm|LiteLLM's master and salt keys and the three upstream provider keys it calls"
+  "litellm|LiteLLM's master and salt keys, the four upstream provider keys it calls and the catalogue publish token"
   "backup-off-cluster|the S3 credential irreplaceable volumes' backups copy off-cluster with"
   "data|the Postgres catalog and backup logins and the RabbitMQ backup login, copied from their admin logins"
   "garage-keys|optional: the Garage web and archive keys, pre-generated so a rebuild reproduces them"
@@ -1362,8 +1362,11 @@ section_mistral() {
 # deploy-kit grant. master_key signs the admin calls that mint virtual keys;
 # salt_key encrypts the upstream keys LiteLLM stores in its database, so once a
 # virtual key exists it must never change (replacing it makes every stored key
-# unreadable): both are generated here, only where missing. The three upstream
-# keys are the owner's: Vibe, Vibe-study and OpenCode Go.
+# unreadable): both are generated here, only where missing. The four upstream
+# keys are the owner's: Vibe, Vibe-study, OpenCode Go and OpenRouter (made with a
+# 5 EUR credit limit). catalog_publish_token is a fine-grained GitHub token with
+# contents:write on the catalogue repository only (JorisJonkers-dev/litellm-model-catalog,
+# private); it is optional, and without it the catalogue sync cannot publish.
 section_litellm() {
   WROTE_FIELDS=""
   CHANGED_KEYS=""
@@ -1375,7 +1378,9 @@ section_litellm() {
     "salt_key|gen:32|salt_key (Enter generates; never changes later)" \
     "vibe_api_key|required|vibe_api_key (the Vibe key)" \
     "vibe_study_api_key|required|vibe_study_api_key (the Vibe-study key)" \
-    "opencode_go_api_key|required|opencode_go_api_key (the OpenCode Go key)"
+    "opencode_go_api_key|required|opencode_go_api_key (the OpenCode Go key)" \
+    "openrouter_api_key|required|openrouter_api_key (the OpenRouter key, with a 5 EUR credit limit)" \
+    "catalog_publish_token|asked|catalog_publish_token (GitHub token for the catalogue repository; Enter skips)"
   [[ -n "$WROTE_FIELDS" ]] || return 0
   note "LiteLLM reads platform/litellm through its deploy-kit grant; VSO refreshes it and restarts LiteLLM."
 }

@@ -72,6 +72,9 @@ applications:
     alertRules:
       - { from: rules/platform.yaml }
       - { from: rules/kube-prometheus.yaml }
+      # LiteLLM's (JorisJonkers-dev/litellm): its Project ships the scrape and the dashboard;
+      # only the monitoring stack carries rules.
+      - { from: rules/litellm.yaml }
     processes:
       - name: prometheus
         lifecycle: application
