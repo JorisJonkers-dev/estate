@@ -25,9 +25,9 @@ the source had stopped.
 |---|---|---|
 | every Postgres database | `postgres-logical-backup` CronJob, `pg_dumpall` daily 02:30, 30-day timestamped archive | yes |
 | Vault | `vault-raft-snapshot` CronJob, every 6h | yes |
-| RabbitMQ definitions | `rabbitmq-definitions-backup` CronJob, daily 03:00 | yes |
+| RabbitMQ definitions | the data Project's `data-system/rabbitmq-data-backup` CronJob on the estate path, daily 03:15, 14 copies on the `rabbitmq-data-backup` claim | on frankfurt-contabo-1, like the others |
 
-All three write to the `observability-backups` PVC. That volume is
+The first two write to the `observability-backups` PVC. That volume is
 `local-path`, therefore node-bound, and is pinned to **`frankfurt-contabo-1`
 deliberately: that is the node with daily off-cluster copies.** A backup
 written anywhere else sits on a disk nothing copies, which looks identical
