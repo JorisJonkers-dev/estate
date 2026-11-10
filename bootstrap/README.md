@@ -43,6 +43,7 @@ client secrets.
 ./bootstrap/secrets.sh --only overleaf --rollback        # back to an earlier KV version
 ./bootstrap/secrets.sh --only mail                       # Stalwart's user:password pair, from its admin login
 ./bootstrap/secrets.sh --only data                       # the data Project's catalog and backup logins, copied
+./bootstrap/secrets.sh --only mongo                      # MongoDB's logins, member certificate and users, minted for its handover
 ./bootstrap/secrets.sh --only backup-off-cluster         # the S3 key pair irreplaceable backups copy off-cluster with
 ./bootstrap/secrets.sh --only grimoire --rerun-garage-bootstrap
 ./bootstrap/secrets.sh --only discord-webhook --rotate --test-alert
@@ -54,7 +55,9 @@ only ever minted where missing. `--restart-auth-api` restarts auth-api even
 when no secret changed, for a client registered by an auth-api release after
 its secret was written. The `garage-keys`, `agents-github-app` and
 `agents-deploy-key` sections are optional: a full run reports them, and only
-`--only` acts on them.
+`--only` acts on them. So does `mongo`, which mints MongoDB's logins and its
+member certificate where they are missing and creates its users in the live
+MongoDB, for its handover (`docs/runbooks/mongo-handover.md`).
 
 Keys deploy-kit generates (a `generate:` key in a project file, written once by
 the Vault policy job) are never written here; `secrets.sh` only reports
