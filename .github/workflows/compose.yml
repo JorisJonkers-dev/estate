@@ -186,7 +186,7 @@ jobs:
           ref: ${{ github.ref_name }}
           persist-credentials: false
 
-      - uses: JorisJonkers-dev/github-workflows/actions/setup-package-proxy@8b5462a796f022647dfc44123ddb3655cc3c2f28 # v0.45.3
+      - uses: JorisJonkers-dev/github-workflows/actions/setup-package-proxy@2814b76fc3f5bd4f02a6e4a0fa789f1307757daa # v0.45.4
         with:
           token: ${{ secrets.PACKAGES_PROXY_TOKEN }}
           require-package-proxy: true
