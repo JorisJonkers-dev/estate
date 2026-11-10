@@ -44,11 +44,14 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$here/lib/vault.sh"
 
 LOCAL_PORT="${LOCAL_PORT:-8200}"
-CTX="${KUBE_CONTEXT:-personal}"
+# shellcheck source=../bootstrap/lib/kube.sh
+source "$here/../bootstrap/lib/kube.sh"
+CTX="$(kube_context "${KUBE_CONTEXT:-personal}")"
 
 # --context rather than `kubectl config use-context`: a script that unseals
 # should not change which cluster the caller's next command talks to.
 k() { kubectl --context "$CTX" "$@"; }
+kube_prime "$CTX" || exit 1
 
 PF_PID=""
 cleanup() { [[ -n "$PF_PID" ]] && kill "$PF_PID" 2>/dev/null || true; }
@@ -61,7 +64,7 @@ echo ">> vault pod: ${VAULT_NS}/${VAULT_POD} (context ${CTX})"
 # --- pick transport -------------------------------------------------------
 if command -v vault >/dev/null 2>&1; then
   echo ">> using local 'vault' CLI via port-forward localhost:${LOCAL_PORT} -> ${TARGET}:8200"
-  k -n "$VAULT_NS" port-forward "$TARGET" "${LOCAL_PORT}:8200" >/dev/null 2>&1 &
+  k -n "$VAULT_NS" port-forward "$TARGET" "${LOCAL_PORT}:8200" <"$KUBE_STDIN" >/dev/null 2>&1 &
   PF_PID=$!
   export VAULT_ADDR="http://127.0.0.1:${LOCAL_PORT}"
   # wait for the forward to answer (sealed vault => 503 normally; sealedcode=200 makes it 200)

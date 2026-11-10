@@ -156,7 +156,7 @@ follow_pods() {
     [[ -n "$name" ]] || continue
     if [[ -z "${FOLLOWED[$name]:-}" && "$running" == true ]]; then
       FOLLOWED[$name]=1
-      "$KUBECTL" --context "$CTX" -n "$NS" logs -f "$name" >>"$RUN_DIR/consumer-$name.log" 2>/dev/null &
+      $KUBECTL --context "$CTX" -n "$NS" logs -f "$name" >>"$RUN_DIR/consumer-$name.log" 2>/dev/null &
       BG_PIDS+=($!)
       tl "pod \`$name\` runs on $node"
     fi
@@ -440,7 +440,7 @@ spec:
           configMap: {name: consumer}
 ---
 EOF
-  "$KUBECTL" create configmap consumer -n "$NS" --from-file=consumer.py="$DRILLS/lib/rabbitmq-consumer.py" \
+  $KUBECTL create configmap consumer -n "$NS" --from-file=consumer.py="$DRILLS/lib/rabbitmq-consumer.py" \
     --dry-run=client -o yaml
 } >"$RUN_DIR/setup.yaml"
 change "Create the consumer and its dynamic secret" <<<"$KC apply -f $RUN_DIR/setup.yaml"

@@ -520,7 +520,7 @@ HCL
 metrics_scrape_check() {
   local log pid port="" up="" _
   log="$WORK/prometheus-pf.log"
-  $KUBECTL -n observability port-forward svc/metrics-stack-prometheus 0:9090 </dev/null >"$log" 2>&1 &
+  $KUBECTL -n observability port-forward svc/metrics-stack-prometheus 0:9090 <"$KUBE_STDIN" >"$log" 2>&1 &
   pid=$!
   for _ in $(seq 1 20); do
     port=$(sed -n 's/^Forwarding from 127\.0\.0\.1:\([0-9]*\) .*/\1/p' "$log" | head -n 1)
@@ -615,7 +615,7 @@ sys.exit(1)' "$1"; then
 discord_test_alert() {
   local log pid port="" code _
   log="$WORK/alertmanager-pf.log"
-  $KUBECTL -n observability port-forward svc/metrics-stack-alertmanager 0:9093 </dev/null >"$log" 2>&1 &
+  $KUBECTL -n observability port-forward svc/metrics-stack-alertmanager 0:9093 <"$KUBE_STDIN" >"$log" 2>&1 &
   pid=$!
   for _ in $(seq 1 20); do
     port=$(sed -n 's/^Forwarding from 127\.0\.0\.1:\([0-9]*\) .*/\1/p' "$log" | head -n 1)
@@ -963,7 +963,7 @@ garage_bootstrap_rerun() {
   require_tools flux
   confirm "Delete Job data-system/garage-bootstrap and reconcile apps-data?" || return 0
   $KUBECTL -n data-system delete job garage-bootstrap --ignore-not-found >/dev/null
-  flux reconcile kustomization apps-data --with-source >/dev/null || die "flux reconcile apps-data failed"
+  flux ${KUBE_CTX:+--context "$KUBE_CTX"} reconcile kustomization apps-data --with-source >/dev/null || die "flux reconcile apps-data failed"
   $KUBECTL -n data-system wait --for=condition=complete job/garage-bootstrap --timeout=300s >/dev/null \
     || die "garage-bootstrap did not complete"
   # Read the whole log first: grep leaving a pipe early would fail it under pipefail.
@@ -1853,6 +1853,11 @@ fi
 section "Vault: reach it and sign in"
 require_tools jq curl openssl
 [[ -n "$LOCAL_VAULT" || -n "${_ESTATE_VAULT_INHERITED:-}" ]] || { require_tools "$KUBECTL"; require_cluster; }
+# Inherited from a parent run: no require_cluster here, but a port-forward
+# below still needs the terminal and the sudo cache.
+if [[ -z "$LOCAL_VAULT" && -n "${_ESTATE_VAULT_INHERITED:-}" && -z "$_KUBECTL_CUSTOM" ]]; then
+  kube_prime "$KUBE_CTX" || exit 1
+fi
 vault_connect
 
 for CURRENT_SECTION in "${SELECTED[@]}"; do

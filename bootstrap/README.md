@@ -109,6 +109,29 @@ and anything the cluster could still log in with. A read that fails stops the
 run and never passes for "absent". It signs in to Vault the way `secrets.sh`
 does, and `ESTATE_VAULT_ADDR` gives it the same dry run.
 
+## Which kubectl context
+
+A workstation has two contexts per cluster (agent-kit's
+`scripts/workstation-kube.py`): `personal` is read-only (no Secrets, no
+port-forward, no exec) and `personal-admin` is cluster-admin behind `sudo`. The
+scripts write, port-forward and exec, so [`lib/kube.sh`](lib/kube.sh) picks the
+admin one: `ESTATE_KUBE_CONTEXT` if set, else `<current>-admin` when that
+context exists, else the current context. The "Is ... the cluster you mean to
+write to?" question names the context chosen. A `KUBECTL` you set is used as it
+is. So the command for the litellm secrets is just:
+
+```bash
+./bootstrap/secrets.sh --only litellm
+```
+
+It asks for the sudo password once, up front. The admin credential needs a
+terminal, even with sudo cached, so the background port-forward reads its stdin
+from `/dev/tty`; with no terminal the script stops and says so. The fallback
+there: run `kubectl --context personal-admin -n secrets-system port-forward
+svc/vault 8200:8200` in another terminal and run the script with
+`ESTATE_VAULT_ADDR=http://127.0.0.1:8200` (the cluster steps are then skipped,
+as in a dry run).
+
 ## What they need
 
 `kubectl` on the target cluster, `flux`, `gh` signed in (with `admin:org` for

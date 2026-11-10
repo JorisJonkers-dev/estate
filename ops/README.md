@@ -24,7 +24,7 @@ them when fleet-infra retires. What a person writes to Vault is
 | [`restore/restore-pvc-archive.sh`](restore/restore-pvc-archive.sh) | restoring a tar archive into a claim | the claim's contents |
 | [`restore/restore-hostpath-archive.sh`](restore/restore-hostpath-archive.sh) | restoring a tar archive into a node directory, over SSH | that directory |
 
-`restore-vault-raft-snapshot.sh`, `restore-pvc-archive.sh` and
+`restore-vault-raft-snapshot.sh`, `KUBECTL` is honoured by `bootstrap/` and `drills/` only. `restore-pvc-archive.sh` and
 `restore-hostpath-archive.sh` call the scripts of the same name in
 JorisJonkers-dev/flux-modules, at the tag `FLUX_MODULES_VERSION` names (`v1.4.0`
 by default), through [`lib/flux-modules.sh`](lib/flux-modules.sh).
@@ -37,7 +37,15 @@ pin it; `VAULT_SELECTOR` changes the label.
 
 `unseal-vault.sh`, `recover-wedged-apiserver-cache.sh`, `dump-database.sh` and
 `resume-mail-provisioner.sh` read the kubectl context from `KUBE_CONTEXT`
-(default `personal`); the others use the current context.
+(default `personal`); the others use the current context. Every script here that
+writes, port-forwards or execs then takes that context's `-admin` twin when one
+exists (`personal-admin`, cluster-admin behind sudo; the read-only context cannot
+port-forward), and `ESTATE_KUBE_CONTEXT` names the exact context. It asks for
+the sudo password up front and needs a terminal; see
+[`bootstrap/README.md`](../bootstrap/README.md#which-kubectl-context).
+`KUBECTL` is honoured by `bootstrap/` and `drills/` only. `restore-pvc-archive.sh` and `restore-hostpath-archive.sh` hand over to
+flux-modules scripts that use the current context: switch it to `personal-admin`
+first.
 
 ## Checks
 

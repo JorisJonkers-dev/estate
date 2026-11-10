@@ -17,13 +17,16 @@
 # bad outcome costs the rollout window and not the service.
 set -euo pipefail
 
-CTX="${KUBE_CONTEXT:-personal}"
+# shellcheck source=../bootstrap/lib/kube.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../bootstrap/lib/kube.sh"
+CTX="$(kube_context "${KUBE_CONTEXT:-personal}")"
 NS=mail-system
 DEPLOY=stalwart
 KS=apps-mail
 PF_PID=""
 
 k() { kubectl --context "$CTX" "$@"; }
+kube_prime "$CTX" || exit 1
 say() { printf '\n== %s\n' "$*"; }
 die() { printf '\nFAILED: %s\n' "$*" >&2; exit 1; }
 
@@ -43,7 +46,7 @@ rollback() {
 
 say "preflight: context and cluster"
 k config current-context >/dev/null || die "context $CTX unreachable"
-printf '  context: %s\n' "$(k config current-context)"
+printf '  context: %s\n' "$CTX"
 
 say "preflight: apps-mail must be suspended"
 susp="$(k get kustomization "$KS" -n flux-system -o jsonpath='{.spec.suspend}')"
@@ -98,7 +101,7 @@ if printf '%s' "$logs" | grep -q '^FAIL'; then
 fi
 
 say "verify: stalwart is serving"
-k port-forward -n "$NS" "deploy/$DEPLOY" 18080:8080 >/dev/null 2>&1 &
+k port-forward -n "$NS" "deploy/$DEPLOY" 18080:8080 <"$KUBE_STDIN" >/dev/null 2>&1 &
 PF_PID=$!
 for _ in $(seq 1 20); do
   code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:18080/admin/ 2>/dev/null || true)"
@@ -107,7 +110,7 @@ done
 printf '  GET /admin/ -> %s\n' "${code:-no response}"
 case "${code:-}" in 200|301|302|401) ;; *) rollback;; esac
 
-k port-forward -n "$NS" "deploy/$DEPLOY" 10143:143 >/dev/null 2>&1 &
+k port-forward -n "$NS" "deploy/$DEPLOY" 10143:143 <"$KUBE_STDIN" >/dev/null 2>&1 &
 imap_pid=$!
 sleep 3
 if command -v nc >/dev/null 2>&1 && nc -z 127.0.0.1 10143 2>/dev/null; then
