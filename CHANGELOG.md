@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.45.4](https://github.com/JorisJonkers-dev/estate/compare/v0.45.3...v0.45.4) (2026-11-10)
+
+
+### Bug Fixes
+
+* **packages:** drop duplicate busybox entry from images.lock.yml ([#348](https://github.com/JorisJonkers-dev/estate/issues/348)) ([e2f4bbd](https://github.com/JorisJonkers-dev/estate/commit/e2f4bbdf57d9d746fc8180d6e4bd99169c7c8ecf))
+* **packages:** give the gate sidecar 256Mi, since 96Mi was OOMKilled under CI load ([#346](https://github.com/JorisJonkers-dev/estate/issues/346)) ([ebeddc9](https://github.com/JorisJonkers-dev/estate/commit/ebeddc992f161b113e367c10933b36f812ee9a95))
+
 ## [0.45.3](https://github.com/JorisJonkers-dev/estate/compare/v0.45.2...v0.45.3) (2026-11-09)
 
 
