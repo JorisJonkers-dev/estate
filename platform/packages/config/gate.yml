@@ -1,0 +1,97 @@
+{{- /*
+  The gate's routes, a Traefik file-provider template: Traefik renders it with Go templates and
+  Sprig, so the API keys come from the environment (env/proxy/base.env) and never sit in git.
+
+  A request reaches the proxy only with one of the keys, in any of the forms package managers send:
+
+    Authorization: Bearer <key>                  npm and pnpm (_authToken), Gradle and Maven
+                                                 (a header credential), Go (GOAUTH), Cargo
+                                                 (a token stored as "Bearer <key>")
+    Authorization: Basic base64(packages:<key>)  uv and pip (https://packages:<key>@host/...),
+                                                 Go (GOPROXY URL), Gradle and Maven (basic auth)
+
+  The Basic user name is always `packages`. Anything else gets 401 with a Basic challenge, so
+  clients that only send credentials after a challenge (Cargo, browsers on /ui) retry with them.
+  A key missing from the environment, or shorter than its 64 hex characters, fails the template:
+  Traefik then loads no routes and every request gets 404, closed rather than open.
+
+  A new key: add it under secret/data/packages-system/keys in packages.project.yml, a line in
+  env/proxy/base.env, and its variable to $keys below.
+*/ -}}
+{{- $keys := list "PACKAGES_KEY_CI" "PACKAGES_KEY_WORKSTATION" }}
+{{- range $keys }}
+{{- if lt (len (env .)) 64 }}{{ fail (printf "%s is missing or shorter than 64 characters" .) }}{{ end }}
+{{- end }}
+http:
+  routers:
+    keyed:
+      entryPoints: [gate]
+      priority: 100
+      # Only the ecosystems the estate uses, and the web UI. Not /gradle/ (the Gradle build
+      # cache), /api/, /health or /metrics: nothing here needs them from outside the pod.
+      rule: "(Path(`/`) || PathPrefix(`/ui`) || PathPrefix(`/go/`) || PathPrefix(`/maven/`) || PathPrefix(`/npm/`) || PathPrefix(`/pypi/`) || PathPrefix(`/cargo/`)) && ({{ range $i, $k := $keys }}{{ if $i }} || {{ end }}Header(`Authorization`, `Bearer {{ env $k }}`) || Header(`Authorization`, `Basic {{ printf "packages:%s" (env $k) | b64enc }}`){{ end }})"
+      middlewares: [drop-key]
+      service: proxy
+
+    # Cargo's registry config, served by the cargo-config sidecar instead of the proxy: the
+    # same file plus `"auth-required": true`, so Cargo sends the key on crate downloads too.
+    # Without a key, the challenge answers 401 and Cargo retries with its token.
+    cargo-config:
+      entryPoints: [gate]
+      priority: 150
+      rule: "Path(`/cargo/config.json`) && ({{ range $i, $k := $keys }}{{ if $i }} || {{ end }}Header(`Authorization`, `Bearer {{ env $k }}`) || Header(`Authorization`, `Basic {{ printf "packages:%s" (env $k) | b64enc }}`){{ end }})"
+      middlewares: [drop-key, cargo-config-path]
+      service: cargo-config
+
+    # The probes' route. It exists only when the keys loaded, so a pod whose gate failed closed
+    # is never ready. It reaches the proxy's /health: 200 while its database and storage work,
+    # 503 when not. It must answer without a redirect, because the kubelet follows one, and the
+    # proxy's `/` redirects to `/ui/`, which needs a key. The report names only the state of
+    # the database, the storage and each public registry, nothing a caller could use.
+    ready:
+      entryPoints: [gate]
+      priority: 200
+      rule: "Path(`/.gate/ready`)"
+      middlewares: [ready-path]
+      service: proxy
+
+    challenge:
+      entryPoints: [gate]
+      priority: 1
+      rule: "PathPrefix(`/`)"
+      middlewares: [challenge]
+      service: noop@internal
+
+  middlewares:
+    # The proxy has no use for the key, so it never sees it.
+    drop-key:
+      headers:
+        customRequestHeaders:
+          Authorization: ""
+
+    cargo-config-path:
+      replacePath:
+        path: /config.json
+
+    ready-path:
+      replacePath:
+        path: /health
+
+    # Answers 401 with `WWW-Authenticate: Basic realm="packages"`. Its one user's password was
+    # random and thrown away, so no request passes it.
+    challenge:
+      basicAuth:
+        realm: packages
+        users:
+          - "nobody:$2y$10$zCndMGMovJGb4jzgTloXSeJsOCuoYSls5Zs2vM2001tATBIc0SSxa"
+
+  services:
+    cargo-config:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:8082"
+
+    proxy:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:8080"

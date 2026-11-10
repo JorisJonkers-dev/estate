@@ -1,0 +1,79 @@
+# AdGuard Home's configuration, as fleet-infra's adguard-ha-config ConfigMap
+# carries it (read 2026-10-29), with the web UI moved to 3000: the surfaces
+# utility.project.yml declares are 3000 and 53. DNS stays on 53, the port the
+# LAN asks on. The Process runs unprivileged, and binds 53 through the one
+# capability the render keeps for a port below 1024, NET_BIND_SERVICE, which
+# the image's binary also carries as a file capability and cannot start
+# without.
+#
+# There are no credentials here: `users` is empty, and the web UI is reached
+# only through forward-auth at the edge.
+schema_version: 34
+users: []
+auth_attempts: 5
+block_auth_min: 15
+http:
+  address: 0.0.0.0:3000
+  session_ttl: 720h
+dns:
+  bind_hosts:
+    - 0.0.0.0
+  port: 53
+  # DNS-over-HTTPS upstream; the bootstrap addresses are the Platform
+  # document's upstreamNameservers, so AdGuard resolves its upstream without
+  # the cluster's DNS.
+  upstream_dns:
+    - https://dns10.quad9.net/dns-query
+  bootstrap_dns:
+    - 9.9.9.10
+    - 149.112.112.10
+    - 2620:fe::10
+    - 2620:fe::fe:10
+  fallback_dns: []
+  upstream_mode: parallel
+  cache_size: 4194304
+  enable_dnssec: false
+  blocking_mode: default
+  protection_enabled: true
+  filtering_enabled: true
+  parental_enabled: false
+  safebrowsing_enabled: false
+  # Per client, not per LAN: a /32 bucket each.
+  ratelimit: 100
+  ratelimit_subnet_len_ipv4: 32
+  ratelimit_subnet_len_ipv6: 128
+  querylog_enabled: true
+  querylog_file_enabled: true
+  querylog_interval: 24h
+  querylog_size_memory: 1000
+  statistics_interval: 24h
+filters:
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+    name: AdGuard DNS filter
+    id: 1
+  - enabled: false
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_2.txt
+    name: AdAway Default Blocklist
+    id: 2
+whitelist_filters: []
+user_rules: []
+dhcp:
+  enabled: false
+filtering:
+  protection_enabled: true
+  filtering_enabled: true
+  blocked_services:
+    schedule:
+      time_zone: Europe/Amsterdam
+    ids: []
+clients:
+  runtime_sources:
+    whois: true
+    arp: true
+    rdns: true
+    dhcp: false
+    hosts: true
+  persistent: []
+log:
+  verbose: false

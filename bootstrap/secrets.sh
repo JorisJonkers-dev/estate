@@ -13,14 +13,17 @@
 #   bootstrap/secrets.sh --only tribelt --rotate          a new OIDC client secret
 #   bootstrap/secrets.sh --only hermes --replace          rewrite secret/agents/hermes whole
 #   bootstrap/secrets.sh --only overleaf --rollback       restore an earlier version
+#   bootstrap/secrets.sh --only data                      the data Project's copied logins
+#   bootstrap/secrets.sh --only mongo                     MongoDB's logins and users, for its handover
 #
 # Flags:
 #   --only S[,S]           run these sections (and the auth-api stage, when one is a client)
 #   --rotate               with --only: replace values that are present instead of skipping
 #                          them: an OIDC client secret, an API key, the Discord webhook, the
-#                          metrics token. Never a key whose rotation breaks stored state
-#                          (a session key, a VAPID or S3 pair): those are only ever minted
-#                          where missing. --rotate-client-secret is the same flag.
+#                          metrics token, the Cloudflare DNS token, the off-cluster backup
+#                          credential. Never a key whose rotation breaks stored state (a session
+#                          key, a VAPID or grimoire's S3 pair): those are only ever minted where
+#                          missing. --rotate-client-secret is the same flag.
 #   --replace              with --only hermes|overleaf: write a new version holding only the
 #                          fields offered; names every field it drops and waits for "yes"
 #   --rollback             with --only hermes|overleaf: roll the document back to a version
@@ -61,6 +64,7 @@ SECTIONS=(
   "policy-admin|the role deploy-kit's Vault policy job logs in as, confined to its namespace's names"
   "metrics-token|the token Prometheus scrapes Vault's metrics with; re-minted only when invalid"
   "discord-webhook|the Discord webhook Alertmanager posts alerts to"
+  "cloudflare|the Cloudflare DNS token both tiers' Traefiks issue certificates with"
   "collector-key|the delivery Collector GitHub App's id, installation id and key"
   "reporter-key|the delivery Reporter GitHub App's id, installation id and key"
   "estate-dashboard|the dashboard's OIDC client secret, session key and GitHub token"
@@ -68,11 +72,15 @@ SECTIONS=(
   "grimoire|grimoire's S3 and VAPID key pairs and OIDC client secret"
   "findability-explorer|the Findability Explorer's OIDC client secret and Anthropic API key"
   "overleaf|Overleaf's session and invite secrets and the latex@ mail password"
+  "mail|Stalwart's recovery admin, the user:password pair its server reads, from its admin login"
   "hermes|the Hermes Agent's provider keys and its Hindsight token"
   "mistral|the Mistral API keys Hindsight and Karakeep read"
+  "backup-off-cluster|the S3 credential irreplaceable volumes' backups copy off-cluster with"
+  "data|the Postgres catalog and backup logins and the RabbitMQ backup login, copied from their admin logins"
+  "mongo|MongoDB's admin, backup and Overleaf logins and its member certificate, minted for its handover; acts only when named"
   "garage-keys|optional: the Garage web and archive keys, pre-generated so a rebuild reproduces them"
 )
-# The optional section only reports in a full run, and acts when --only names it.
+# The optional sections, and mongo, only report in a full run, and act when --only names them.
 
 usage() { sed -n '/^#   bootstrap/,/^#   --test-alert/p' "$0" | sed 's/^# \{0,1\}//'; }
 
@@ -344,7 +352,7 @@ spec:
       image: hashicorp/vault:1.21.4
       env:
         - name: VAULT_ADDR
-          value: http://vault.data-system.svc.cluster.local:8200
+          value: http://vault.$VAULT_NAMESPACE.svc.cluster.local:8200
       command: ['/bin/sh', '-ec']
       args:
         - |
@@ -623,6 +631,83 @@ discord_test_alert() {
     ok "test alert sent: a DiscordWebhookRotationTest notification should arrive within a minute"
   else
     later "the test alert was not accepted (HTTP $code); verify delivery another way"
+  fi
+}
+
+# ── cloudflare ────────────────────────────────────────────────────────────
+# Both tiers' Traefiks issue their own certificates, so the token's client IP
+# filter holds Frankfurt's and Enschede's addresses. Each ACME resolver reads CF_DNS_API_TOKEN from the document platform.intent.yml's
+# acme.token names (deploy-kit src/model/tier-proxy.ts, DNS_TOKEN_KEYS). Until
+# edge hands over (JorisJonkers-dev/deploy-kit#662) fleet-infra's cert-manager
+# and external-dns read the same token from secret/platform/edge, so the first
+# write copies it from there and both keep working.
+CF_KV_PATH=platform/cloudflare
+CF_KEY=CF_DNS_API_TOKEN
+CF_EDGE_PATH=platform/edge
+CF_EDGE_KEY=cloudflare.dns_api_token
+CF_ZONE=jorisjonkers.dev
+section_cloudflare() {
+  local doc cur edge token from
+  doc=$(kv_load "$CF_KV_PATH")
+  cur=$(kv_field "$doc" "$CF_KEY")
+  doc=$(kv_load "$CF_EDGE_PATH")
+  edge=$(kv_field "$doc" "$CF_EDGE_KEY")
+  if [[ -n "$cur" && -z "$ROTATE" ]]; then
+    ok "secret/$CF_KV_PATH → $CF_KEY exists ($(fp "$cur"))"
+    [[ -z "$edge" || "$edge" == "$cur" ]] \
+      || note "it differs from secret/$CF_EDGE_PATH → $CF_EDGE_KEY ($(fp "$edge")), which fleet-infra still reads"
+    result cloudflare "already right"
+    return 0
+  fi
+  if [[ -n "$edge" && -z "$ROTATE" ]]; then
+    token=$edge
+    from="secret/$CF_EDGE_PATH → $CF_EDGE_KEY"
+  else
+    say "Creating the token is Cloudflare's side:"
+    step "dash.cloudflare.com → My Profile → API Tokens → Create Token → Edit zone DNS"
+    step "Zone Resources: Include, Specific zone, $CF_ZONE."
+    CF_TOKEN=""
+    ask_secret CF_TOKEN "Paste the new token (Enter skips):"
+    token=$(printf '%s' "${CF_TOKEN:-}" | tr -d '[:space:]')
+    unset CF_TOKEN
+    from="the token pasted"
+    if [[ -z "$token" ]]; then
+      later "secret/$CF_KV_PATH has no $CF_KEY: the public tier cannot issue certificates once edge hands over"
+      result cloudflare "not written"
+      return 0
+    fi
+    [[ "$token" != "$cur" ]] || die "that is the token already in use: a rotation that changes nothing is worse than none"
+  fi
+  if [[ -z "$LOCAL_VAULT" ]]; then
+    cf_token_check "$token" "$from"
+  fi
+  confirm "Write $from ($(fp "$token")) to secret/$CF_KV_PATH → $CF_KEY?" \
+    || { later "secret/$CF_KV_PATH → $CF_KEY is not written"; result cloudflare "not written"; return 0; }
+  printf '%s' "$token" | kv_set "$CF_KV_PATH" "$CF_KEY"
+  doc=$(kv_load "$CF_KV_PATH")
+  [[ "$(kv_field "$doc" "$CF_KEY")" == "$token" ]] || die "secret/$CF_KV_PATH does not read back"
+  ok "secret/$CF_KV_PATH → $CF_KEY = $(fp "$token")"
+  result cloudflare written
+  [[ -z "$ROTATE" || -z "$edge" ]] \
+    || later "secret/$CF_EDGE_PATH → $CF_EDGE_KEY still holds $(fp "$edge"): fleet-infra reads that one until edge hands over"
+  unset token
+}
+
+# cf_token_check TOKEN FROM asks Cloudflare whether the token sees the zone. The
+# live token is limited to the cluster's addresses, so from anywhere else
+# Cloudflare refuses it by location (9109): that says nothing about the token,
+# and is reported rather than stopped on. Any other refusal stops.
+cf_token_check() {
+  local reply
+  reply=$(printf 'Authorization: Bearer %s\n' "$1" \
+    | curl -sS --max-time 20 -H @- "https://api.cloudflare.com/client/v4/zones?name=$CF_ZONE") \
+    || die "Cloudflare does not answer: $(head -n 1 <<<"$reply")"
+  if jq -e --arg z "$CF_ZONE" 'any(.result[]?; .name == $z)' >/dev/null <<<"$reply"; then
+    ok "Cloudflare accepts $(fp "$1") and it sees $CF_ZONE"
+  elif jq -e 'any(.errors[]?; .code == 9109)' >/dev/null <<<"$reply"; then
+    note "Cloudflare refuses $(fp "$1") from this machine's address: the token is limited to certain client IPs, so it is not checked here"
+  else
+    die "Cloudflare rejects $2 ($(fp "$1")): $(jq -r '[.errors[]?.message] | join("; ")' <<<"$reply")"
   fi
 }
 
@@ -1053,7 +1138,6 @@ kv_rollback() {
 # fatal and takes the whole stalwart Pod, mail included, down with it. Its
 # Garage keys (secret/overleaf-system/garage) are deploy-kit generated keys.
 section_overleaf() {
-  local version
   WROTE_FIELDS=""
   CHANGED_KEYS=""
   if [[ -n "$ROLLBACK" ]]; then
@@ -1068,14 +1152,71 @@ section_overleaf() {
   fi
   [[ -n "$WROTE_FIELDS" ]] || return 0
   note "Overleaf reads platform/overleaf through its deploy-kit grant; VSO refreshes it and restarts Overleaf."
-  # Stalwart's copy is pinned to one KV version (fleet-infra
-  # cluster/flux/apps/mail/stalwart/vault-static-secrets.yaml, stalwart-latex-mail),
-  # because an unpinned refresh rolls stalwart and takes mail down. So a new
-  # latex@ password reaches Overleaf on its own and stalwart only when the pin moves.
-  if [[ "$CHANGED_KEYS" == *" smtp.password"* ]]; then
-    version=$(vault kv metadata get -mount=secret -format=json platform/overleaf </dev/null | jq -r .data.current_version)
-    later "smtp.password changed: in fleet-infra, set stalwart-latex-mail's version: to $version (cluster/flux/apps/mail/stalwart/vault-static-secrets.yaml). Until it merges, stalwart keeps latex@'s old password while Overleaf gets the new one, and Overleaf cannot send mail"
+  # Stalwart reads the same key through its own grant (platform/mail), so a new
+  # latex@ password reaches both within VSO's ten-minute refresh, each restarted
+  # by it: Stalwart's restart takes mail down for about a minute.
+  [[ "$CHANGED_KEYS" != *" smtp.password"* ]] \
+    || note "smtp.password changed: Stalwart sets latex@ to it on its restart, within ten minutes; mail is down for about a minute then."
+}
+
+# ── mail ──────────────────────────────────────────────────────────────────
+# Stalwart seeds its admin from STALWART_RECOVERY_ADMIN, one variable in the
+# form user:password. An env file's value is one placeholder, never two
+# (deploy-kit spec/v1/10-project-intent.md#the-dotenv-subset-that-is-read), so
+# Vault holds the pair as a key of its own, stalwart.recovery_admin, derived
+# here from stalwart.admin_user and stalwart.admin_password: the two the
+# provisioner sidecar signs in with. Re-run it after either changes. The admin
+# login itself is Stalwart's own, so a Vault without it wants a restore, and
+# this section never mints one (JorisJonkers-dev/deploy-kit#656).
+MAIL_KV_PATH=platform/mail
+
+# vso_readers PATH prints, one a line, every VaultStaticSecret that projects
+# secret/PATH, with what VSO restarts when it changes and the version it is
+# pinned to, if any. Read-only; nothing in a dry run.
+vso_readers() {
+  [[ -z "$LOCAL_VAULT" ]] || return 0
+  $KUBECTL get vaultstaticsecrets.secrets.hashicorp.com -A -o json 2>/dev/null \
+    | jq -r --arg p "$1" '.items[] | select(.spec.mount == "secret" and .spec.path == $p)
+        | "\(.metadata.namespace)/\(.metadata.name): " + (if .spec.version then "pinned to version \(.spec.version), so it does not change"
+          else "restarts " + ([.spec.rolloutRestartTargets[]? | "\(.kind)/\(.name)"] | if length == 0 then "nothing" else join(", ") end)
+               + " within its refresh, \(.spec.refreshAfter // "?")" end)' || true
+}
+
+section_mail() {
+  local doc user password current wanted readers line
+  doc=$(kv_load "$MAIL_KV_PATH")
+  user=$(kv_field "$doc" stalwart.admin_user)
+  password=$(kv_field "$doc" stalwart.admin_password)
+  current=$(kv_field "$doc" stalwart.recovery_admin)
+  if [[ -z "$user" || -z "$password" ]]; then
+    later "secret/$MAIL_KV_PATH has no stalwart.admin_user or stalwart.admin_password: restore them, then re-run --only mail"
+    result mail "waiting for the admin login"
+    return 0
   fi
+  wanted="$user:$password"
+  unset user password
+  if [[ "$current" == "$wanted" ]]; then
+    ok "secret/$MAIL_KV_PATH → stalwart.recovery_admin matches the admin login ($(fp "$wanted"))"
+    result mail "already right"
+    return 0
+  fi
+  [[ -z "$current" ]] || note "stalwart.recovery_admin ($(fp "$current")) differs from the admin login ($(fp "$wanted"))"
+  warn "Writing secret/$MAIL_KV_PATH makes a new version of it, and auth reads that path too"
+  warn "(account.password): the Vault Secrets Operator then restarts auth-api, one pod at a time."
+  readers=$(vso_readers "$MAIL_KV_PATH")
+  if [[ -n "$readers" ]]; then
+    say "What reads secret/$MAIL_KV_PATH now:"
+    while IFS= read -r line; do step "$line"; done <<<"$readers"
+  fi
+  confirm "Write stalwart.recovery_admin ($(fp "$wanted")) to secret/$MAIL_KV_PATH, restarting auth-api?" \
+    || { later "secret/$MAIL_KV_PATH → stalwart.recovery_admin is not written"; result mail "not written"; return 0; }
+  printf '%s' "$wanted" | kv_patch "$MAIL_KV_PATH" stalwart.recovery_admin
+  doc=$(kv_load "$MAIL_KV_PATH")
+  [[ "$(kv_field "$doc" stalwart.recovery_admin)" == "$wanted" ]] || die "secret/$MAIL_KV_PATH does not read back"
+  ok "secret/$MAIL_KV_PATH → stalwart.recovery_admin = $(fp "$wanted")"
+  result mail written
+  note "VSO restarts auth-api-primary within its ten-minute refresh. Stalwart reads the key once mail hands over to the estate path."
+  unset wanted
 }
 
 # ── hermes ────────────────────────────────────────────────────────────────
@@ -1215,6 +1356,390 @@ section_mistral() {
   [[ -z "$any" ]] || note "VSO re-renders both Secrets on its next refresh and restarts the workloads."
 }
 
+# ── backup-off-cluster ────────────────────────────────────────────────────
+# The credential an irreplaceable volume's backup copies off-cluster with
+# (estate#228). platform.intent.yml's durability.irreplaceable.offCluster
+# names its path; the render grants it to each backup identity alone and hands
+# the whole document to the method as variables (envFrom), so its keys are the
+# variable names JorisJonkers-dev/delivery's backup method reads
+# (internal/offcluster): AWS_ENDPOINT_URL, AWS_ACCESS_KEY_ID,
+# AWS_SECRET_ACCESS_KEY, and AWS_REGION where the provider wants one (it
+# defaults to us-east-1). The bucket is not here: it is offCluster.destination.
+# Until the document exists, a backup's VaultStaticSecret cannot sync, and a
+# Project with an irreplaceable volume never goes Ready.
+BACKUP_KV_PATH=platform/backup/off-cluster
+BACKUP_ENDPOINT_DEFAULT=https://eu2.contabostorage.com
+
+# backup_destination prints offCluster.destination from platform.intent.yml.
+backup_destination() {
+  sed -n '/^ *offCluster:/,/^ *egress:/s/^ *destination: *"\{0,1\}\([^" ]*\)"\{0,1\}.*/\1/p' \
+    "$here/../platform.intent.yml" | head -n 1
+}
+
+# backup_s3_check ENDPOINT BUCKET REGION ID SECRET asks the provider, signed with
+# the key pair, whether it sees the bucket (path-style, as the method writes).
+# Prints the HTTP status. The pair travels on stdin, never as an argument.
+backup_s3_check() {
+  printf 'user = "%s:%s"\n' "$4" "$5" \
+    | curl -sS --max-time 20 --config - -o /dev/null -w '%{http_code}' -I \
+        --aws-sigv4 "aws:amz:$3:s3" "${1%/}/$2" 2>/dev/null || printf 'unreachable'
+}
+
+section_backup_off_cluster() {
+  local doc endpoint id secret region dest bucket code cas
+  doc=$(kv_load "$BACKUP_KV_PATH")
+  dest=$(backup_destination)
+  [[ "$dest" == s3://* ]] || die "platform.intent.yml names no s3:// offCluster.destination (read: '${dest}')"
+  bucket=${dest#s3://}
+  bucket=${bucket%%/*}
+  endpoint=$(kv_field "$doc" AWS_ENDPOINT_URL)
+  id=$(kv_field "$doc" AWS_ACCESS_KEY_ID)
+  secret=$(kv_field "$doc" AWS_SECRET_ACCESS_KEY)
+  region=$(kv_field "$doc" AWS_REGION)
+  if [[ "$endpoint" =~ ^https?://[^/]+/?$ && -n "$id" && -n "$secret" && -z "$ROTATE" ]]; then
+    ok "secret/$BACKUP_KV_PATH holds AWS_ENDPOINT_URL $endpoint, AWS_ACCESS_KEY_ID $(fp "$id"), AWS_SECRET_ACCESS_KEY $(fp "$secret")${region:+, AWS_REGION $region}"
+    note "the bucket, $bucket, is platform.intent.yml's offCluster.destination, not the credential's"
+    result backup-off-cluster "already right"
+    return 0
+  fi
+  if [[ "$doc" == "{}" ]]; then
+    say "secret/$BACKUP_KV_PATH does not exist: every irreplaceable volume's backup reads it,"
+    say "and a Project with one (mail) never goes Ready without it."
+  else
+    say "secret/$BACKUP_KV_PATH is incomplete or --rotate asked for a new pair:"
+    note "  AWS_ENDPOINT_URL ${endpoint:-none}, AWS_ACCESS_KEY_ID $(fp_or "$id"), AWS_SECRET_ACCESS_KEY $(fp_or "$secret"), AWS_REGION ${region:-none}"
+  fi
+  say "The key pair is Contabo's: my.contabo.com → Object Storage → S3 credentials, for the"
+  say "bucket $bucket ($dest, from platform.intent.yml; the credential does not hold it)."
+  BACKUP_ENDPOINT=""
+  ask BACKUP_ENDPOINT "S3 endpoint [Enter: ${endpoint:-$BACKUP_ENDPOINT_DEFAULT}]:"
+  endpoint=${BACKUP_ENDPOINT:-${endpoint:-$BACKUP_ENDPOINT_DEFAULT}}
+  unset BACKUP_ENDPOINT
+  [[ "$endpoint" =~ ^https://[^/[:space:]]+/?$ ]] || die "the endpoint is https://host, nothing more: '$endpoint'"
+  endpoint=${endpoint%/}
+  BACKUP_ID="" BACKUP_SECRET="" BACKUP_REGION=""
+  ask_secret BACKUP_ID "Access key id (hidden; Enter skips):"
+  ask_secret BACKUP_SECRET "Secret access key (hidden; Enter skips):"
+  id=$(printf '%s' "$BACKUP_ID" | tr -d '[:space:]')
+  secret=$(printf '%s' "$BACKUP_SECRET" | tr -d '[:space:]')
+  unset BACKUP_ID BACKUP_SECRET
+  if [[ -z "$id" || -z "$secret" ]]; then
+    later "secret/$BACKUP_KV_PATH is not written: an access key id and its secret are both needed"
+    result backup-off-cluster "not written"
+    return 0
+  fi
+  ask BACKUP_REGION "Region (optional; Enter leaves it out, and the method signs for us-east-1):"
+  region=$(printf '%s' "$BACKUP_REGION" | tr -d '[:space:]')
+  unset BACKUP_REGION
+  if [[ -z "$LOCAL_VAULT" ]]; then
+    code=$(backup_s3_check "$endpoint" "$bucket" "${region:-us-east-1}" "$id" "$secret")
+    case "$code" in
+      200) ok "$endpoint accepts the pair and it sees bucket $bucket" ;;
+      401|403) warn "$endpoint refuses the pair for bucket $bucket ($code): a wrong key, or one without access to it" ;;
+      404) warn "$endpoint has no bucket $bucket (404): create it, or fix offCluster.destination" ;;
+      *) warn "could not check the pair against $endpoint ($code); the backup's first run will" ;;
+    esac
+    [[ "$code" == 200 ]] || confirm "Write it anyway?" \
+      || { later "secret/$BACKUP_KV_PATH is not written"; result backup-off-cluster "not written"; return 0; }
+  fi
+  confirm "Write AWS_ENDPOINT_URL $endpoint, AWS_ACCESS_KEY_ID $(fp "$id"), AWS_SECRET_ACCESS_KEY $(fp "$secret")${region:+, AWS_REGION $region} to secret/$BACKUP_KV_PATH?" \
+    || { later "secret/$BACKUP_KV_PATH is not written"; result backup-off-cluster "not written"; return 0; }
+  # One whole version, checked against the one read, so no stale key survives
+  # and a racing write is refused. The values reach jq and vault on stdin.
+  cas=$(vault kv metadata get -mount=secret -format=json "$BACKUP_KV_PATH" 2>/dev/null </dev/null \
+    | jq -r '.data.current_version // 0' || true)
+  printf '%s\0%s\0%s\0%s' "$endpoint" "$id" "$secret" "$region" \
+    | jq -Rs 'split("\u0000") as $v
+        | {AWS_ENDPOINT_URL: $v[0], AWS_ACCESS_KEY_ID: $v[1], AWS_SECRET_ACCESS_KEY: $v[2]}
+          + (if ($v[3] // "") == "" then {} else {AWS_REGION: $v[3]} end)' \
+    | vault kv put -mount=secret -cas="${cas:-0}" "$BACKUP_KV_PATH" - >/dev/null \
+    || die "writing secret/$BACKUP_KV_PATH failed"
+  doc=$(kv_load "$BACKUP_KV_PATH")
+  [[ "$(kv_field "$doc" AWS_ENDPOINT_URL)" == "$endpoint" \
+    && "$(kv_field "$doc" AWS_ACCESS_KEY_ID)" == "$id" \
+    && "$(kv_field "$doc" AWS_SECRET_ACCESS_KEY)" == "$secret" \
+    && "$(kv_field "$doc" AWS_REGION)" == "$region" ]] || die "secret/$BACKUP_KV_PATH does not read back"
+  ok "secret/$BACKUP_KV_PATH → AWS_ENDPOINT_URL $endpoint, AWS_ACCESS_KEY_ID $(fp "$id"), AWS_SECRET_ACCESS_KEY $(fp "$secret")${region:+, AWS_REGION $region}"
+  note "Each backup's VaultStaticSecret syncs it within its refresh; nothing else reads it, so nothing restarts."
+  result backup-off-cluster written
+  unset id secret
+}
+
+# ── data ──────────────────────────────────────────────────────────────────
+# The data Project's render reads three logins nobody else writes, each a copy
+# of an admin login the old path's datastores already run with: the Postgres
+# catalog Job's, and the two backup methods' (deploy-kit
+# spec/v1/14-platform-intent.md#engines: the operator writes a backup's
+# credential at secret/<project>/<process>/backup, in the method's own keys).
+# Each is written as one whole version holding just its two keys, so a re-run
+# finds it right and skips it; a source that changed is copied again.
+#   destination|its user key|its password key|source|its user key|its password key
+DATA_COPIES=(
+  "data/postgres/catalog|user|password|platform/postgres|postgres.user|postgres.password"
+  "data/postgres/backup|PGUSER|PGPASSWORD|platform/postgres|postgres.user|postgres.password"
+  "data/rabbitmq/backup|RABBITMQ_USERNAME|RABBITMQ_PASSWORD|platform/rabbitmq|rabbitmq.user|rabbitmq.password"
+)
+
+# data_copy DEST DEST_USER DEST_PASS SRC SRC_USER SRC_PASS: copy one login,
+# where it is missing or differs. Prints nothing secret: fingerprints only.
+data_copy() {
+  local dest="$1" duser="$2" dpass="$3" src="$4" suser="$5" spass="$6"
+  local doc user password have_user have_password cas readers line
+  doc=$(kv_load "$src")
+  user=$(kv_field "$doc" "$suser")
+  password=$(kv_field "$doc" "$spass")
+  if [[ -z "$user" || -z "$password" ]]; then
+    later "secret/$src has no $suser or $spass: restore them, then re-run --only data"
+    DATA_STATE="waiting for secret/$src"
+    return 0
+  fi
+  doc=$(kv_load "$dest")
+  have_user=$(kv_field "$doc" "$duser")
+  have_password=$(kv_field "$doc" "$dpass")
+  if [[ "$have_user" == "$user" && "$have_password" == "$password" && "$(jq 'length' <<<"$doc")" == 2 ]]; then
+    ok "secret/$dest → $duser $(fp "$user"), $dpass $(fp "$password"): matches secret/$src"
+    return 0
+  fi
+  if [[ "$doc" == "{}" ]]; then
+    say "secret/$dest does not exist: the data Project's render reads it."
+  else
+    note "secret/$dest holds $duser $(fp_or "$have_user"), $dpass $(fp_or "$have_password"), keys $(jq -c 'keys' <<<"$doc");"
+    note "secret/$src's login is $suser $(fp "$user"), $spass $(fp "$password")"
+  fi
+  readers=$(vso_readers "$dest")
+  if [[ -n "$readers" ]]; then
+    say "What reads secret/$dest now:"
+    while IFS= read -r line; do step "$line"; done <<<"$readers"
+  fi
+  confirm "Write $duser $(fp "$user") and $dpass $(fp "$password"), copied from secret/$src, to secret/$dest?" \
+    || { later "secret/$dest is not written"; DATA_STATE="not all written"; return 0; }
+  # One whole version, checked against the one read, so no stale key survives
+  # and a racing write is refused. The values reach jq and vault on stdin.
+  cas=$(vault kv metadata get -mount=secret -format=json "$dest" 2>/dev/null </dev/null \
+    | jq -r '.data.current_version // 0' || true)
+  printf '%s\0%s' "$user" "$password" \
+    | jq -Rs --arg u "$duser" --arg p "$dpass" 'split("\u0000") as $v | {($u): $v[0], ($p): $v[1]}' \
+    | vault kv put -mount=secret -cas="${cas:-0}" "$dest" - >/dev/null \
+    || die "writing secret/$dest failed"
+  doc=$(kv_load "$dest")
+  [[ "$(kv_field "$doc" "$duser")" == "$user" && "$(kv_field "$doc" "$dpass")" == "$password" ]] \
+    || die "secret/$dest does not read back"
+  ok "secret/$dest → $duser $(fp "$user"), $dpass $(fp "$password")"
+  [[ "$DATA_STATE" != "already right" ]] || DATA_STATE=written
+}
+
+section_data() {
+  local entry fields
+  DATA_STATE="already right"
+  for entry in "${DATA_COPIES[@]}"; do
+    IFS='|' read -r -a fields <<<"$entry"
+    data_copy "${fields[@]}"
+  done
+  [[ "$DATA_STATE" != written ]] \
+    || note "Each VaultStaticSecret syncs its copy within its refresh. Nothing on the old path reads these paths."
+  result data "$DATA_STATE"
+}
+
+# ── mongo (acts only when named) ──────────────────────────────────────────
+# MongoDB's handover to the estate path turns authentication on
+# (JorisJonkers-dev/deploy-kit#748, docs/runbooks/mongo-handover.md). The live
+# replica set runs without it, so there is no login to copy: this section mints
+# each document where it is missing, never replaces one that is there, then
+# makes MongoDB's users match Vault and proves each login. Run before the
+# window, while MongoDB still accepts anyone: a user made then authenticates
+# at once, and only the window enforces it.
+#   path|its user key|its password key|the MongoDB user|its roles, as JSON
+MONGO_LOGINS=(
+  'data/mongo/admin|user|password|admin|[{"role":"root","db":"admin"}]'
+  'data/mongo/backup|MONGO_USERNAME|MONGO_PASSWORD|backup|[{"role":"backup","db":"admin"}]'
+  'overleaf-system/mongo|user|password|overleaf|[{"role":"readWrite","db":"sharelatex"},{"role":"dbAdmin","db":"sharelatex"}]'
+)
+# Overleaf reads one variable, OVERLEAF_MONGO_URL, and a secret placeholder is a
+# whole value, so its document also holds the URL its login makes.
+MONGO_OVERLEAF_PATH="overleaf-system/mongo"
+MONGO_SERVICE="mongo.data-system.svc.cluster.local"
+mongo_url() { printf 'mongodb://%s:%s@%s:27017/sharelatex?replicaSet=overleaf&authSource=admin' "$1" "$2" "$MONGO_SERVICE"; }
+# The replica set member's x.509 key and self-signed certificate, its own CA:
+# membership authentication without a keyFile, which mongod refuses unless its
+# own user alone may read it, and a Secret mounted under fsGroup never is.
+MONGO_MEMBERSHIP_PATH="data/mongo/membership"
+MONGO_NS=data-system
+
+# mongo_login PATH USER_KEY PASS_KEY USER: mint the login where it is missing.
+mongo_login() {
+  local path="$1" ukey="$2" pkey="$3" user="$4" doc have_user have_password password url="" extra=""
+  doc=$(kv_load "$path")
+  have_user=$(kv_field "$doc" "$ukey")
+  have_password=$(kv_field "$doc" "$pkey")
+  if [[ -n "$have_user" && -n "$have_password" ]]; then
+    [[ "$have_user" == "$user" ]] || die "secret/$path names user $have_user, not $user: fix it by hand"
+    if [[ "$path" == "$MONGO_OVERLEAF_PATH" && "$(kv_field "$doc" url)" != "$(mongo_url "$user" "$have_password")" ]]; then
+      die "secret/$path holds a url that is not its own login's at $MONGO_SERVICE: fix it by hand"
+    fi
+    ok "secret/$path → $ukey $user, $pkey $(fp "$have_password")"
+    return 0
+  fi
+  if ! named mongo; then
+    note "secret/$path does not exist yet (secrets.sh --only mongo mints it)"
+    MONGO_STATE="not written"
+    return 0
+  fi
+  [[ "$doc" == "{}" ]] || die "secret/$path exists without $ukey and $pkey (keys $(jq -c 'keys' <<<"$doc")): fix it by hand"
+  password=$(openssl rand -hex 32)
+  if [[ "$path" == "$MONGO_OVERLEAF_PATH" ]]; then
+    url=$(mongo_url "$user" "$password")
+    extra=", and url, that login at $MONGO_SERVICE"
+  fi
+  confirm "Write $ukey $user and a new $pkey $(fp "$password")$extra to secret/$path?" \
+    || { later "secret/$path is not written"; MONGO_STATE="not written"; return 0; }
+  mongo_write "$path" "$(jq -n --arg u "$ukey" --arg p "$pkey" --arg user "$user" --arg pw "$password" \
+    --arg url "$url" \
+    '{($u): $user, ($p): $pw} + (if $url == "" then {} else {url: $url} end)')"
+  doc=$(kv_load "$path")
+  [[ "$(kv_field "$doc" "$pkey")" == "$password" ]] || die "secret/$path does not read back"
+  ok "secret/$path → $ukey $user, $pkey $(fp "$password")"
+  unset password url
+  MONGO_STATE=written
+}
+
+# mongo_write PATH JSON: a new document, checked against the version read, so
+# a racing write is refused. The JSON reaches vault on stdin.
+mongo_write() {
+  local cas
+  cas=$(vault kv metadata get -mount=secret -format=json "$1" 2>/dev/null </dev/null \
+    | jq -r '.data.current_version // 0' || true)
+  printf '%s' "$2" | vault kv put -mount=secret -cas="${cas:-0}" "$1" - >/dev/null || die "writing secret/$1 failed"
+}
+
+mongo_membership() {
+  local doc pem until
+  doc=$(kv_load "$MONGO_MEMBERSHIP_PATH")
+  pem=$(kv_field "$doc" pem)
+  if [[ -n "$pem" ]]; then
+    until=$(openssl x509 -noout -enddate <<<"$pem" 2>/dev/null | cut -d= -f2) \
+      || die "secret/$MONGO_MEMBERSHIP_PATH holds no certificate: fix it by hand"
+    grep -q 'PRIVATE KEY-----' <<<"$pem" || die "secret/$MONGO_MEMBERSHIP_PATH holds no key: fix it by hand"
+    ok "secret/$MONGO_MEMBERSHIP_PATH → pem $(fp "$pem"), valid until $until"
+    return 0
+  fi
+  if ! named mongo; then
+    note "secret/$MONGO_MEMBERSHIP_PATH does not exist yet (secrets.sh --only mongo mints it)"
+    MONGO_STATE="not written"
+    return 0
+  fi
+  [[ "$doc" == "{}" ]] || die "secret/$MONGO_MEMBERSHIP_PATH exists without pem: fix it by hand"
+  # Made in the run's own directory (umask 077), and gone with it.
+  openssl req -x509 -newkey rsa:3072 -nodes -days 36500 \
+    -keyout "$WORK/membership.key" -out "$WORK/membership.crt" \
+    -subj "/O=jorisjonkers-dev/OU=data/CN=$MONGO_SERVICE" \
+    -addext "subjectAltName=DNS:$MONGO_SERVICE" \
+    -addext "extendedKeyUsage=serverAuth,clientAuth" \
+    -addext "basicConstraints=critical,CA:TRUE" 2>/dev/null || die "openssl could not make the member's certificate"
+  pem=$(cat "$WORK/membership.key" "$WORK/membership.crt")
+  rm -f "$WORK/membership.key" "$WORK/membership.crt"
+  until=$(openssl x509 -noout -enddate <<<"$pem" | cut -d= -f2)
+  confirm "Write a new member key and self-signed certificate, pem $(fp "$pem"), valid until $until, to secret/$MONGO_MEMBERSHIP_PATH?" \
+    || { later "secret/$MONGO_MEMBERSHIP_PATH is not written"; MONGO_STATE="not written"; return 0; }
+  mongo_write "$MONGO_MEMBERSHIP_PATH" "$(jq -Rs '{pem: .}' <<<"$pem")"
+  [[ "$(kv_field "$(kv_load "$MONGO_MEMBERSHIP_PATH")" pem)" == "$pem" ]] || die "secret/$MONGO_MEMBERSHIP_PATH does not read back"
+  ok "secret/$MONGO_MEMBERSHIP_PATH → pem $(fp "$pem"), valid until $until"
+  MONGO_STATE=written
+}
+
+# mongo_eval POD SCRIPT: run mongosh in MongoDB's own pod, the script on stdin,
+# where no process list sees the passwords it holds. Prints the line the script
+# marks as its result, or else the last line mongosh wrote, an error.
+mongo_eval() {
+  local out
+  out=$(printf '%s\n' "$2" | $KUBECTL -n "$MONGO_NS" exec -i "$1" -c mongo -- mongosh --quiet --norc --file /dev/stdin 2>&1 || true)
+  if grep -q '^MONGO-RESULT ' <<<"$out"; then sed -n 's/^MONGO-RESULT //p' <<<"$out" | tail -n 1; else tail -n 1 <<<"$out"; fi
+}
+
+# The logins, as the JSON the mongosh scripts read: [{user, pwd, roles}].
+mongo_wanted() {
+  local entry fields doc out="[]"
+  for entry in "${MONGO_LOGINS[@]}"; do
+    IFS='|' read -r -a fields <<<"$entry"
+    doc=$(kv_load "${fields[0]}")
+    out=$(jq -c --arg u "${fields[3]}" --arg p "$(kv_field "$doc" "${fields[2]}")" --argjson r "${fields[4]}" \
+      '. + [{user: $u, pwd: $p, roles: $r}]' <<<"$out")
+  done
+  printf '%s' "$out"
+}
+
+# The mongosh scripts, after `const want = [...]`. The prelude signs in as
+# admin where admin already is a user, needed once auth is on and harmless
+# before it; the report prints each wanted user's state as the result line.
+# shellcheck disable=SC2016 # JavaScript, expanded by mongosh, never the shell
+MONGO_JS_PRELUDE='
+const a = db.getSiblingDB("admin");
+const admin = want.find((u) => u.user === "admin");
+try { a.auth(admin.user, admin.pwd); } catch (e) {}
+const signsIn = (u) => { try { new Mongo("mongodb://127.0.0.1:27017/?directConnection=true").getDB("admin").auth(u.user, u.pwd); return true; } catch (e) { return false; } };
+const norm = (roles) => JSON.stringify(roles.map((r) => `${r.role}@${r.db}`).sort());
+const stateOf = (u) => { const has = a.getUser(u.user); return has === null ? "absent" : !signsIn(u) ? "password" : norm(has.roles) !== norm(u.roles) ? "roles" : "right"; };
+'
+MONGO_JS_REPORT='print("MONGO-RESULT " + JSON.stringify(Object.fromEntries(want.map((u) => [u.user, stateOf(u)]))));'
+# After `const fix = [...]`, the users to create or align.
+MONGO_JS_FIX='
+for (const u of want.filter((w) => fix.includes(w.user))) {
+  if (a.getUser(u.user) === null) a.createUser({ user: u.user, pwd: u.pwd, roles: u.roles });
+  else a.updateUser(u.user, { pwd: u.pwd, roles: u.roles });
+}
+'
+
+mongo_users() {
+  local pod ready want states user state fix=() fixed line
+  pod=$($KUBECTL -n "$MONGO_NS" get pod -l app.kubernetes.io/name=mongo -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+  [[ -n "$pod" ]] || { later "no MongoDB pod in $MONGO_NS: re-run --only mongo once it runs"; MONGO_STATE="users not checked"; return 0; }
+  ready=$($KUBECTL -n "$MONGO_NS" get pod "$pod" -o jsonpath='{.status.containerStatuses[?(@.name=="mongo")].ready}')
+  [[ "$ready" == true ]] || { later "$MONGO_NS/$pod is not ready: re-run --only mongo once it is"; MONGO_STATE="users not checked"; return 0; }
+  want=$(mongo_wanted)
+  states=$(mongo_eval "$pod" "const want = $want;$MONGO_JS_PRELUDE$MONGO_JS_REPORT")
+  jq -e 'type == "object"' >/dev/null 2>&1 <<<"$states" || die "mongosh in $MONGO_NS/$pod did not report the users: $states"
+  for user in $(jq -r 'keys[]' <<<"$states"); do
+    state=$(jq -r --arg u "$user" '.[$u]' <<<"$states")
+    case "$state" in
+      right) ok "MongoDB user $user signs in with Vault's password and holds its roles" ;;
+      absent) say "MongoDB has no user $user."; fix+=("$user") ;;
+      roles) say "MongoDB user $user holds other roles than $(jq -c --arg u "$user" '.[] | select(.user == $u) | .roles' <<<"$want")."; fix+=("$user") ;;
+      password) warn "MongoDB user $user does not sign in with Vault's password $(fp "$(jq -r --arg u "$user" '.[] | select(.user == $u) | .pwd' <<<"$want")")."
+        note "  Whatever signs in as $user today stops when its password is set."; fix+=("$user") ;;
+    esac
+  done
+  (( ${#fix[@]} )) || return 0
+  named mongo || { note "secrets.sh --only mongo makes them match"; MONGO_STATE="users not right"; return 0; }
+  confirm "Make MongoDB's users ${fix[*]} match Vault, in $MONGO_NS/$pod?" \
+    || { later "MongoDB's users ${fix[*]} are not changed"; MONGO_STATE="users not right"; return 0; }
+  fixed=$(printf '%s\n' "${fix[@]}" | jq -R . | jq -sc .)
+  line=$(mongo_eval "$pod" "const want = $want; const fix = $fixed;$MONGO_JS_PRELUDE$MONGO_JS_FIX$MONGO_JS_REPORT")
+  jq -e 'type == "object" and all(.[]; . == "right")' >/dev/null 2>&1 <<<"$line" \
+    || die "MongoDB's users do not sign in with Vault's passwords after the change: $line"
+  ok "MongoDB's users ${fix[*]} match Vault: each signs in with its password and holds its roles"
+  MONGO_STATE=written
+}
+
+section_mongo() {
+  local entry fields readers line path
+  MONGO_STATE="already right"
+  for entry in "${MONGO_LOGINS[@]}"; do
+    IFS='|' read -r -a fields <<<"$entry"
+    mongo_login "${fields[@]:0:4}"
+  done
+  mongo_membership
+  if [[ "$MONGO_STATE" == "not written" ]]; then
+    result mongo "not written"
+    return 0
+  fi
+  [[ -n "$LOCAL_VAULT" ]] || mongo_users
+  for path in data/mongo/backup "$MONGO_OVERLEAF_PATH" "$MONGO_MEMBERSHIP_PATH"; do
+    readers=$(vso_readers "$path")
+    [[ -z "$readers" ]] && { note "nothing reads secret/$path yet: the handover's render does"; continue; }
+    while IFS= read -r line; do step "$line"; done <<<"$readers"
+  done
+  result mongo "$MONGO_STATE"
+}
+
 # ── garage-keys (optional) ────────────────────────────────────────────────
 # fleet-infra cluster/flux/apps/data/garage (README.md, vault-secrets.yaml):
 # keys pre-generated in Vault so a rebuild reproduces them. web.* is the key CI
@@ -1337,6 +1862,7 @@ for CURRENT_SECTION in "${SELECTED[@]}"; do
     policy-admin) section_policy_admin ;;
     metrics-token) section_metrics_token ;;
     discord-webhook) section_discord_webhook ;;
+    cloudflare) section_cloudflare ;;
     collector-key) section_app_key collector-key ESTATE_COLLECTOR "$COLLECTOR_KV_PATH" Collector "${ESTATE_COLLECTOR_PEM:-}" ;;
     reporter-key) section_app_key reporter-key ESTATE_REPORTER "$REPORTER_KV_PATH" Reporter "${ESTATE_REPORTER_PEM:-}" ;;
     estate-dashboard) section_estate_dashboard ;;
@@ -1344,8 +1870,12 @@ for CURRENT_SECTION in "${SELECTED[@]}"; do
     grimoire) section_grimoire ;;
     findability-explorer) section_findability_explorer ;;
     overleaf) section_overleaf ;;
+    mail) section_mail ;;
     hermes) section_hermes ;;
     mistral) section_mistral ;;
+    backup-off-cluster) section_backup_off_cluster ;;
+    data) section_data ;;
+    mongo) section_mongo ;;
     garage-keys) section_garage_keys ;;
   esac
 done

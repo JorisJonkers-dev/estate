@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render-estate
   ref:
-    digest: sha256:7b08519273bc31d1e7379532131e22c0f307d7b7e08e4b372eb4e961648fd6ba
+    digest: sha256:dff54c5652a2531b1e934a2ed2472cc22825201f81b4ba7a9818ae37866c6d1b
   secretRef:
     name: render-pull
   verify:
@@ -23,7 +23,7 @@ spec:
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: estate-vso-secrets
+  name: estate-priority-classes
   namespace: flux-system
   labels:
     app.kubernetes.io/managed-by: deploy-kit
@@ -38,4 +38,44 @@ spec:
   sourceRef:
     kind: OCIRepository
     name: estate
-  path: ./estate/vso-secrets
+  path: ./estate/priority-classes
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: estate-human-grants
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/managed-by: deploy-kit
+spec:
+  interval: 10m
+  prune: true
+  wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
+  sourceRef:
+    kind: OCIRepository
+    name: estate
+  path: ./estate/human-grants
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: estate-stable-addresses
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/managed-by: deploy-kit
+spec:
+  interval: 10m
+  prune: true
+  wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
+  sourceRef:
+    kind: OCIRepository
+    name: estate
+  path: ./estate/stable-addresses

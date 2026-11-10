@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "stalwart-provisioner/v2",
+  "domain": {
+    "name": "jorisjonkers.dev",
+    "publicHostname": "mail.jorisjonkers.dev",
+    "catchAllAddress": "joris.jonkers@jorisjonkers.dev"
+  },
+  "preExistingAccounts": ["extratoast", "n8n"],
+  "managedAccounts": [
+    { "localPart": "auth", "passwordRef": { "envVar": "AUTH_MAIL_PASSWORD" } },
+    { "localPart": "accounts", "passwordRef": { "envVar": "ACCOUNT_MAIL_PASSWORD" } },
+    { "localPart": "notes", "passwordRef": { "envVar": "NOTES_MAIL_PASSWORD" } },
+    { "localPart": "latex", "passwordRef": { "envVar": "LATEX_MAIL_PASSWORD" } }
+  ]
+}

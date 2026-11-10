@@ -73,7 +73,7 @@ target)
   [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
     || { echo "::error::'${version}' is not a release version"; exit 1; }
   [ -f "$source" ] || { echo "::error::${project} has no pin on the estate path (${source})"; exit 1; }
-  [ -z "$(annotation rollback-backup)$(annotation rollback-fragment)" ] \
+  [ -z "$(annotation rollback-fragment)" ] \
     || { echo "::error::${project} is already being rolled back; resume it first"; exit 1; }
 
   # What the Project is pinned to: the newest composition's lock says.

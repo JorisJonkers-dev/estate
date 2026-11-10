@@ -1,5 +1,286 @@
 # Changelog
 
+## [0.47.0](https://github.com/JorisJonkers-dev/estate/compare/v0.46.0...v0.47.0) (2026-11-10)
+
+
+### Features
+
+* **bootstrap:** mint MongoDB's logins and member certificate, and create its users, for its handover ([#271](https://github.com/JorisJonkers-dev/estate/issues/271)) ([576624a](https://github.com/JorisJonkers-dev/estate/commit/576624a3cc0bc7e2a1d6dd6bfbc03d38499be8a7))
+
+## [0.46.0](https://github.com/JorisJonkers-dev/estate/compare/v0.45.4...v0.46.0) (2026-11-10)
+
+
+### Features
+
+* **packages:** run the patched proxy build from packages-proxy ([#350](https://github.com/JorisJonkers-dev/estate/issues/350)) ([bb82ec3](https://github.com/JorisJonkers-dev/estate/commit/bb82ec31eab941082d767df55a85361598a1096c))
+
+## [0.45.4](https://github.com/JorisJonkers-dev/estate/compare/v0.45.3...v0.45.4) (2026-11-10)
+
+
+### Bug Fixes
+
+* **packages:** drop duplicate busybox entry from images.lock.yml ([#348](https://github.com/JorisJonkers-dev/estate/issues/348)) ([e2f4bbd](https://github.com/JorisJonkers-dev/estate/commit/e2f4bbdf57d9d746fc8180d6e4bd99169c7c8ecf))
+* **packages:** give the gate sidecar 256Mi, since 96Mi was OOMKilled under CI load ([#346](https://github.com/JorisJonkers-dev/estate/issues/346)) ([ebeddc9](https://github.com/JorisJonkers-dev/estate/commit/ebeddc992f161b113e367c10933b36f812ee9a95))
+
+## [0.45.3](https://github.com/JorisJonkers-dev/estate/compare/v0.45.2...v0.45.3) (2026-11-09)
+
+
+### Bug Fixes
+
+* **packages:** serve Cargo's config.json with auth-required, so crate downloads carry the key ([#343](https://github.com/JorisJonkers-dev/estate/issues/343)) ([d7fb71d](https://github.com/JorisJonkers-dev/estate/commit/d7fb71d39978941258641a94a0b8d8ea46ff0327))
+
+## [0.45.2](https://github.com/JorisJonkers-dev/estate/compare/v0.45.1...v0.45.2) (2026-11-09)
+
+
+### Bug Fixes
+
+* **packages:** fetch Maven Central from Google's mirror ([#340](https://github.com/JorisJonkers-dev/estate/issues/340)) ([a754bef](https://github.com/JorisJonkers-dev/estate/commit/a754bef10f7edac5bf304b577a24079326d4ca46))
+* **packages:** fetch Maven Central from Google's mirror, which does n… ([a754bef](https://github.com/JorisJonkers-dev/estate/commit/a754bef10f7edac5bf304b577a24079326d4ca46))
+
+## [0.45.1](https://github.com/JorisJonkers-dev/estate/compare/v0.45.0...v0.45.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **packages:** probe the proxy's /health, which answers without a redirect ([#338](https://github.com/JorisJonkers-dev/estate/issues/338)) ([af1df2b](https://github.com/JorisJonkers-dev/estate/commit/af1df2bce9db45ebd9e4aa28cd561f8392e1f77d)), closes [#334](https://github.com/JorisJonkers-dev/estate/issues/334)
+
+## [0.45.0](https://github.com/JorisJonkers-dev/estate/compare/v0.44.2...v0.45.0) (2026-11-09)
+
+
+### Features
+
+* **packages:** run git-pkgs/proxy with a 7-day cooldown behind an API-key gate ([#336](https://github.com/JorisJonkers-dev/estate/issues/336)) ([01e82d5](https://github.com/JorisJonkers-dev/estate/commit/01e82d54e465f6122a4ac1901840f606ab5cde61)), closes [#334](https://github.com/JorisJonkers-dev/estate/issues/334)
+
+## [0.44.2](https://github.com/JorisJonkers-dev/estate/compare/v0.44.1...v0.44.2) (2026-11-04)
+
+
+### Bug Fixes
+
+* **data:** let valkey evict expiring keys instead of refusing writes ([#331](https://github.com/JorisJonkers-dev/estate/issues/331)) ([3053d3c](https://github.com/JorisJonkers-dev/estate/commit/3053d3cdfffaf2ccafe50214346ec7406225033a))
+
+## [0.44.1](https://github.com/JorisJonkers-dev/estate/compare/v0.44.0...v0.44.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **data,observability:** reserve what the datastores use, and give Prometheus room ([#327](https://github.com/JorisJonkers-dev/estate/issues/327)) ([dbcb2f1](https://github.com/JorisJonkers-dev/estate/commit/dbcb2f12bd3679a839601c042497c74c2e87aa1c))
+
+## [0.44.0](https://github.com/JorisJonkers-dev/estate/compare/v0.43.3...v0.44.0) (2026-11-02)
+
+
+### Features
+
+* **edge:** issue the LAN tier's certificates from traefik-lan's own resolver ([#321](https://github.com/JorisJonkers-dev/estate/issues/321)) ([bc7535d](https://github.com/JorisJonkers-dev/estate/commit/bc7535d7e9f9bafdd072e484fbfdbc4f0f5eb9c1)), closes [#276](https://github.com/JorisJonkers-dev/estate/issues/276) [#292](https://github.com/JorisJonkers-dev/estate/issues/292)
+
+## [0.43.3](https://github.com/JorisJonkers-dev/estate/compare/v0.43.2...v0.43.3) (2026-11-02)
+
+
+### Bug Fixes
+
+* **data,mail:** reserve what stalwart and garage use, so overleaf's redis fits on Frankfurt ([#324](https://github.com/JorisJonkers-dev/estate/issues/324)) ([67f1120](https://github.com/JorisJonkers-dev/estate/commit/67f1120da96edfe5335a168a61fd574c3363ae5d))
+
+## [0.43.2](https://github.com/JorisJonkers-dev/estate/compare/v0.43.1...v0.43.2) (2026-11-02)
+
+
+### Bug Fixes
+
+* **edge:** start traefik-public's resolver on deploy-kit 1.9.3 ([#322](https://github.com/JorisJonkers-dev/estate/issues/322)) ([da70a3d](https://github.com/JorisJonkers-dev/estate/commit/da70a3de0e4da8e4306a939c111f6a1fb1e52abc))
+
+## [0.43.1](https://github.com/JorisJonkers-dev/estate/compare/v0.43.0...v0.43.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* **deploy:** relabel only the Applications a release changes, on deploy-kit 1.9.1 ([#319](https://github.com/JorisJonkers-dev/estate/issues/319)) ([339890b](https://github.com/JorisJonkers-dev/estate/commit/339890b9b5522446c328f9d5d6dc8c67cb526072))
+
+## [0.43.0](https://github.com/JorisJonkers-dev/estate/compare/v0.42.0...v0.43.0) (2026-11-01)
+
+
+### Features
+
+* **data:** serve the public asset host from Garage's own exposure ([#313](https://github.com/JorisJonkers-dev/estate/issues/313)) ([ef563d8](https://github.com/JorisJonkers-dev/estate/commit/ef563d8fc11ea5ddf3f83e51b2e9845753ffed0a))
+
+
+### Bug Fixes
+
+* **deploy:** order the secrets unit after nothing, on deploy-kit 1.8.1 ([#310](https://github.com/JorisJonkers-dev/estate/issues/310)) ([da9d264](https://github.com/JorisJonkers-dev/estate/commit/da9d2640f1677536b1397f354e280b368a599671))
+* **secrets:** declare VSO's deletecollection and turn its leader election off, on deploy-kit 1.9.0 ([#314](https://github.com/JorisJonkers-dev/estate/issues/314)) ([6bed513](https://github.com/JorisJonkers-dev/estate/commit/6bed51345c6049d827016d8e2719e0a5e1b15b97))
+
+## [0.42.0](https://github.com/JorisJonkers-dev/estate/compare/v0.41.2...v0.42.0) (2026-11-01)
+
+
+### Features
+
+* **observability:** keep kube-state-metrics' and Traefik's own labels, on deploy-kit 1.8.0 ([#308](https://github.com/JorisJonkers-dev/estate/issues/308)) ([7f30178](https://github.com/JorisJonkers-dev/estate/commit/7f30178bd9a5545f98ccfee9119aff69b7bca9e0))
+
+## [0.41.2](https://github.com/JorisJonkers-dev/estate/compare/v0.41.1...v0.41.2) (2026-11-01)
+
+
+### Bug Fixes
+
+* **observability:** lift the config-reloader's CPU limit, which throttled it most periods ([#306](https://github.com/JorisJonkers-dev/estate/issues/306)) ([d359290](https://github.com/JorisJonkers-dev/estate/commit/d35929049041363cd40cbe87f689fc3590f344fb))
+
+## [0.41.1](https://github.com/JorisJonkers-dev/estate/compare/v0.41.0...v0.41.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* **bootstrap:** retire the old stalwart policy with both reads the old path wrote ([#303](https://github.com/JorisJonkers-dev/estate/issues/303)) ([9d03963](https://github.com/JorisJonkers-dev/estate/commit/9d039638507de70c12c11cffc5e6d84a051a3e22))
+* **observability:** read kube-state-metrics' exported labels, and measure SLOs on server spans ([#305](https://github.com/JorisJonkers-dev/estate/issues/305)) ([f3517fc](https://github.com/JorisJonkers-dev/estate/commit/f3517fc1ec44a616700b9a09eb2ceb7c7a77450c))
+
+## [0.41.0](https://github.com/JorisJonkers-dev/estate/compare/v0.40.0...v0.41.0) (2026-11-01)
+
+
+### Features
+
+* **secrets:** hand the secrets Project over to the estate path ([#262](https://github.com/JorisJonkers-dev/estate/issues/262)) ([adc2d9b](https://github.com/JorisJonkers-dev/estate/commit/adc2d9bc5122513d6ad17ccf9bca0355ea5e8aa6))
+
+## [0.40.0](https://github.com/JorisJonkers-dev/estate/compare/v0.39.0...v0.40.0) (2026-11-01)
+
+
+### Features
+
+* **bootstrap:** retire the old path's postgres, rabbitmq, stalwart and auth-api roles ([#299](https://github.com/JorisJonkers-dev/estate/issues/299)) ([e139ba8](https://github.com/JorisJonkers-dev/estate/commit/e139ba842d5f8506022dd677056c2bed1c620277))
+
+## [0.39.0](https://github.com/JorisJonkers-dev/estate/compare/v0.38.0...v0.39.0) (2026-11-01)
+
+
+### Features
+
+* **data:** hand the data Project over to the estate path ([#216](https://github.com/JorisJonkers-dev/estate/issues/216)) ([3a1669f](https://github.com/JorisJonkers-dev/estate/commit/3a1669fc5f09850f214c168ae72fe92d6d4632bd))
+
+## [0.38.0](https://github.com/JorisJonkers-dev/estate/compare/v0.37.1...v0.38.0) (2026-11-01)
+
+
+### Features
+
+* **data:** declare Garage and the datastores as the estate path will run them ([#215](https://github.com/JorisJonkers-dev/estate/issues/215)) ([d80c53f](https://github.com/JorisJonkers-dev/estate/commit/d80c53fce4cfcbc078d6cdaa10d0b18976951d34))
+
+## [0.37.1](https://github.com/JorisJonkers-dev/estate/compare/v0.37.0...v0.37.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* **edge:** compose and publish with deploy-kit 1.7.1, which writes each container port once ([#294](https://github.com/JorisJonkers-dev/estate/issues/294)) ([9038df1](https://github.com/JorisJonkers-dev/estate/commit/9038df1f567beeff68de887dc8d697802920e2f6))
+
+## [0.37.0](https://github.com/JorisJonkers-dev/estate/compare/v0.36.4...v0.37.0) (2026-11-01)
+
+
+### Features
+
+* **edge:** hand the edge Project over to the estate path ([#257](https://github.com/JorisJonkers-dev/estate/issues/257)) ([fc07e50](https://github.com/JorisJonkers-dev/estate/commit/fc07e50f191eb36477833c6d530708b40677f676))
+
+## [0.36.4](https://github.com/JorisJonkers-dev/estate/compare/v0.36.3...v0.36.4) (2026-11-01)
+
+
+### Bug Fixes
+
+* **observability:** let the operator read ScrapeConfigs, so the kubelet is scraped ([#288](https://github.com/JorisJonkers-dev/estate/issues/288)) ([dc12471](https://github.com/JorisJonkers-dev/estate/commit/dc12471ab4e3ddfb780266f2b210dde81e74a4a9))
+
+## [0.36.3](https://github.com/JorisJonkers-dev/estate/compare/v0.36.2...v0.36.3) (2026-11-01)
+
+
+### Bug Fixes
+
+* **observability:** give pyroscope time to start, move the checks sidecar off 8080, let the operator list Probes ([#285](https://github.com/JorisJonkers-dev/estate/issues/285)) ([6d53c16](https://github.com/JorisJonkers-dev/estate/commit/6d53c1626d3a692975df51fd3273ba2a6379e2e3))
+
+## [0.36.2](https://github.com/JorisJonkers-dev/estate/compare/v0.36.1...v0.36.2) (2026-10-31)
+
+
+### Bug Fixes
+
+* **observability:** give pyroscope a writable /tmp and gatus's checks sidecar the memory it needs ([#283](https://github.com/JorisJonkers-dev/estate/issues/283)) ([07ca610](https://github.com/JorisJonkers-dev/estate/commit/07ca6109d1a3d96694ef9551d8a4261fbbd6b067))
+
+## [0.36.1](https://github.com/JorisJonkers-dev/estate/compare/v0.36.0...v0.36.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **release:** refuse a Publish Fragment pin whose toolkit minor differs from toolkit.yml's ([#281](https://github.com/JorisJonkers-dev/estate/issues/281)) ([2575239](https://github.com/JorisJonkers-dev/estate/commit/257523926c947c2c43e28db65547d79192506164))
+
+## [0.36.0](https://github.com/JorisJonkers-dev/estate/compare/v0.35.0...v0.36.0) (2026-10-31)
+
+
+### Features
+
+* **bootstrap:** pin the monitoring stack's CRDs in the bootstrap set ([#259](https://github.com/JorisJonkers-dev/estate/issues/259)) ([dc23656](https://github.com/JorisJonkers-dev/estate/commit/dc23656f1f75b3eef5f5ebbf0ba7f458899cd7a6))
+* hand the observability Project over to the estate path ([#260](https://github.com/JorisJonkers-dev/estate/issues/260)) ([dd83e6a](https://github.com/JorisJonkers-dev/estate/commit/dd83e6ad62386d33683fe000b9716bda097fc738))
+
+## [0.35.0](https://github.com/JorisJonkers-dev/estate/compare/v0.34.0...v0.35.0) (2026-10-30)
+
+
+### Features
+
+* hand the node Project over to the estate path ([#261](https://github.com/JorisJonkers-dev/estate/issues/261)) ([517a1a5](https://github.com/JorisJonkers-dev/estate/commit/517a1a5626345c74ee7cb890863bf0772f56fc6e))
+
+## [0.34.0](https://github.com/JorisJonkers-dev/estate/compare/v0.33.0...v0.34.0) (2026-10-30)
+
+
+### Features
+
+* **platform:** declare the priority classes, so every Process runs at its derived priority ([#266](https://github.com/JorisJonkers-dev/estate/issues/266)) ([8219807](https://github.com/JorisJonkers-dev/estate/commit/82198079c0353cad94550cde7b9cdd9f37d3b45d))
+
+## [0.33.0](https://github.com/JorisJonkers-dev/estate/compare/v0.32.0...v0.33.0) (2026-10-30)
+
+
+### Features
+
+* **bootstrap:** copy the data Project's catalog and backup logins ([#267](https://github.com/JorisJonkers-dev/estate/issues/267)) ([bc2a7e0](https://github.com/JorisJonkers-dev/estate/commit/bc2a7e0b4253e9a373a9e6312d10d82544d2bc82))
+* hand the utility Project over to the estate path ([#248](https://github.com/JorisJonkers-dev/estate/issues/248)) ([9f15c80](https://github.com/JorisJonkers-dev/estate/commit/9f15c805f56ac91518bc630843ea3e44553647dc))
+
+## [0.32.0](https://github.com/JorisJonkers-dev/estate/compare/v0.31.2...v0.32.0) (2026-10-30)
+
+
+### Features
+
+* **bootstrap:** retire the unused downloads role and policy, and write Stalwart's recovery admin ([#251](https://github.com/JorisJonkers-dev/estate/issues/251)) ([9f2b043](https://github.com/JorisJonkers-dev/estate/commit/9f2b0434ad630b7533cbaa2667db45a083a613e0))
+* **bootstrap:** write the Cloudflare DNS token where the public tier's Traefik reads it ([#246](https://github.com/JorisJonkers-dev/estate/issues/246)) ([147b6e1](https://github.com/JorisJonkers-dev/estate/commit/147b6e15d4292f78438119fa95069dfd055b22fd))
+* **bootstrap:** write the off-cluster backup credential ([#263](https://github.com/JorisJonkers-dev/estate/issues/263)) ([df2105b](https://github.com/JorisJonkers-dev/estate/commit/df2105b72a11cebf4d23d8d9c050b2a9441ea861))
+* **drills:** drill an early rotation against a slow-starting consumer, and report its margin ([#245](https://github.com/JorisJonkers-dev/estate/issues/245)) ([f4e5b2d](https://github.com/JorisJonkers-dev/estate/commit/f4e5b2dceae1a544529711f59f2fef7877c59424))
+* **drills:** make every change themselves, and measure a node failure only once the node has failed ([#244](https://github.com/JorisJonkers-dev/estate/issues/244)) ([47b3481](https://github.com/JorisJonkers-dev/estate/commit/47b34816b62dcce5b63acbf4b4e138e7c29adb4f))
+* **drills:** script the three live drills, reading only and handing over every change ([#242](https://github.com/JorisJonkers-dev/estate/issues/242)) ([971bb0b](https://github.com/JorisJonkers-dev/estate/commit/971bb0b997962806b214a92d4d4286a3bac272a4))
+* hand the mail Project over to the estate path ([#250](https://github.com/JorisJonkers-dev/estate/issues/250)) ([50b2870](https://github.com/JorisJonkers-dev/estate/commit/50b2870b947e47d147cbaa520cc81815f9546433))
+
+
+### Bug Fixes
+
+* **platform:** name auth-api's forward-auth path and the public tier's DNS records ([#249](https://github.com/JorisJonkers-dev/estate/issues/249)) ([4daa9a2](https://github.com/JorisJonkers-dev/estate/commit/4daa9a224e777bf5f78db27d67b7b048eb705c54))
+* **platform:** state the live edge's listeners, certificates and addresses in the tiers ([#247](https://github.com/JorisJonkers-dev/estate/issues/247)) ([dc82a40](https://github.com/JorisJonkers-dev/estate/commit/dc82a406379e88ea13913d90abd2c0446abc8968))
+
+## [0.31.2](https://github.com/JorisJonkers-dev/estate/compare/v0.31.1...v0.31.2) (2026-10-27)
+
+
+### Bug Fixes
+
+* run delivery 0.15.2's policy job, and allow 1s p95 in a release's analysis ([#238](https://github.com/JorisJonkers-dev/estate/issues/238)) ([812ad27](https://github.com/JorisJonkers-dev/estate/commit/812ad27eee222f03be465de89446ec836ac72a9f))
+
+## [0.31.1](https://github.com/JorisJonkers-dev/estate/compare/v0.31.0...v0.31.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* drop reviewBy from the participants list, which deploy-kit 1.0 removed ([#234](https://github.com/JorisJonkers-dev/estate/issues/234)) ([8b88933](https://github.com/JorisJonkers-dev/estate/commit/8b889338815c9224191f24b200e5263442e6cb96))
+* name the Node Agents' images, and list node on the old path ([#236](https://github.com/JorisJonkers-dev/estate/issues/236)) ([7eea80e](https://github.com/JorisJonkers-dev/estate/commit/7eea80e02e1e4c444d90a11c12bb3baf132d1dfe))
+
+## [0.31.0](https://github.com/JorisJonkers-dev/estate/compare/v0.30.1...v0.31.0) (2026-10-27)
+
+
+### Features
+
+* compose the estate on deploy-kit 1.0.1 ([#233](https://github.com/JorisJonkers-dev/estate/issues/233)) ([5af9e29](https://github.com/JorisJonkers-dev/estate/commit/5af9e298127b383973bdc6564c9e7b5265f6d152))
+
+
+### Bug Fixes
+
+* **rollback:** read only the fragment annotation in the in-progress guard ([#220](https://github.com/JorisJonkers-dev/estate/issues/220)) ([779c765](https://github.com/JorisJonkers-dev/estate/commit/779c765d222d6d91f7f8167c15ceb6c665f15eed))
+
+## [0.30.1](https://github.com/JorisJonkers-dev/estate/compare/v0.30.0...v0.30.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **platform:** grant jellyfin write on the media library ([#218](https://github.com/JorisJonkers-dev/estate/issues/218)) ([3ec6529](https://github.com/JorisJonkers-dev/estate/commit/3ec65290a24a6ae744bf33363ab5b0ed02f375b5))
+
 ## [0.30.0](https://github.com/JorisJonkers-dev/estate/compare/v0.29.0...v0.30.0) (2026-10-23)
 
 

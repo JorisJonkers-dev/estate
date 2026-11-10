@@ -1,0 +1,26 @@
+name: Repository Hygiene
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - labeled
+      - unlabeled
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  repository-hygiene:
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/repository-hygiene-guard.yml@2814b76fc3f5bd4f02a6e4a0fa789f1307757daa # v0.45.4
+    with:
+      package-proxy-guard: enforce
+    secrets:
+      PACKAGES_PROXY_TOKEN: ${{ secrets.PACKAGES_PROXY_TOKEN }}
