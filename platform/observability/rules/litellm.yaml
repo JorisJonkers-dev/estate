@@ -1,0 +1,61 @@
+# Alert rules for LiteLLM (JorisJonkers-dev/litellm, agent-kit#454). The metrics are LiteLLM's
+# open-source prometheus callback, labelled by api_key_alias and requested_model only; the
+# dashboard is shipped by the litellm Project. A rule's `severity` picks the route the Platform
+# document's `monitoring` block declares.
+groups:
+  - name: litellm
+    rules:
+      - alert: LiteLLMDown
+        # Assumes the monitor labels targets with their namespace, as the estate's monitors do.
+        expr: (up{namespace="litellm-system"} == 0) or absent(up{namespace="litellm-system"})
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: LiteLLM's metrics endpoint is not scraped
+          description: The litellm-system target has been down for 10 minutes; the cheap agents lose their models.
+      - alert: LiteLLMBudgetLow
+        expr: |
+          max by (api_key_alias) (litellm_remaining_api_key_budget_metric)
+            / (max by (api_key_alias) (litellm_api_key_max_budget_metric) > 0) < 0.1
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "LiteLLM key {{ $labels.api_key_alias }} has under 10% of its budget left"
+          description: The key's remaining budget is below a tenth of its max_budget.
+      - alert: LiteLLMBudgetExhausted
+        expr: |
+          max by (api_key_alias) (litellm_remaining_api_key_budget_metric) <= 0
+            and (max by (api_key_alias) (litellm_api_key_max_budget_metric) > 0)
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "LiteLLM key {{ $labels.api_key_alias }} is out of budget"
+          description: The proxy refuses this key (budget_exceeded); the agents using it fail their node.
+      - alert: LiteLLMSpendBlind
+        # A budget counts only what LiteLLM can price: a paid model it has no price for records
+        # spend 0, so the cap would not bite. Free and local routes are expected to cost nothing.
+        expr: |
+          sum by (api_key_alias, requested_model) (increase(litellm_total_tokens_metric_total{requested_model!~"local/.*|openrouter/.*:free"}[1h])) > 0
+            unless
+          sum by (api_key_alias, requested_model) (increase(litellm_spend_metric_total{requested_model!~"local/.*|openrouter/.*:free"}[1h])) > 0
+        for: 30m
+        labels: {severity: warning}
+        annotations:
+          summary: "LiteLLM key {{ $labels.api_key_alias }} moves tokens and records no spend on {{ $labels.requested_model }}"
+          description: The model has no price in LiteLLM, so this key's budget cannot be enforced. Set input_cost_per_token and output_cost_per_token for the route.
+      - alert: LiteLLMErrorsHigh
+        expr: |
+          sum(rate(litellm_proxy_failed_requests_metric_total[15m]))
+            / clamp_min(sum(rate(litellm_proxy_total_requests_metric_total[15m])), 0.01) > 0.2
+        for: 15m
+        labels: {severity: warning}
+        annotations:
+          summary: More than 20% of LiteLLM requests fail
+          description: Failed requests have been over a fifth of all requests for 15 minutes. Check the dashboard for the key, model and cause.
+      - alert: LiteLLMLatencyHigh
+        expr: histogram_quantile(0.95, sum by (le, requested_model) (rate(litellm_request_total_latency_metric_bucket[15m]))) > 60
+        for: 15m
+        labels: {severity: warning}
+        annotations:
+          summary: "LiteLLM p95 latency above 60s for {{ $labels.requested_model }}"
+          description: The model's end-to-end p95 over 15 minutes is above a minute.

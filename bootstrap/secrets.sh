@@ -75,6 +75,7 @@ SECTIONS=(
   "mail|Stalwart's recovery admin, the user:password pair its server reads, from its admin login"
   "hermes|the Hermes Agent's provider keys and its Hindsight token"
   "mistral|the Mistral API keys Hindsight and Karakeep read"
+  "litellm|LiteLLM's master and salt keys, the four upstream provider keys it calls and the catalogue publish token"
   "backup-off-cluster|the S3 credential irreplaceable volumes' backups copy off-cluster with"
   "data|the Postgres catalog and backup logins and the RabbitMQ backup login, copied from their admin logins"
   "mongo|MongoDB's admin, backup and Overleaf logins and its member certificate, minted for its handover; acts only when named"
@@ -1356,6 +1357,34 @@ section_mistral() {
   [[ -z "$any" ]] || note "VSO re-renders both Secrets on its next refresh and restarts the workloads."
 }
 
+# ── litellm ───────────────────────────────────────────────────────────────
+# LiteLLM (JorisJonkers-dev/litellm) reads secret/platform/litellm through its
+# deploy-kit grant. master_key signs the admin calls that mint virtual keys;
+# salt_key encrypts the upstream keys LiteLLM stores in its database, so once a
+# virtual key exists it must never change (replacing it makes every stored key
+# unreadable): both are generated here, only where missing. The four upstream
+# keys are the owner's: Vibe, Vibe-study, OpenCode Go and OpenRouter (made with a
+# 5 EUR credit limit). catalog_publish_token is a fine-grained GitHub token with
+# contents:write on the catalogue repository only (JorisJonkers-dev/litellm-model-catalog,
+# private); it is optional, and without it the catalogue sync cannot publish.
+section_litellm() {
+  WROTE_FIELDS=""
+  CHANGED_KEYS=""
+  say "salt_key encrypts the upstream keys in LiteLLM's database: never replace it once virtual keys exist."
+  [[ -z "$ROTATE" ]] || [[ -z "$(kv_field "$(kv_load platform/litellm)" salt_key)" ]] \
+    || die "--rotate would offer to replace salt_key, which makes every stored upstream key unreadable; edit the other fields in Vault directly"
+  edit_fields platform/litellm \
+    "master_key|gen:32|master_key (Enter generates)" \
+    "salt_key|gen:32|salt_key (Enter generates; never changes later)" \
+    "vibe_api_key|required|vibe_api_key (the Vibe key)" \
+    "vibe_study_api_key|required|vibe_study_api_key (the Vibe-study key)" \
+    "opencode_go_api_key|required|opencode_go_api_key (the OpenCode Go key)" \
+    "openrouter_api_key|required|openrouter_api_key (the OpenRouter key, with a 5 EUR credit limit)" \
+    "catalog_publish_token|asked|catalog_publish_token (GitHub token for the catalogue repository; Enter skips)"
+  [[ -n "$WROTE_FIELDS" ]] || return 0
+  note "LiteLLM reads platform/litellm through its deploy-kit grant; VSO refreshes it and restarts LiteLLM."
+}
+
 # ── backup-off-cluster ────────────────────────────────────────────────────
 # The credential an irreplaceable volume's backup copies off-cluster with
 # (estate#228). platform.intent.yml's durability.irreplaceable.offCluster
@@ -1878,6 +1907,7 @@ for CURRENT_SECTION in "${SELECTED[@]}"; do
     mail) section_mail ;;
     hermes) section_hermes ;;
     mistral) section_mistral ;;
+    litellm) section_litellm ;;
     backup-off-cluster) section_backup_off_cluster ;;
     data) section_data ;;
     mongo) section_mongo ;;

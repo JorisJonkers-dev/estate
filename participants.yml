@@ -142,6 +142,11 @@ participants:
     dormant: true
     owner: joris
     reason: releases when Prowlarr releases, not on a weekly cadence
+  # JorisJonkers-dev/litellm, the one proxy the cheap agents reach their models through (agent-kit#454).
+  litellm:
+    dormant: true
+    owner: joris
+    reason: releases when LiteLLM or the model list changes, not on a weekly cadence
   # JorisJonkers-dev/n8n, moved from fleet-infra's automation-system.
   n8n:
     dormant: true
