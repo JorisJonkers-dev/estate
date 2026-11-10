@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/n8n
   ref:
-    digest: sha256:4470c4d0bf7899b795e46ace2c7cb5f0c61f881b4599d1f91567c4b5120cc295
+    digest: sha256:3ec05382402491e9f9e34f4d6c0cd9c2971a031007d96dc66453bda41c6615aa
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/n8n
-    event.toolkit.fluxcd.io/sha: a3cf6b011ea2ad98c94b112e5dc2a32c1c73539c
+    event.toolkit.fluxcd.io/sha: d4ba56697c0ff53c700db26b460d0fc95a9b0a62
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 2.46.2
+    event.toolkit.fluxcd.io/version: 2.46.3
     event.toolkit.fluxcd.io/url: https://n8n.jorisjonkers.dev
 spec:
   interval: 10m
