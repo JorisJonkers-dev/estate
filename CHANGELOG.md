@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.47.0](https://github.com/JorisJonkers-dev/estate/compare/v0.46.0...v0.47.0) (2026-11-10)
+
+
+### Features
+
+* **bootstrap:** mint MongoDB's logins and member certificate, and create its users, for its handover ([#271](https://github.com/JorisJonkers-dev/estate/issues/271)) ([576624a](https://github.com/JorisJonkers-dev/estate/commit/576624a3cc0bc7e2a1d6dd6bfbc03d38499be8a7))
+
 ## [0.46.0](https://github.com/JorisJonkers-dev/estate/compare/v0.45.4...v0.46.0) (2026-11-10)
 
 
