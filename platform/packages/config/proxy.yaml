@@ -88,7 +88,7 @@ upstream:
     alpine: "https://dl-cdn.alpinelinux.org/alpine"
   # Debian packages at /debian/ (pool and dists), with the security archive at
   # /debian/security/, because a Debian suite's updates live on a separate host.
-  debian: "http://deb.debian.org/debian"
+  debian: "https://deb.debian.org/debian"
   debian_repositories:
     security: "https://security.debian.org/debian-security"
 

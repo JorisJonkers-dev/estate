@@ -43,3 +43,9 @@ grep '"msg":"request"' "$PROXY_LOG" | grep -q '"path":"/v2/library/busybox/manif
   || { echo "no request for the busybox manifest in the proxy's log" >&2; exit 1; }
 grep '"msg":"fetching from upstream"' "$PROXY_LOG" | grep -q '"ecosystem":"oci"' \
   || { echo "no oci upstream fetch in the proxy's log" >&2; exit 1; }
+
+# A named upstream: BuildKit and containerd name the original registry in the ns parameter. The
+# estate's own packages-proxy image is public on ghcr.io.
+ghcr=$GATE/v2/jorisjonkers-dev/packages-proxy/manifests/v0.11.0-jj.2?ns=ghcr.io
+expect 200 "$(status -H "$(bearer "$KEY")" -H "$accept" "$ghcr")" "ghcr.io manifest with a key"
+expect 401 "$(status -H "$accept" "$ghcr")" "ghcr.io manifest without a key"

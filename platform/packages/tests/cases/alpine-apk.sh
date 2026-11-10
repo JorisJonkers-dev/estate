@@ -17,11 +17,8 @@ for block in text.split("\n\n"):
     fields = dict(line.split(":", 1) for line in block.splitlines() if ":" in line)
     fields = {name: value.strip() for name, value in fields.items()}
     if fields.get("P") == "git":
-        # A package sits in the folder the index names (F), under the file name it names (N),
-        # or directly in the repo as <name>-<version>.apk.
-        folder = fields.get("F", "").strip("/")
-        name = fields.get("N") or fields["P"] + "-" + fields["V"] + ".apk"
-        print(folder + "/" + name if folder else name)
+        # An Alpine repository serves each package flat, as <name>-<version>.apk.
+        print(fields["P"] + "-" + fields["V"] + ".apk")
         break
 ')
 [ -n "$package" ] || { echo "cannot find git in the Alpine index" >&2; exit 1; }
