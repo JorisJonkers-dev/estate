@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   repository-hygiene:
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/repository-hygiene-guard.yml@a68da7988585d307c147a320dbd53f76b19943c4 # v0.46.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/repository-hygiene-guard.yml@f77ebd2b5687fa1c293389690e313ca488a28a09 # v0.47.0
     with:
       package-proxy-guard: enforce
     secrets:
