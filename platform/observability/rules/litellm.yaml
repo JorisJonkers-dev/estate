@@ -7,7 +7,7 @@ groups:
     rules:
       - alert: LiteLLMDown
         # Assumes the monitor labels targets with their namespace, as the estate's monitors do.
-        expr: up{namespace="litellm-system"} == 0
+        expr: (up{namespace="litellm-system"} == 0) or absent(up{namespace="litellm-system"})
         for: 10m
         labels: {severity: warning}
         annotations:
@@ -35,13 +35,13 @@ groups:
         # A budget counts only what LiteLLM can price: a paid model it has no price for records
         # spend 0, so the cap would not bite. Free and local routes are expected to cost nothing.
         expr: |
-          sum by (api_key_alias) (increase(litellm_total_tokens_metric_total{requested_model!~"local/.*|openrouter/.*:free"}[1h])) > 0
+          sum by (api_key_alias, requested_model) (increase(litellm_total_tokens_metric_total{requested_model!~"local/.*|openrouter/.*:free"}[1h])) > 0
             unless
-          sum by (api_key_alias) (increase(litellm_spend_metric_total{requested_model!~"local/.*|openrouter/.*:free"}[1h])) > 0
+          sum by (api_key_alias, requested_model) (increase(litellm_spend_metric_total{requested_model!~"local/.*|openrouter/.*:free"}[1h])) > 0
         for: 30m
         labels: {severity: warning}
         annotations:
-          summary: "LiteLLM key {{ $labels.api_key_alias }} moves tokens and records no spend"
+          summary: "LiteLLM key {{ $labels.api_key_alias }} moves tokens and records no spend on {{ $labels.requested_model }}"
           description: The model has no price in LiteLLM, so this key's budget cannot be enforced. Set input_cost_per_token and output_cost_per_token for the route.
       - alert: LiteLLMErrorsHigh
         expr: |
