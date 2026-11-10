@@ -277,10 +277,10 @@ images:
   # cooldown holds latest back. It runs as uid 1000, as upstream's image does.
   git-pkgs-proxy:
     repository: ghcr.io/jorisjonkers-dev/packages-proxy
-    digest: "sha256:0cc3ef8eaae9b70e68a944445cf7a2f7e659ab68f14f2be047ae9d226d389143"
+    digest: "sha256:6f18393893c1442a2e9b9d551921dd7447a022df75a1821ddfeeb243063779d2"
     uid: 1000
     gid: 1000
-    version: "v0.11.0-jj.1"
+    version: "v0.11.0-jj.2"
   stalwart: # v0.16.20
     repository: docker.io/stalwartlabs/stalwart
     digest: "sha256:74ca4f7f6885fe302f38a99381f36a208547afce1033d8734d9e6d8d3eba7446"
