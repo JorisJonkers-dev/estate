@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.49.0](https://github.com/JorisJonkers-dev/estate/compare/v0.48.0...v0.49.0) (2026-11-10)
+
+
+### Features
+
+* add the litellm participant and its Vault bootstrap section ([#352](https://github.com/JorisJonkers-dev/estate/issues/352)) ([07786ab](https://github.com/JorisJonkers-dev/estate/commit/07786ab2f1dfe09799860a41816086d26bdf73de))
+
 ## [0.48.0](https://github.com/JorisJonkers-dev/estate/compare/v0.47.0...v0.48.0) (2026-11-10)
 
 
