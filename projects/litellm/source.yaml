@@ -1,0 +1,61 @@
+# GENERATED. Never hand-edit.
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: project-litellm
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/managed-by: deploy-kit
+spec:
+  interval: 10m
+  url: oci://ghcr.io/jorisjonkers-dev/render/litellm
+  ref:
+    digest: sha256:814ac4d2ebda3eb02ee141cb6db2458d72687344f320f1adde6f4c3d8c49bf32
+  secretRef:
+    name: render-pull
+  verify:
+    provider: cosign
+    matchOIDCIdentity:
+      - issuer: ^https://token\.actions\.githubusercontent\.com$
+        subject: ^https://github\.com/JorisJonkers-dev/estate/\.github/workflows/compose\.yml@refs/heads/main$
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: apps-litellm
+  namespace: flux-system
+  labels:
+    app.kubernetes.io/managed-by: deploy-kit
+  annotations:
+    event.toolkit.fluxcd.io/repository: JorisJonkers-dev/litellm
+    event.toolkit.fluxcd.io/sha: 3d9953f8bfca2c62d24abe306ecbfdf691752a58
+    event.toolkit.fluxcd.io/environment: production
+    event.toolkit.fluxcd.io/version: 1.0.3
+    event.toolkit.fluxcd.io/url: https://litellm.jorisjonkers.dev
+spec:
+  interval: 10m
+  prune: true
+  wait: true
+  healthCheckExprs:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      current: status.phase == 'Bound' || status.phase == 'Pending' && !(has(metadata.annotations) && 'volume.kubernetes.io/selected-node' in metadata.annotations)
+  sourceRef:
+    kind: OCIRepository
+    name: project-litellm
+  path: ./apps/litellm
+  dependsOn:
+    - name: apps-data
+    - name: apps-edge
+    - name: apps-secrets
+  patches:
+    - patch: |
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: any
+          annotations:
+            kustomize.toolkit.fluxcd.io/force: Enabled
+      target:
+        kind: Deployment
