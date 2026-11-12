@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.49.1](https://github.com/JorisJonkers-dev/estate/compare/v0.49.0...v0.49.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **ci:** retry npm fetches through a short edge restart ([#375](https://github.com/JorisJonkers-dev/estate/issues/375)) ([ab7e4b9](https://github.com/JorisJonkers-dev/estate/commit/ab7e4b9dd60de2ff6d09ce1cbea50eb3b575e1ce))
+* **edge:** give the public Traefik room for CI load ([#374](https://github.com/JorisJonkers-dev/estate/issues/374)) ([d2cf4e5](https://github.com/JorisJonkers-dev/estate/commit/d2cf4e5aa648dda1d6876480df1ddd304071b471))
+
 ## [0.49.0](https://github.com/JorisJonkers-dev/estate/compare/v0.48.0...v0.49.0) (2026-11-10)
 
 
