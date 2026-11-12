@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/litellm
   ref:
-    digest: sha256:814ac4d2ebda3eb02ee141cb6db2458d72687344f320f1adde6f4c3d8c49bf32
+    digest: sha256:acdbc51e9f87c46e78b689a91c4493a1688e2248b4b34abac7be4d1d8a0d8ea6
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/litellm
-    event.toolkit.fluxcd.io/sha: 3d9953f8bfca2c62d24abe306ecbfdf691752a58
+    event.toolkit.fluxcd.io/sha: 73b66a34b2fdaba87fc005383ee5912fdd0834ea
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 1.0.3
+    event.toolkit.fluxcd.io/version: 1.1.0
     event.toolkit.fluxcd.io/url: https://litellm.jorisjonkers.dev
 spec:
   interval: 10m
@@ -49,13 +49,3 @@ spec:
     - name: apps-data
     - name: apps-edge
     - name: apps-secrets
-  patches:
-    - patch: |
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: any
-          annotations:
-            kustomize.toolkit.fluxcd.io/force: Enabled
-      target:
-        kind: Deployment
