@@ -34,17 +34,22 @@ applications:
           web: 8000
           websecure: 8443
           admin: 8080
-        # Live, the proxy runs with no request and uses 88Mi (2026-10-29); the
-        # worked example's 128Mi leaves too little room for the ACME state.
+        # It idles at 88Mi (2026-10-29), but it is the one listener for every
+        # public host, packages.jorisjonkers.dev among them, and CI runs open
+        # many connections at once. 1Gi is headroom, not a measurement: memory
+        # is request and limit both. CPU is a request only (deploy-kit derives
+        # no CPU limit), so 500m is a scheduling reservation, not a cap.
         placement:
-          memory: 256Mi
-          cpu: 50m
+          memory: 1Gi
+          cpu: 500m
           capabilities: [public-ingress]
         writablePaths: [/tmp]
         probes:
           readiness: { path: /ping, port: 8080 }
           liveness: { path: /ping, port: 8080 }
-        startupBudget: 20s
+        # The startup probe polls /ping, so the budget bounds how long a slow
+        # start under load may take before the container is killed again.
+        startupBudget: 60s
         cutover: continuous
 
   - id: traefik-lan
