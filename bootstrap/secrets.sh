@@ -75,7 +75,7 @@ SECTIONS=(
   "mail|Stalwart's recovery admin, the user:password pair its server reads, from its admin login"
   "hermes|the Hermes Agent's provider keys and its Hindsight token"
   "mistral|the Mistral API keys Hindsight and Karakeep read"
-  "litellm|LiteLLM's master and salt keys, the four upstream provider keys it calls and the catalogue publish token"
+  "litellm|LiteLLM's master and salt keys, its OIDC client secret, the four upstream provider keys it calls and the catalogue publish token"
   "backup-off-cluster|the S3 credential irreplaceable volumes' backups copy off-cluster with"
   "data|the Postgres catalog and backup logins and the RabbitMQ backup login, copied from their admin logins"
   "mongo|MongoDB's admin, backup and Overleaf logins and its member certificate, minted for its handover; acts only when named"
@@ -1362,7 +1362,9 @@ section_mistral() {
 # deploy-kit grant. master_key signs the admin calls that mint virtual keys;
 # salt_key encrypts the upstream keys LiteLLM stores in its database, so once a
 # virtual key exists it must never change (replacing it makes every stored key
-# unreadable): both are generated here, only where missing. The four upstream
+# unreadable): both are generated here, only where missing. The admin UI signs in
+# through auth-api: the OIDC client secret is minted once and written to both secret/auth-api
+# (auth.clients.litellm.secret) and secret/platform/litellm (oidc_client_secret). The four upstream
 # keys are the owner's: Vibe, Vibe-study, OpenCode Go and OpenRouter (made with a
 # 5 EUR credit limit). catalog_publish_token is a fine-grained GitHub token with
 # contents:write on the catalogue repository only (JorisJonkers-dev/litellm-model-catalog,
@@ -1381,6 +1383,7 @@ section_litellm() {
     "opencode_go_api_key|required|opencode_go_api_key (the OpenCode Go key)" \
     "openrouter_api_key|required|openrouter_api_key (the OpenRouter key, with a 5 EUR credit limit)" \
     "catalog_publish_token|asked|catalog_publish_token (GitHub token for the catalogue repository; Enter skips)"
+  oidc_client litellm https://litellm.jorisjonkers.dev/sso/callback platform/litellm oidc_client_secret hex32
   [[ -n "$WROTE_FIELDS" ]] || return 0
   note "LiteLLM reads platform/litellm through its deploy-kit grant; VSO refreshes it and restarts LiteLLM."
 }
@@ -1870,7 +1873,7 @@ section_auth_api() {
 }
 
 # ── run ───────────────────────────────────────────────────────────────────
-CLIENT_SECTIONS=" estate-dashboard tribelt grimoire findability-explorer "
+CLIENT_SECTIONS=" estate-dashboard tribelt grimoire findability-explorer litellm "
 any_client=""
 for name in "${SELECTED[@]}"; do [[ "$CLIENT_SECTIONS" == *" $name "* ]] && any_client=yes; done
 TOTAL_STAGES=$(( 1 + ${#SELECTED[@]} ))
