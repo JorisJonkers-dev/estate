@@ -75,7 +75,7 @@ SECTIONS=(
   "mail|Stalwart's recovery admin, the user:password pair its server reads, from its admin login"
   "hermes|the Hermes Agent's provider keys and its Hindsight token"
   "mistral|the Mistral API keys Hindsight and Karakeep read"
-  "litellm|LiteLLM's master and salt keys, the four upstream provider keys it calls and the catalogue publish token"
+  "litellm|LiteLLM's master and salt keys, the admin UI password, the four upstream provider keys it calls and the catalogue publish token"
   "backup-off-cluster|the S3 credential irreplaceable volumes' backups copy off-cluster with"
   "data|the Postgres catalog and backup logins and the RabbitMQ backup login, copied from their admin logins"
   "mongo|MongoDB's admin, backup and Overleaf logins and its member certificate, minted for its handover; acts only when named"
@@ -1362,7 +1362,9 @@ section_mistral() {
 # deploy-kit grant. master_key signs the admin calls that mint virtual keys;
 # salt_key encrypts the upstream keys LiteLLM stores in its database, so once a
 # virtual key exists it must never change (replacing it makes every stored key
-# unreadable): both are generated here, only where missing. The four upstream
+# unreadable): both are generated here, only where missing. ui_password is the password of
+# LiteLLM's admin UI login (user admin); it is generated here too, and read it back from Vault
+# to sign in. The four upstream
 # keys are the owner's: Vibe, Vibe-study, OpenCode Go and OpenRouter (made with a
 # 5 EUR credit limit). catalog_publish_token is a fine-grained GitHub token with
 # contents:write on the catalogue repository only (JorisJonkers-dev/litellm-model-catalog,
@@ -1376,6 +1378,7 @@ section_litellm() {
   edit_fields platform/litellm \
     "master_key|gen:32|master_key (Enter generates)" \
     "salt_key|gen:32|salt_key (Enter generates; never changes later)" \
+    "ui_password|gen:24|ui_password (the admin UI password for user admin; Enter generates)" \
     "vibe_api_key|required|vibe_api_key (the Vibe key)" \
     "vibe_study_api_key|required|vibe_study_api_key (the Vibe-study key)" \
     "opencode_go_api_key|required|opencode_go_api_key (the OpenCode Go key)" \
