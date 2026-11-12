@@ -1368,10 +1368,12 @@ section_mistral() {
 # keys are the owner's: Vibe, Vibe-study, OpenCode Go and OpenRouter (made with a
 # 5 EUR credit limit). catalog_publish_token is a fine-grained GitHub token with
 # contents:write on the catalogue repository only (JorisJonkers-dev/litellm-model-catalog,
-# private); it is optional, and without it the catalogue sync cannot publish. The four routing keys
-# are optional too (a route with no key is skipped until it is written): vibe_api_key_paid and
-# vibe_study_api_key_paid are Mistral API keys (the paid fallback behind the two Vibe plans),
-# google_api_key serves Gemini and anthropic_api_key serves Claude.
+# private); it is optional, and without it the catalogue sync cannot publish. The routing keys are
+# optional too (an account with no key is skipped until it is written): vibe_api_general_key and
+# vibe_study_api_general_key are general Mistral API keys (the paid fallback behind the two Vibe-scope
+# keys, with more models), google_api_key is a free-tier AI Studio key (public work only),
+# anthropic_api_key serves Claude, and catalog_pr_token lets the sync open the pull request that
+# refreshes the generated model config in JorisJonkers-dev/litellm.
 section_litellm() {
   WROTE_FIELDS=""
   CHANGED_KEYS=""
@@ -1385,10 +1387,11 @@ section_litellm() {
     "vibe_study_api_key|required|vibe_study_api_key (the Vibe-study key)" \
     "opencode_go_api_key|required|opencode_go_api_key (the OpenCode Go key)" \
     "openrouter_api_key|required|openrouter_api_key (the OpenRouter key, with a 5 EUR credit limit)" \
-    "vibe_api_key_paid|asked|vibe_api_key_paid (the paid Mistral API key of the Vibe account; Enter skips)" \
-    "vibe_study_api_key_paid|asked|vibe_study_api_key_paid (the paid Mistral API key of the Vibe-study account; Enter skips)" \
-    "google_api_key|asked|google_api_key (the Google Gemini API key; Enter skips)" \
-    "anthropic_api_key|asked|anthropic_api_key (the Anthropic API key; Enter skips)" \
+    "vibe_api_general_key|asked|vibe_api_general_key (the general Mistral API key of the Vibe account, not the Vibe-scope key; Enter skips)" \
+    "vibe_study_api_general_key|asked|vibe_study_api_general_key (the general Mistral API key of the Vibe-study account; Enter skips)" \
+    "google_api_key|asked|google_api_key (a free-tier Google AI Studio key, no billing; its prompts may be used by Google, so it serves public work only; Enter skips)" \
+    "anthropic_api_key|asked|anthropic_api_key (the Anthropic API key, with a spend limit set in the Console; Enter skips)" \
+    "catalog_pr_token|asked|catalog_pr_token (GitHub token with contents and pull requests write on JorisJonkers-dev/litellm; Enter skips)" \
     "catalog_publish_token|asked|catalog_publish_token (GitHub token for the catalogue repository; Enter skips)"
   oidc_client litellm https://litellm.jorisjonkers.dev/sso/callback platform/litellm oidc_client_secret hex32
   [[ -n "$WROTE_FIELDS" ]] || return 0
