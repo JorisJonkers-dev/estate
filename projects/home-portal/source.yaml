@@ -13,7 +13,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/home-portal
   ref:
-    digest: sha256:d02098a4198a0819d58575e117fd3a53d2611926bd1a804bb302c8c4924d6333
+    digest: sha256:8e795bc8115de3afbbb992406e2e5b2ace08971fed24d51a90f9fcc4f9789104
   secretRef:
     name: render-pull
   verify:
