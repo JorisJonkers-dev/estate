@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.50.0](https://github.com/JorisJonkers-dev/estate/compare/v0.49.1...v0.50.0) (2026-11-13)
+
+
+### Features
+
+* **bootstrap:** add the LiteLLM routing key slots to secrets.sh ([#382](https://github.com/JorisJonkers-dev/estate/issues/382)) ([08594a3](https://github.com/JorisJonkers-dev/estate/commit/08594a32214a9a9f8f0d60cb2f4ab52611517cb5))
+* **bootstrap:** mint the LiteLLM OIDC client secret ([#379](https://github.com/JorisJonkers-dev/estate/issues/379)) ([f72b457](https://github.com/JorisJonkers-dev/estate/commit/f72b457a9b2a0b55e6f7b78219e1e1f0f8a2a30e))
+
+
+### Bug Fixes
+
+* **hygiene:** never cancel a run of the required hygiene checks ([#381](https://github.com/JorisJonkers-dev/estate/issues/381)) ([a6f08bd](https://github.com/JorisJonkers-dev/estate/commit/a6f08bdb19eca77f49203bbcb87c5e14feb6d2b6))
+
 ## [0.49.1](https://github.com/JorisJonkers-dev/estate/compare/v0.49.0...v0.49.1) (2026-11-12)
 
 
