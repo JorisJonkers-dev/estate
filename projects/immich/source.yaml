@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/immich
   ref:
-    digest: sha256:85583dad0d37dc315e66d27edb7c0cb18e709e23b528d0489f724e5a782e7496
+    digest: sha256:ac7e4d76f5282dd0157dc6a1aef5bd1c52cb30a3e536776967be6835423965d4
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/immich
-    event.toolkit.fluxcd.io/sha: dfbb1b079cb0c6433de1fe9eafa664abc34943e2
+    event.toolkit.fluxcd.io/sha: e0dd0ad44e52a1f7016f8b65301d26b7eab66528
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 1.1.1
+    event.toolkit.fluxcd.io/version: 1.2.2
     event.toolkit.fluxcd.io/url: https://immich.jorisjonkers.dev
 spec:
   interval: 10m
@@ -45,3 +45,7 @@ spec:
     kind: OCIRepository
     name: project-immich
   path: ./apps/immich
+  dependsOn:
+    - name: apps-data
+    - name: apps-edge
+    - name: apps-secrets

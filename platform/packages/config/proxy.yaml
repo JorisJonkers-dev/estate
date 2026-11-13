@@ -1,0 +1,116 @@
+# git-pkgs/proxy v0.11.0 configuration (docs/configuration.md in git-pkgs/proxy).
+# base_url comes from PROXY_BASE_URL in env/proxy/base.env.
+
+# Loopback only: the gate sidecar in the same pod is the one way in. No Service names this port,
+# but that alone does not close it: the estate's NetworkPolicies are rendered and not enforced
+# (platform.intent.yml, networkPolicyController), so any pod could otherwise reach the pod's
+# address on 8080 and skip the gate.
+listen: "127.0.0.1:8080"
+
+# A first fetch of a large artifact streams from upstream while it is cached. The defaults, 5
+# minutes for both, would cut a slow upstream's JDK-sized jar or large wheel.
+write_timeout: "30m"
+artifact_timeout: "20m"
+# Nothing the estate builds with is larger; a bigger file is refused and not cached.
+artifact_max_size: "4GB"
+# With the cooldown on, npm metadata is fetched as full packuments, which run past the 100MB
+# default for packages with thousands of versions; such a package would get 502.
+metadata_max_size: "200MB"
+
+# Off for a public instance, stated rather than left to the defaults. The gate routes neither
+# /api nor /gradle, so cache deletion, hosted pushes and Gradle build cache uploads are
+# unreachable in any case.
+cache_delete: false
+ui_request_sources: false
+ui_failure_details: false
+
+storage:
+  url: "file:///data/artifacts"
+  # Below the 100Gi volume, which also holds the database.
+  max_size: "85GB"
+  retention:
+    # Evict what nobody fetched for 60 days.
+    default: "60d"
+    ecosystems:
+      # Image layers are large and an image is pulled again when it is evicted, so layers go
+      # sooner than the packages above. Only blobs are evicted; manifests stay cached.
+      oci: "30d"
+      # Generic retention is opt-in. A Gradle distribution is kept for 60 days after its last
+      # fetch, like the packages above; services.gradle.org keeps old releases, so an evicted
+      # file can be fetched again.
+      generic: "60d"
+
+database:
+  driver: "sqlite"
+  path: "/data/proxy.db"
+
+log:
+  level: "info"
+  format: "json"
+
+# Keep the last metadata when an upstream is down, and revalidate after 5 minutes.
+cache_metadata: true
+metadata_ttl: "5m"
+
+# The gate does not trust an incoming X-Forwarded-For, so the proxy logs the edge's address for
+# every caller. Trusting the header would let a caller choose the address it is logged as.
+trust_forwarded_for: false
+
+upstream:
+  # Maven Central, with the Gradle Plugin Portal as the fallback for plugin markers, at /maven/.
+  # Google's mirror of Central, not repo1.maven.org: the cooldown sends a HEAD per version to read
+  # its POM's Last-Modified, and on 2026-11-09 five Gradle CI jobs at once got this proxy rate
+  # limited by repo1.maven.org (80 requests answered 503 during the hold). The mirror's
+  # Last-Modified is when a file reached it, a few hours after publishing, so versions stay in
+  # cooldown a little longer; that errs on the safe side.
+  maven: "https://maven-central.storage-download.googleapis.com/maven2"
+  gradle_plugin_portal: "https://plugins.gradle.org/m2"
+  # The other repositories the estate's Gradle builds name, each at /maven/<name>/.
+  maven_repositories:
+    spring-milestone: "https://repo.spring.io/milestone"
+    # The old OSSRH host answers 404; Central Portal serves snapshots now.
+    sonatype-snapshots: "https://central.sonatype.com/repository/maven-snapshots"
+    google-maven: "https://maven.google.com"
+  go: "https://proxy.golang.org"
+  # sum.golang.org is served at /go/sumdb/sum.golang.org/ by default, so Go clients need
+  # no route of their own to it.
+  npm: "https://registry.npmjs.org"
+  pypi: "https://pypi.org"
+  pypi_download: "https://files.pythonhosted.org"
+  cargo: "https://index.crates.io"
+  cargo_download: "https://static.crates.io/crates"
+  # Container images at /v2/. Unprefixed names (library/busybox) come from Docker Hub; the
+  # others are named by upstream/<name>/, for example /v2/upstream/ghcr/owner/app/.
+  oci_default: "https://registry-1.docker.io"
+  oci:
+    ghcr: "https://ghcr.io"
+    gcr: "https://gcr.io"
+    quay: "https://quay.io"
+  # Alpine packages at /apk/alpine/. This is the proxy's default, stated so it is not left to
+  # one.
+  apk:
+    alpine: "https://dl-cdn.alpinelinux.org/alpine"
+  # Debian packages at /debian/ (pool and dists), with the security archive at
+  # /debian/security/, because a Debian suite's updates live on a separate host.
+  debian: "https://deb.debian.org/debian"
+  debian_repositories:
+    security: "https://security.debian.org/debian-security"
+  # Gradle distributions at /generic/gradle/distributions/. generic_paths limits the upstream
+  # to that directory, so the rest of services.gradle.org is not reachable through the proxy.
+  generic:
+    gradle: "https://services.gradle.org"
+  generic_paths:
+    gradle:
+      - "distributions/**"
+  # A release zip never changes for its version, so it is cached once and never revalidated.
+  generic_artifacts:
+    gradle:
+      - 'distributions/(?P<file>gradle-(?P<version>[0-9][^/]*?)-(?:bin|all)\.zip)'
+
+# No version published less than 7 days ago is listed or served, in every ecosystem the cooldown
+# supports (JorisJonkers-dev/workspace#167). It does not cover container images, Alpine or
+# Debian packages, or Gradle distributions: v0.11.0 has no publish time for them. First-party
+# packages do not come through here: they stay
+# on GitHub Packages, and Go modules under github.com/JorisJonkers-dev are GOPRIVATE.
+cooldown:
+  default: "7d"

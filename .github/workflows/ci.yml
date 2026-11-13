@@ -26,10 +26,21 @@ jobs:
     permissions:
       contents: read
       packages: read
+    # The package proxy sits behind the edge's single Traefik, so a restart
+    # there refuses or resets connections for tens of seconds. npm's default
+    # of two retries gives up first; five, with back-off up to a minute, outlast it.
+    env:
+      NPM_CONFIG_FETCH_RETRIES: "5"
+      NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: "10000"
+      NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: "60000"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: JorisJonkers-dev/github-workflows/actions/setup-package-proxy@48fcba8b143567e12716f4b77b9a3ab211719ffd # v0.50.1
+        with:
+          token: ${{ secrets.PACKAGES_PROXY_TOKEN }}
+          require-package-proxy: true
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
@@ -45,6 +56,18 @@ jobs:
           version="$(yq -er '."deploy-kit"' toolkit.yml)"
           npm install --no-save --ignore-scripts "@jorisjonkers-dev/deploy-kit@${version}"
           test "$(node -p "require('@jorisjonkers-dev/deploy-kit/package.json').version")" = "$version"
+      # Publish Fragment validates and packs with its own toolkit. An older minor
+      # refuses fields this one added (release 0.36.0, #279); a newer one is
+      # isolated by composition. So the two share a minor.
+      - name: Publish Fragment packs at the toolkit's minor
+        run: |
+          ref="$(grep -oE 'publish-fragment\.yml@[0-9a-f]{40}' .github/workflows/release.yml | cut -d@ -f2)"
+          [ -n "$ref" ] || { echo "::error::release.yml pins no Publish Fragment commit"; exit 1; }
+          packs="$(curl -fsSL "https://raw.githubusercontent.com/JorisJonkers-dev/github-workflows/${ref}/tools/deploy-kit/package.json" \
+            | jq -er '.devDependencies["@jorisjonkers-dev/deploy-kit"]')"
+          composes="$(yq -er '."deploy-kit"' toolkit.yml)"
+          [ "${packs%.*}" = "${composes%.*}" ] \
+            || { echo "::error::Publish Fragment packs with deploy-kit ${packs}, toolkit.yml composes with ${composes}: move release.yml's pin to a github-workflows release on ${composes%.*}"; exit 1; }
       - name: Pull every other participant's newest fragment
         env:
           OWNER: jorisjonkers-dev

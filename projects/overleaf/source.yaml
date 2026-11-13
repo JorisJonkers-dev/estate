@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/overleaf
   ref:
-    digest: sha256:2cf19a1a676d77d6cf9d0bba9d16e2edf0b052199ac0f7b8781b350c3be678b0
+    digest: sha256:5ad5d108d9160b76331203a6f5fb8060932b090a5c42973f4c71be84d7d30b32
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/overleaf
-    event.toolkit.fluxcd.io/sha: 51a2ff67ad45390bf16c19cd1df84ff6f61b2756
+    event.toolkit.fluxcd.io/sha: c34aea55ba65c08a34b83b5e7882fe9b38c0c024
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 1.1.1
+    event.toolkit.fluxcd.io/version: 1.2.4
     event.toolkit.fluxcd.io/url: https://overleaf.jorisjonkers.dev
 spec:
   interval: 10m
@@ -45,3 +45,7 @@ spec:
     kind: OCIRepository
     name: project-overleaf
   path: ./apps/overleaf
+  dependsOn:
+    - name: apps-edge
+    - name: apps-mail
+    - name: apps-secrets

@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/delivery
   ref:
-    digest: sha256:e1a7fe28214e0718469a73ea00ede1490729fd803043299e232306f9c6abf66c
+    digest: sha256:fe6a2ddf1eb2ecf9524f55ea94ce54aad0b03cac7f850182b73837db8cd574fe
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/delivery
-    event.toolkit.fluxcd.io/sha: dce55cd9db5b9fb25baa5f94f4caabe78c80692f
+    event.toolkit.fluxcd.io/sha: 869048d81ce080eaa74626fd66dcd710ad427509
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.15.2
+    event.toolkit.fluxcd.io/version: 0.17.2
 spec:
   interval: 10m
   prune: true
@@ -44,3 +44,5 @@ spec:
     kind: OCIRepository
     name: project-delivery
   path: ./apps/delivery
+  dependsOn:
+    - name: apps-secrets

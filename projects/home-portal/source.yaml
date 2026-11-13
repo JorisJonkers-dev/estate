@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/home-portal
   ref:
-    digest: sha256:804825c9df13cecab9ce248c6a6ae97ab801dc79cf2171e7784182005f310b39
+    digest: sha256:d02098a4198a0819d58575e117fd3a53d2611926bd1a804bb302c8c4924d6333
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/home-portal
-    event.toolkit.fluxcd.io/sha: 706500105c945e808aacb4db7eb2aba1572eaf68
+    event.toolkit.fluxcd.io/sha: ab0ff21134de304ebd466cf107db6a8e3f060de3
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 0.15.0
+    event.toolkit.fluxcd.io/version: 0.15.2
     event.toolkit.fluxcd.io/url: https://jorisjonkers.dev
 spec:
   interval: 10m
@@ -45,3 +45,5 @@ spec:
     kind: OCIRepository
     name: project-home-portal
   path: ./apps/home-portal
+  dependsOn:
+    - name: apps-edge

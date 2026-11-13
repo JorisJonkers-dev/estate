@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/qbittorrent
   ref:
-    digest: sha256:b2370297716282088f6366f6a611c26c3210c6b0cbcbdd8ad0c876ed75d95846
+    digest: sha256:faf0c3af0369a23520f41d55bd46f0c7af60582085bcc0199bc1f3ca7a4274b9
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,10 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/qbittorrent
-    event.toolkit.fluxcd.io/sha: c35f233a20e7dab43a0f78c7d2c12e1cd8aa3f75
+    event.toolkit.fluxcd.io/sha: f9f1a8bcb94389f0d6359a6d475a25d712dd76d6
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 5.3.1
+    event.toolkit.fluxcd.io/version: 5.4.1
+    event.toolkit.fluxcd.io/url: https://qbittorrent.jorisjonkers.dev
 spec:
   interval: 10m
   prune: true
@@ -44,3 +45,6 @@ spec:
     kind: OCIRepository
     name: project-qbittorrent
   path: ./apps/qbittorrent
+  dependsOn:
+    - name: apps-edge
+    - name: apps-secrets

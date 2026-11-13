@@ -171,7 +171,13 @@ jobs:
       packages: write
       id-token: write
       issues: write
+    # The package proxy sits behind the edge's single Traefik, so a restart
+    # there refuses or resets connections for tens of seconds. npm's default
+    # of two retries gives up first; five, with back-off up to a minute, outlast it.
     env:
+      NPM_CONFIG_FETCH_RETRIES: "5"
+      NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: "10000"
+      NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: "60000"
       OWNER: jorisjonkers-dev
       COMPOSED: ghcr.io/jorisjonkers-dev/composed
       PLATFORM_PROJECT: jorisjonkers.dev
@@ -185,6 +191,11 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
           persist-credentials: false
+
+      - uses: JorisJonkers-dev/github-workflows/actions/setup-package-proxy@48fcba8b143567e12716f4b77b9a3ab211719ffd # v0.50.1
+        with:
+          token: ${{ secrets.PACKAGES_PROXY_TOKEN }}
+          require-package-proxy: true
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:

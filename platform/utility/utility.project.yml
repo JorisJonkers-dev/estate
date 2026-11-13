@@ -1,0 +1,121 @@
+# deploy-kit Project Intent for utility: adguard, the LAN's DNS resolver, and headlamp, the
+# cluster dashboard. Both run third-party images, so no repository of their own publishes them:
+# this file publishes with the Platform document, on this repository's releases, and their
+# images are in images.lock.yml. Neither holds data.
+#
+# It starts from deploy-kit's worked example (spec/v1/examples/utility/utility.project.yml).
+# Each value that differs from it is read from the live objects fleet-infra runs in
+# utility-system, and the comment beside it says why. The handover's diff against those objects
+# is JorisJonkers-dev/deploy-kit#657.
+
+apiVersion: intent.jorisjonkers.dev/v1
+kind: Project
+schemaVersion: 1.0.0
+
+project: utility # the namespace derives: utility-system, where both already run
+owner: joris
+
+applications:
+  - id: adguard
+    # The LAN's devices ask adguard for names on 53, over UDP and TCP, at lan-dns: one
+    # address, 192.168.0.98, the one the router names first today. Both entries are one
+    # Service, so one address answers both protocols. The two replicas are failover, not load
+    # sharing: one node announces the address, and the other replica takes over when that
+    # node goes, in 5.3s for a pod and 6.6s for a node (JorisJonkers-dev/deploy-kit#372).
+    l4Exposure:
+      - { address: lan-dns, port: 53, protocol: udp, process: adguard, surface: dns }
+      - { address: lan-dns, port: 53, protocol: tcp, process: adguard, surface: dns }
+
+    # The web UI, at the host and behind the forward-auth the old path's IngressRoute has:
+    # AdGuard runs with no users of its own.
+    exposure:
+      - name: public
+        host: adguard.jorisjonkers.dev
+        audience: authenticated
+        routes:
+          - { path: /, match: prefix, process: adguard, surface: http }
+
+    processes:
+      - name: adguard
+        lifecycle: application
+        image: adguard # adguard/adguardhome; the lock resolves digest, uid and gid
+        runtime: none
+        # DNS on 53 itself: the image's binary carries the file capability
+        # cap_net_bind_service+ep, so exec fails with EPERM unless the container keeps
+        # NET_BIND_SERVICE, which the render adds for a port below 1024 and for nothing else.
+        provides:
+          http: 3000
+          dns: 53
+        # The live pods request 50m and 128Mi, and are limited at 512Mi; the model sets the
+        # request to the limit. The working set is 80-92Mi live; the work directory held in
+        # memory below adds its own 128Mi to both.
+        placement:
+          memory: 128Mi
+          cpu: 50m
+          capabilities: [adguard]
+        replicas:
+          count: 2
+          reason: the LAN keeps its resolver while one node is down
+          across: node
+        # Its work directory, the query log and statistics, holds 66MB on instance b (kubelet
+        # stats summary, 2026-10-29), past the platform's one 64Mi ephemeral size, so it is
+        # held in memory at its own size and counted toward the Process
+        # (deploy-kit spec/v1/10-project-intent.md#writable-paths-are-declared-not-exempted).
+        # It is lost with the pod, as the old path's emptyDir is.
+        writablePaths: [{ path: /opt/adguardhome/work, memory: 128Mi }, /opt/adguardhome/conf]
+        # AdGuard rewrites its configuration on every start and stops if it cannot, so it is
+        # seeded onto its conf directory before each start rather than mounted read-only
+        # (deploy-kit spec/v1/10-project-intent.md#seeded-assets), as the old path's
+        # seed-config init container copies it. The directory is the pod's own: each pod
+        # starts from this file.
+        assets:
+          - from: config/AdGuardHome.yaml
+            seedAt: /opt/adguardhome/conf/AdGuardHome.yaml
+        # Its DNS-over-HTTPS upstream, and the filter lists it fetches, are on the internet.
+        egress: { to: internet, reason: answers the LAN from a DNS-over-HTTPS upstream }
+        # On the DNS port, as the old path probes: with the Local traffic policy, readiness is
+        # what decides which node announces the address, so it has to mean "answers DNS". The
+        # web UI stays up while the DNS listener is wedged.
+        probes:
+          readiness: { tcp: 53 }
+          liveness: { tcp: 53 }
+        startupBudget: 30s
+        cutover: continuous
+
+  - id: headlamp
+    # The host, audience and OIDC client the old path serves: auth-api's `headlamp` client
+    # names https://dashboard.jorisjonkers.dev/oidc-callback, so the worked example's LAN
+    # host would sign no one in.
+    exposure:
+      - name: public
+        host: dashboard.jorisjonkers.dev
+        audience: authenticated
+        routes:
+          - { path: /, match: prefix, process: headlamp, surface: http }
+    processes:
+      - name: headlamp
+        lifecycle: application
+        image: headlamp # ghcr.io/headlamp-k8s/headlamp; the lock resolves digest, uid and gid
+        runtime: none
+        provides:
+          http: 4466
+        # The live pod requests nothing; the worked example's quantities stand.
+        placement:
+          memory: 128Mi
+          cpu: 50m
+        # headlamp copies its frontend, 32MiB, into a new /tmp/.headlamp* directory on every
+        # start, and exits if it cannot; the old path's pod has a writable root, so it never
+        # showed. The declared /tmp is also its HOME, where it makes its empty plugin
+        # directories. Each start leaves its copy behind, so a container restart takes the
+        # directory past the platform's 64Mi and the pod is evicted and replaced, clean.
+        writablePaths: [/tmp]
+        api:
+          reason: it acts on the API with each signed-in user's own token, and holds nothing of its own
+        # It exchanges each user's sign-in code at auth-api's token endpoint.
+        dependsOn:
+          - { application: auth, surface: http }
+        probes:
+          readiness: { path: /, port: 4466 }
+          liveness: { path: /, port: 4466 }
+        startupBudget: 30s
+        cutover: continuous

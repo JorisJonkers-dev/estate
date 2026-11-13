@@ -2,21 +2,25 @@
 
 What the estate needs that git cannot hold: three GitHub Apps, their keys,
 every secret a person puts in Vault, and the credentials a cluster reads the
-estate with. Three scripts, split by what a cluster move repeats. Each walks
+estate with. Three scripts, split by what a cluster move repeats, and a fourth
+that removes from Vault what nothing uses any more. Each walks
 you through each step, asks before every write, reads back what it wrote, and
 is safe to re-run.
 
 | script | run | does |
 |---|---|---|
 | [`github-apps.sh`](github-apps.sh) | once per organization | creates the dispatch, Collector and Reporter GitHub Apps, puts the dispatch App's id and key in an org variable and secret every repository reads, hands the Collector's and the Reporter's new keys to `secrets.sh` for Vault, and puts the Collector key in the estate repository's `production` environment, which only `main` deploys to and no administrator bypasses, for composition's pin commit |
-| [`secrets.sh`](secrets.sh) | once per cluster, after a restore, and whenever a value is added or replaced | every secret a person writes to Vault, one section each: the roles fleet-infra's `vault-bootstrap-auth` Job and deploy-kit's Vault policy job log in as, the metrics token, the Discord webhook, the Collector and Reporter keys, the OIDC client secrets (estate-dashboard, tribelt, grimoire, findability-explorer) in both the copy auth-api reads and the app's own, and the keys of Overleaf, Hermes, Hindsight and Karakeep. It checks each, skips what is already right, and stops only where a value is missing or wrong; after a client secret changes it restarts auth-api once and proves every client at the token endpoint |
-| [`cluster.sh`](cluster.sh) | once per cluster, and after every move | writes Flux's read access to this repository and its pull access to the render packages, applies Flagger's CRDs, and proves Flux sees the estate |
+| [`secrets.sh`](secrets.sh) | once per cluster, after a restore, and whenever a value is added or replaced | every secret a person writes to Vault, one section each: the roles fleet-infra's `vault-bootstrap-auth` Job and deploy-kit's Vault policy job log in as, the metrics token, the Discord webhook, the Collector and Reporter keys, the OIDC client secrets (estate-dashboard, tribelt, grimoire, findability-explorer) in both the copy auth-api reads and the app's own, the keys of Overleaf, Hermes, Hindsight and Karakeep, Stalwart's recovery admin, and the off-cluster backup credential. It checks each, skips what is already right, and stops only where a value is missing or wrong; after a client secret changes it restarts auth-api once and proves every client at the token endpoint |
+| [`cluster.sh`](cluster.sh) | once per cluster, and after every move | writes Flux's read access to this repository and its pull access to the render packages, applies the CRDs of the bootstrap set no render holds (Flagger's, MetalLB's and the two monitoring operators'), and proves Flux sees the estate |
+| [`retire.sh`](retire.sh) | once per retirement an issue decides | deletes what Vault still holds for something nothing uses: the `downloads` role and policy (#227), and the old path's `postgres`, `rabbitmq`, `stalwart` and `auth-api` roles and policies, once their Projects are on the estate path. It checks again, read-only and live, that nothing uses them, shows what it deletes, asks, and reads back that it is gone; a retirement already done is skipped |
 
 ## On a new cluster
 
-1. Install Flux and unseal Vault, restoring it if there is a backup:
+1. Install Flux, restoring Vault if there is a backup:
    `JorisJonkers-dev/fleet-infra`'s `cluster/bootstrap/flux-bootstrap-playbook.md`
-   and the Vault playbooks beside it.
+   and the Vault playbooks beside it. Then unseal Vault with
+   [`ops/unseal-vault.sh`](../ops/unseal-vault.sh), which finds the pod by label
+   and takes the key shares one at a time.
 2. Run `./bootstrap/secrets.sh` against the new cluster's kubectl context. On a
    Vault initialised minutes ago there is no OIDC sign-in yet, so paste the
    root token when it asks. It writes the role the Vault policy job logs in as
@@ -39,6 +43,11 @@ client secrets.
 ./bootstrap/secrets.sh --only tribelt --rotate           # a new client secret; restarts auth-api
 ./bootstrap/secrets.sh --only hermes --replace           # rewrite the document, dropping what is not offered
 ./bootstrap/secrets.sh --only overleaf --rollback        # back to an earlier KV version
+./bootstrap/secrets.sh --only mail                       # Stalwart's user:password pair, from its admin login
+./bootstrap/secrets.sh --only data                       # the data Project's catalog and backup logins, copied
+./bootstrap/secrets.sh --only litellm                    # LiteLLM master and salt keys and the admin UI's OIDC client secret generated; the four provider keys and the catalogue token pasted
+./bootstrap/secrets.sh --only mongo                      # MongoDB's logins, member certificate and users, minted for its handover
+./bootstrap/secrets.sh --only backup-off-cluster         # the S3 key pair irreplaceable backups copy off-cluster with
 ./bootstrap/secrets.sh --only grimoire --rerun-garage-bootstrap
 ./bootstrap/secrets.sh --only discord-webhook --rotate --test-alert
 ```
@@ -47,9 +56,10 @@ client secrets.
 rotation breaks stored state (a session key, a VAPID or S3 pair), which is
 only ever minted where missing. `--restart-auth-api` restarts auth-api even
 when no secret changed, for a client registered by an auth-api release after
-its secret was written. The `garage-keys`, `agents-github-app` and
-`agents-deploy-key` sections are optional: a full run reports them, and only
-`--only` acts on them.
+its secret was written. The `garage-keys` section is optional: a full run
+reports it, and only `--only` acts on it. So does `mongo`, which mints MongoDB's logins and its
+member certificate where they are missing and creates its users in the live
+MongoDB, for its handover (`docs/runbooks/mongo-handover.md`).
 
 Keys deploy-kit generates (a `generate:` key in a project file, written once by
 the Vault policy job) are never written here; `secrets.sh` only reports
@@ -57,7 +67,8 @@ whether they exist yet: tribelt's `secret/tribelt-system/keys`
 (`session_key`, `visitor_hmac_key`) and the Findability Explorer's
 `secret/findability-explorer-system/session` (`key`, its `SESSION_KEY`).
 
-**Vault sign-in.** `secrets.sh` port-forwards to `svc/vault` in `data-system`
+**Vault sign-in.** `secrets.sh` port-forwards to `svc/vault` in `secrets-system`
+(`ESTATE_VAULT_NAMESPACE=data-system` reaches the old path's Vault instead)
 on a free local port and points the local `vault` CLI at it. It then uses a
 `VAULT_TOKEN` already in the environment if Vault accepts it; otherwise it
 signs in with OIDC (`vault login -method=oidc`): a browser opens on auth-api,
@@ -76,6 +87,51 @@ VAULT_ADDR=http://localhost:18299 VAULT_TOKEN=root vault auth enable kubernetes
 printf x | VAULT_ADDR=http://localhost:18299 VAULT_TOKEN=root vault kv put -mount=secret auth-api placeholder=-
 ESTATE_VAULT_ADDR=http://localhost:18299 VAULT_TOKEN=root ESTATE_ENV_FILE=/tmp/estate.env ./bootstrap/secrets.sh
 ```
+
+## retire.sh
+
+```bash
+./bootstrap/retire.sh --list         # the retirements
+./bootstrap/retire.sh downloads      # one
+./bootstrap/retire.sh postgres rabbitmq stalwart auth-api
+```
+
+The old path's roles are written by fleet-infra's `vault-bootstrap-auth` Job,
+which writes them again on its next run. Each is refused while a
+`vault-bootstrap-auth` ConfigMap still names it, so run them once the secrets
+handover has taken that Job off the old path.
+
+Not a `secrets.sh` section: `secrets.sh` puts values in a Vault and reruns on
+every new cluster, and a fresh Vault never holds what is retired. A retirement
+deletes only what is still exactly what its issue found. It refuses a role that
+binds anything more, a policy that grants anything more, a policy anything
+else in Vault hands out (any auth role, token role, identity group or entity),
+and anything the cluster could still log in with. A read that fails stops the
+run and never passes for "absent". It signs in to Vault the way `secrets.sh`
+does, and `ESTATE_VAULT_ADDR` gives it the same dry run.
+
+## Which kubectl context
+
+A workstation has two contexts per cluster (agent-kit's
+`scripts/workstation-kube.py`): `personal` is read-only (no Secrets, no
+port-forward, no exec) and `personal-admin` is cluster-admin behind `sudo`. The
+scripts write, port-forward and exec, so [`lib/kube.sh`](lib/kube.sh) picks the
+admin one: `ESTATE_KUBE_CONTEXT` if set, else `<current>-admin` when that
+context exists, else the current context. The "Is ... the cluster you mean to
+write to?" question names the context chosen. A `KUBECTL` you set is used as it
+is. So the command for the litellm secrets is just:
+
+```bash
+./bootstrap/secrets.sh --only litellm
+```
+
+It asks for the sudo password once, up front. The admin credential needs a
+terminal, even with sudo cached, so the background port-forward reads its stdin
+from `/dev/tty`; with no terminal the script stops and says so. The fallback
+there: run `kubectl --context personal-admin -n secrets-system port-forward
+svc/vault 8200:8200` in another terminal and run the script with
+`ESTATE_VAULT_ADDR=http://127.0.0.1:8200` (the cluster steps are then skipped,
+as in a dry run).
 
 ## What they need
 

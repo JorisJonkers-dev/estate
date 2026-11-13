@@ -1,0 +1,70 @@
+# COMMITTED COPY of a break-glass artifact that was placed by hand on
+# enschede-t1000-1 at /var/lib/rancher/k3s/agent/pod-manifests/.
+#
+# Nothing delivers this file, and nothing may: applying it as a normal Pod
+# would double bind :53 against the real adguard Deployment. It lives here so
+# the on-node file is not invisible drift -- the estate contract treats a live
+# object with no declared counterpart as exactly that.
+#
+# To place it:   ops/recover-wedged-apiserver-cache.sh --install-dns-fallback
+# To remove it:  ops/recover-wedged-apiserver-cache.sh --remove-dns-fallback
+#
+# ---- verbatim content as deployed ----
+# EMERGENCY STATIC POD -- added 2026-09-04 to restore household DNS.
+#
+# Why: the k3s apiserver's "nodes" (/registry/minions) watch cache on
+# frankfurt-contabo-1 is frozen at resourceVersion 36426982 (since
+# 2026-09-02 19:28). kubelet on this node therefore can never sync its node
+# informer, never starts its apiserver pod source, and runs zero pods.
+# A static pod is read from disk by kubelet and does not need that informer.
+#
+# REMOVE THIS FILE once `systemctl restart k3s` has been run on
+# frankfurt-contabo-1 and the adguard Deployment can schedule again.
+# While this file exists the real adguard pod will stay Pending on
+# "no free ports", which is intentional -- it stops a double bind of :53.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: adguard-static
+  namespace: utility-system
+  labels:
+    app.kubernetes.io/name: adguard-static
+spec:
+  hostNetwork: true
+  dnsPolicy: Default
+  restartPolicy: Always
+  containers:
+    - name: adguardhome
+      image: adguard/adguardhome:v0.107.77
+      imagePullPolicy: IfNotPresent
+      ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        - containerPort: 53
+          name: dns-tcp
+          protocol: TCP
+        - containerPort: 53
+          name: dns-udp
+          protocol: UDP
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      volumeMounts:
+        - mountPath: /opt/adguardhome/work
+          name: work
+        - mountPath: /opt/adguardhome/conf
+          name: conf
+  volumes:
+    - name: work
+      hostPath:
+        path: /var/lib/AdGuardHome
+        type: DirectoryOrCreate
+    - name: conf
+      hostPath:
+        path: /var/lib/AdGuardHome
+        type: DirectoryOrCreate
