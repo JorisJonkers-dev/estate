@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/overleaf
   ref:
-    digest: sha256:be5cc16bef33b9fabd49f07753eebbfe665da6e54fa4e637552e9c42a06dcb67
+    digest: sha256:5ad5d108d9160b76331203a6f5fb8060932b090a5c42973f4c71be84d7d30b32
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/overleaf
-    event.toolkit.fluxcd.io/sha: d3b37587a416d97c7a4e6c8a3ade807dd12da44d
+    event.toolkit.fluxcd.io/sha: c34aea55ba65c08a34b83b5e7882fe9b38c0c024
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 1.2.3
+    event.toolkit.fluxcd.io/version: 1.2.4
     event.toolkit.fluxcd.io/url: https://overleaf.jorisjonkers.dev
 spec:
   interval: 10m

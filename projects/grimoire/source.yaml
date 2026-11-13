@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/grimoire
   ref:
-    digest: sha256:983f1973bc590508f4314d0bf71e2a2f25e283f9564842d483607029238cbc3d
+    digest: sha256:4c0712b1d665d01a6dec17045ef00b5ee65b4a1ae1c1cc210a91ce90345a7fec
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/grimoire
-    event.toolkit.fluxcd.io/sha: 4cd3de9646f24820cc051e4a4c095aed30dc1689
+    event.toolkit.fluxcd.io/sha: 043772329a0962fe966727468db31116cd2cae41
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 1.6.0
+    event.toolkit.fluxcd.io/version: 1.7.0
     event.toolkit.fluxcd.io/url: https://grimoire.jorisjonkers.dev
 spec:
   interval: 10m
