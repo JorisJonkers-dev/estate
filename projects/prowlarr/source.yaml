@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/prowlarr
   ref:
-    digest: sha256:4999a4062ff25e9aa239f0f33adae8190cdbb207b22b5e2adfc6cec54c767441
+    digest: sha256:5bc529ff7aafd33a8788785965610c4c2705a95a07a12999e083169e7967f637
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/prowlarr
-    event.toolkit.fluxcd.io/sha: ee7c3e62a2a7e684997460c75200765693738803
+    event.toolkit.fluxcd.io/sha: 1318d18a941a055d0b726390c05623b7550d55b8
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 2.7.0
+    event.toolkit.fluxcd.io/version: 2.7.1
     event.toolkit.fluxcd.io/url: https://prowlarr.jorisjonkers.dev
 spec:
   interval: 10m
