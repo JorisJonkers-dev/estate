@@ -10,7 +10,7 @@ apiVersion: state.jorisjonkers.dev/v1
 kind: ClusterState
 schemaVersion: 1.0.0
 cluster: "production"
-capturedAt: "2026-11-13T07:36:37Z"
+capturedAt: "2026-11-13T07:56:37Z"
 bindings:
   - { claim: "alertmanager-data", node: "frankfurt-contabo-1" }
   - { claim: "alertmanager-metrics-stack-alertmanager-db-alertmanager-metrics-stack-alertmanager-0", node: "frankfurt-contabo-1" }
@@ -119,7 +119,7 @@ placements:
   - { process: "l4-speaker", node: "enschede-pi-2" }
   - { process: "l4-speaker", node: "enschede-pi-3" }
   - { process: "l4-speaker", node: "enschede-t1000-1" }
-  - { process: "litellm-primary", node: "enschede-gtx-960m-1" }
+  - { process: "litellm-primary", node: "frankfurt-contabo-1" }
   - { process: "loki", node: "enschede-t1000-1" }
   - { process: "n8n", node: "frankfurt-contabo-1" }
   - { process: "node-metrics", node: "enschede-gtx-960m-1" }
