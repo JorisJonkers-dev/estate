@@ -100,6 +100,10 @@ for attempt in 1 2 3; do
   git reset --quiet --hard FETCH_HEAD
   edit
   git add "$source"
+  if git diff --cached --quiet; then
+    echo "::error::${project} changed nothing: it was already ${done} at this second"
+    exit 1
+  fi
   git commit --quiet -m "chore(deploy): ${action} ${project} [ci skip]" ${body[@]+"${body[@]}"}
   if git push --quiet "$PUSH_URL" HEAD:main; then
     echo "${done} ${project}"
