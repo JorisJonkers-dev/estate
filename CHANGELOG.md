@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.51.0](https://github.com/JorisJonkers-dev/estate/compare/v0.50.0...v0.51.0) (2026-11-14)
+
+
+### Features
+
+* retry a failed release from its pin, without a rollout restart ([#240](https://github.com/JorisJonkers-dev/estate/issues/240)) ([903aba9](https://github.com/JorisJonkers-dev/estate/commit/903aba9bf2d508bf03ebcc4c3aeba317ce3dfb9d))
+* **secrets:** ask for the GPU workstation gate's key in the litellm section ([#386](https://github.com/JorisJonkers-dev/estate/issues/386)) ([c626004](https://github.com/JorisJonkers-dev/estate/commit/c626004e9e4b60021f3b08bdcedccd87a396d4c0))
+
+
+### Bug Fixes
+
+* **observability:** alert on LiteLLM's team budgets and keep client addresses out of its traces ([#385](https://github.com/JorisJonkers-dev/estate/issues/385)) ([1c00a10](https://github.com/JorisJonkers-dev/estate/commit/1c00a105e44adff000a20df08abff238b2a3e2d2))
+
 ## [0.50.0](https://github.com/JorisJonkers-dev/estate/compare/v0.49.1...v0.50.0) (2026-11-13)
 
 
