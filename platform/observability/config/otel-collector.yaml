@@ -32,6 +32,21 @@ processors:
         - 'IsMatch(attributes["url.path"], "^/api/actuator/.*") == true'
         - 'IsMatch(attributes["url.path"], "^/actuator/.*") == true'
         - 'attributes["url.path"] == "/api/v1/health"'
+  # LiteLLM's request span copies the caller's request headers into its metadata: the client's
+  # public address (cf-connecting-ip, x-real-ip, x-forwarded-for), its country and user agent.
+  # Its telemetry is metadata only (model, key alias, tokens, cost, status), so those leave here;
+  # turn_off_message_logging already keeps prompts and responses out.
+  transform/litellm_no_client_address:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        conditions:
+          - 'resource.attributes["service.name"] == "litellm"'
+        statements:
+          - 'delete_key(attributes, "metadata.requester_metadata")'
+          - 'delete_key(attributes, "metadata.requester_custom_headers")'
+          - 'delete_key(attributes, "metadata.requester_ip_address")'
+          - 'delete_key(attributes, "metadata.user_agent")'
   # The originating service in every span's name, so the trace list shows it.
   transform/span_names:
     error_mode: ignore
@@ -65,7 +80,7 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [filter/drop_actuator, transform/span_names, batch]
+      processors: [filter/drop_actuator, transform/litellm_no_client_address, transform/span_names, batch]
       exporters: [otlphttp/tempo]
     logs:
       receivers: [otlp]

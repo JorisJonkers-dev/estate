@@ -1,6 +1,6 @@
 # Alert rules for LiteLLM (JorisJonkers-dev/litellm, agent-kit#454). The metrics are LiteLLM's
-# open-source prometheus callback, labelled by api_key_alias and requested_model only; the
-# dashboard is shipped by the litellm Project. A rule's `severity` picks the route the Platform
+# open-source prometheus callback, labelled by api_key_alias and requested_model (budgets by the
+# route team's team_alias); the dashboard is shipped by the litellm Project. A rule's `severity` picks the route the Platform
 # document's `monitoring` block declares.
 groups:
   - name: litellm
@@ -31,6 +31,27 @@ groups:
         annotations:
           summary: "LiteLLM key {{ $labels.api_key_alias }} is out of budget"
           description: The proxy refuses this key (budget_exceeded); the agents using it fail their node.
+      # Setup mints each agent key into its route's team (agent-kit#734), and the team holds the
+      # budget, so these are the budgets the agents actually hit. The key rules above still cover
+      # a key with its own max_budget.
+      - alert: LiteLLMTeamBudgetLow
+        expr: |
+          max by (team_alias) (litellm_remaining_team_budget_metric)
+            / (max by (team_alias) (litellm_team_max_budget_metric) > 0) < 0.1
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "LiteLLM route team {{ $labels.team_alias }} has under 10% of its budget left"
+          description: The team's remaining budget is below a tenth of its max_budget until its budget_duration resets it.
+      - alert: LiteLLMTeamBudgetExhausted
+        expr: |
+          max by (team_alias) (litellm_remaining_team_budget_metric) <= 0
+            and (max by (team_alias) (litellm_team_max_budget_metric) > 0)
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "LiteLLM route team {{ $labels.team_alias }} is out of budget"
+          description: The proxy refuses every key in this team (budget_exceeded) until the team's budget resets; the agents on this route fail their node.
       - alert: LiteLLMSpendBlind
         # A budget counts only what LiteLLM can price: a paid model it has no price for records
         # spend 0, so the cap would not bite. Free and local routes are expected to cost nothing.
@@ -44,9 +65,12 @@ groups:
           summary: "LiteLLM key {{ $labels.api_key_alias }} moves tokens and records no spend on {{ $labels.requested_model }}"
           description: The model has no price in LiteLLM, so this key's budget cannot be enforced. Set input_cost_per_token and output_cost_per_token for the route.
       - alert: LiteLLMErrorsHigh
+        # The edge is anonymous, so a request without a valid key (a scanner, a client missing its
+        # key) is refused with api_key_alias "None". Those are not the agents' failures: only
+        # requests that passed key auth count, or a few strangers would page on a quiet proxy.
         expr: |
-          sum(rate(litellm_proxy_failed_requests_metric_total[15m]))
-            / clamp_min(sum(rate(litellm_proxy_total_requests_metric_total[15m])), 0.01) > 0.2
+          sum(rate(litellm_proxy_failed_requests_metric_total{api_key_alias!="None"}[15m]))
+            / clamp_min(sum(rate(litellm_proxy_total_requests_metric_total{api_key_alias!="None"}[15m])), 0.01) > 0.2
         for: 15m
         labels: {severity: warning}
         annotations:
