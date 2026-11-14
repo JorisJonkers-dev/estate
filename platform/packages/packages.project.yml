@@ -97,6 +97,9 @@ applications:
                 generate: { bytes: 32, encoding: hex }
               - name: workstation
                 generate: { bytes: 32, encoding: hex }
+              # The k3s nodes' image pulls (estate#359), revoked on its own.
+              - name: nodes
+                generate: { bytes: 32, encoding: hex }
             access: read
             # The env file reaches every container of the pod, so the proxy holds the keys
             # too. It never reads or shows them: no endpoint of git-pkgs/proxy exposes its
