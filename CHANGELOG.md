@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.51.0](https://github.com/JorisJonkers-dev/estate/compare/v0.50.0...v0.51.0) (2026-11-14)
+
+
+### Features
+
+* retry a failed release from its pin, without a rollout restart ([#240](https://github.com/JorisJonkers-dev/estate/issues/240)) ([903aba9](https://github.com/JorisJonkers-dev/estate/commit/903aba9bf2d508bf03ebcc4c3aeba317ce3dfb9d))
+
 ## [0.50.0](https://github.com/JorisJonkers-dev/estate/compare/v0.49.1...v0.50.0) (2026-11-13)
 
 
