@@ -18,7 +18,7 @@
   A new key: add it under secret/data/packages-system/keys in packages.project.yml, a line in
   env/proxy/base.env, and its variable to $keys below.
 */ -}}
-{{- $keys := list "PACKAGES_KEY_CI" "PACKAGES_KEY_WORKSTATION" }}
+{{- $keys := list "PACKAGES_KEY_CI" "PACKAGES_KEY_WORKSTATION" "PACKAGES_KEY_NODES" }}
 {{- range $keys }}
 {{- if lt (len (env .)) 64 }}{{ fail (printf "%s is missing or shorter than 64 characters" .) }}{{ end }}
 {{- end }}
