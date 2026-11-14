@@ -75,7 +75,7 @@ SECTIONS=(
   "mail|Stalwart's recovery admin, the user:password pair its server reads, from its admin login"
   "hermes|the Hermes Agent's provider keys and its Hindsight token"
   "mistral|the Mistral API keys Hindsight and Karakeep read"
-  "litellm|LiteLLM's master and salt keys, its OIDC client secret, the four upstream provider keys it calls and the catalogue publish token"
+  "litellm|LiteLLM's master and salt keys, its OIDC client secret, the four upstream provider keys it calls, the GPU workstation gate's key and the catalogue publish token"
   "backup-off-cluster|the S3 credential irreplaceable volumes' backups copy off-cluster with"
   "data|the Postgres catalog and backup logins and the RabbitMQ backup login, copied from their admin logins"
   "mongo|MongoDB's admin, backup and Overleaf logins and its member certificate, minted for its handover; acts only when named"
@@ -1373,7 +1373,11 @@ section_mistral() {
 # vibe_study_api_general_key are general Mistral API keys (the paid fallback behind the two Vibe-scope
 # keys, with more models), google_api_key is a free-tier AI Studio key (public work only),
 # anthropic_api_key serves Claude, and catalog_pr_token lets the sync open the pull request that
-# refreshes the generated model config in JorisJonkers-dev/litellm.
+# refreshes the generated model config in JorisJonkers-dev/litellm. local_llm_api_key is the key of
+# the keyed gate in front of the GPU workstation's model server (nix-config services.llmLocalGate,
+# agent-kit#569): the same value as /var/lib/secrets/llm-local-gate.key on enschede-rx7900xtx-1,
+# made there first with `openssl rand -hex 32`. It is required: both LiteLLM Processes read it, and
+# a missing field keeps their pods from starting.
 section_litellm() {
   WROTE_FIELDS=""
   CHANGED_KEYS=""
@@ -1391,6 +1395,7 @@ section_litellm() {
     "vibe_study_api_general_key|asked|vibe_study_api_general_key (the general Mistral API key of the Vibe-study account; Enter skips)" \
     "google_api_key|asked|google_api_key (a free-tier Google AI Studio key, no billing; its prompts may be used by Google, so it serves public work only; Enter skips)" \
     "anthropic_api_key|asked|anthropic_api_key (the Anthropic API key, with a spend limit set in the Console; Enter skips)" \
+    "local_llm_api_key|required|local_llm_api_key (the GPU workstation gate's key: the contents of /var/lib/secrets/llm-local-gate.key on enschede-rx7900xtx-1)" \
     "catalog_pr_token|asked|catalog_pr_token (GitHub token with contents and pull requests write on JorisJonkers-dev/litellm; Enter skips)" \
     "catalog_publish_token|asked|catalog_publish_token (GitHub token for the catalogue repository; Enter skips)"
   oidc_client litellm https://litellm.jorisjonkers.dev/sso/callback platform/litellm oidc_client_secret hex32
