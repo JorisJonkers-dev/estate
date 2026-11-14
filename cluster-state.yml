@@ -10,7 +10,7 @@ apiVersion: state.jorisjonkers.dev/v1
 kind: ClusterState
 schemaVersion: 1.0.0
 cluster: "production"
-capturedAt: "2026-11-14T02:16:37Z"
+capturedAt: "2026-11-14T02:26:37Z"
 bindings:
   - { claim: "alertmanager-data", node: "frankfurt-contabo-1" }
   - { claim: "alertmanager-metrics-stack-alertmanager-db-alertmanager-metrics-stack-alertmanager-0", node: "frankfurt-contabo-1" }
@@ -108,7 +108,6 @@ placements:
   - { process: "immich-postgres", node: "frankfurt-contabo-1" }
   - { process: "immich-server", node: "enschede-t1000-1" }
   - { process: "jellyfin", node: "enschede-t1000-1" }
-  - { process: "jellyfin-backup", node: "enschede-t1000-1" }
   - { process: "jellyseerr", node: "enschede-gtx-960m-1" }
   - { process: "karakeep", node: "enschede-gtx-960m-1" }
   - { process: "karakeep-chrome-primary", node: "enschede-gtx-960m-1" }
