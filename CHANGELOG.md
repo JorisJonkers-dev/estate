@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.53.0](https://github.com/JorisJonkers-dev/estate/compare/v0.52.0...v0.53.0) (2026-11-15)
+
+
+### Features
+
+* **data:** name the mongo engine's backup method, ahead of MongoDB's handover ([#272](https://github.com/JorisJonkers-dev/estate/issues/272)) ([2cd8473](https://github.com/JorisJonkers-dev/estate/commit/2cd84739490af831992afda0a6f6b8d014b89b3b))
+
 ## [0.52.0](https://github.com/JorisJonkers-dev/estate/compare/v0.51.0...v0.52.0) (2026-11-15)
 
 
