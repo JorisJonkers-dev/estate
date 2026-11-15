@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.52.0](https://github.com/JorisJonkers-dev/estate/compare/v0.51.0...v0.52.0) (2026-11-15)
+
+
+### Features
+
+* **packages:** a key of its own for the cluster nodes ([#372](https://github.com/JorisJonkers-dev/estate/issues/372)) ([41a01c2](https://github.com/JorisJonkers-dev/estate/commit/41a01c2987b8ddf86264c70c5056668bd41e9b50))
+
+
+### Bug Fixes
+
+* **ci:** cancel superseded runs and skip label events ([#384](https://github.com/JorisJonkers-dev/estate/issues/384)) ([e69e1b1](https://github.com/JorisJonkers-dev/estate/commit/e69e1b1cb67bf7387dd164f2283d4881788936d7))
+
 ## [0.51.0](https://github.com/JorisJonkers-dev/estate/compare/v0.50.0...v0.51.0) (2026-11-14)
 
 
