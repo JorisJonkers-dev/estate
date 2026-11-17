@@ -13,7 +13,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/karakeep
   ref:
-    digest: sha256:6c6556f5623495c5545b127ef69fecf21bd08019a6d4e4a3f7de14e992d06bdb
+    digest: sha256:044ab40ffecce650aa8cd72be6e01a43c0faabd706791910b21ac80398c0bf20
   secretRef:
     name: render-pull
   verify:
@@ -31,9 +31,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/karakeep
-    event.toolkit.fluxcd.io/sha: 3f8714ddfa1f761dfc8995212c947f53d4def9cc
+    event.toolkit.fluxcd.io/sha: 9cd9e134665fa15ad29cd093f9146249addc1986
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 1.1.8
+    event.toolkit.fluxcd.io/version: 1.1.9
     event.toolkit.fluxcd.io/url: https://karakeep.jorisjonkers.dev
 spec:
   interval: 10m
