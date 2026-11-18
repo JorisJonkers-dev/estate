@@ -1367,7 +1367,9 @@ section_mistral() {
 # (auth.clients.litellm.secret) and secret/platform/litellm (oidc_client_secret). The four required
 # upstream keys are the owner's: Vibe, Vibe-study, OpenCode Go and OpenRouter (made with a
 # 5 EUR credit limit). The first wave of free-only routes adds nine optional keys (groq, cloudflare,
-# nvidia_nim, zai, requesty, axforge, naga, routeway, inferbase); each is asked, and Enter skips it.
+# nvidia_nim, zai, requesty, axforge, naga, routeway, inferbase), and the second wave adds fifteen more
+# (bazaarlink, electronhub, cohere, airforce, plugsky, poe, vercel_ai_gateway, watsonx, novita, together,
+# typhoon, sealion, gonka, longcat, neosantara); each is asked, and Enter skips it.
 # Cloudflare's account id is not a secret and lives in deploy/env/litellm/base.env. catalog_publish_token is a fine-grained GitHub token with
 # contents:write on the catalogue repository only (JorisJonkers-dev/litellm-model-catalog,
 # private); it is optional, and without it the catalogue sync cannot publish. The routing keys are
@@ -1408,7 +1410,22 @@ section_litellm() {
     "axforge_api_key|asked|axforge_api_key (from https://console.axforge.ai; Enter skips)" \
     "naga_api_key|asked|naga_api_key (from https://naga.ac; Enter skips)" \
     "routeway_api_key|asked|routeway_api_key (from https://routeway.ai; Enter skips)" \
-    "inferbase_api_key|asked|inferbase_api_key (from https://inferbase.ai; Enter skips)"
+    "inferbase_api_key|asked|inferbase_api_key (from https://inferbase.ai; Enter skips)" \
+    "bazaarlink_api_key|asked|bazaarlink_api_key (from https://bazaarlink.ai/free; Enter skips)" \
+    "electronhub_api_key|asked|electronhub_api_key (the Electron Hub key; Enter skips)" \
+    "cohere_api_key|asked|cohere_api_key (from https://dashboard.cohere.com, a trial key; Enter skips)" \
+    "airforce_api_key|asked|airforce_api_key (from https://api.airforce; Enter skips)" \
+    "plugsky_api_key|asked|plugsky_api_key (from https://plugsky.com; Enter skips)" \
+    "poe_api_key|asked|poe_api_key (the Poe API key; Enter skips)" \
+    "vercel_ai_gateway_api_key|asked|vercel_ai_gateway_api_key (the Vercel AI Gateway key; Enter skips)" \
+    "watsonx_api_key|asked|watsonx_api_key (the IBM watsonx.ai key, from the IBM Cloud account; Enter skips)" \
+    "novita_api_key|asked|novita_api_key (the Novita key; Enter skips)" \
+    "together_api_key|asked|together_api_key (the Together key; Enter skips)" \
+    "typhoon_api_key|asked|typhoon_api_key (the Typhoon key; Enter skips)" \
+    "sealion_api_key|asked|sealion_api_key (the SEA-LION key; Enter skips)" \
+    "gonka_api_key|asked|gonka_api_key (the Gonka Broker key; Enter skips)" \
+    "longcat_api_key|asked|longcat_api_key (the Meituan LongCat key; Enter skips)" \
+    "neosantara_api_key|asked|neosantara_api_key (the Neosantara key; Enter skips)"
   oidc_client litellm https://litellm.jorisjonkers.dev/sso/callback platform/litellm oidc_client_secret hex32
   [[ -n "$WROTE_FIELDS" ]] || return 0
   note "LiteLLM reads platform/litellm through its deploy-kit grant; VSO refreshes it and restarts LiteLLM."
