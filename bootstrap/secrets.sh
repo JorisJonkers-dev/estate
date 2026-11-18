@@ -75,7 +75,7 @@ SECTIONS=(
   "mail|Stalwart's recovery admin, the user:password pair its server reads, from its admin login"
   "hermes|the Hermes Agent's provider keys and its Hindsight token"
   "mistral|the Mistral API keys Hindsight and Karakeep read"
-  "litellm|LiteLLM's master and salt keys, its OIDC client secret, the four upstream provider keys it calls, the GPU workstation gate's key and the catalogue publish token"
+  "litellm|LiteLLM's master and salt keys, its OIDC client secret, the upstream provider keys it calls (paid and free-tier), the GPU workstation gate's key and the catalogue publish token"
   "backup-off-cluster|the S3 credential irreplaceable volumes' backups copy off-cluster with"
   "data|the Postgres catalog and backup logins and the RabbitMQ backup login, copied from their admin logins"
   "mongo|MongoDB's admin, backup and Overleaf logins and its member certificate, minted for its handover; acts only when named"
@@ -1364,9 +1364,11 @@ section_mistral() {
 # virtual key exists it must never change (replacing it makes every stored key
 # unreadable): both are generated here, only where missing. The admin UI signs in
 # through auth-api: the OIDC client secret is minted once and written to both secret/auth-api
-# (auth.clients.litellm.secret) and secret/platform/litellm (oidc_client_secret). The four upstream
-# keys are the owner's: Vibe, Vibe-study, OpenCode Go and OpenRouter (made with a
-# 5 EUR credit limit). catalog_publish_token is a fine-grained GitHub token with
+# (auth.clients.litellm.secret) and secret/platform/litellm (oidc_client_secret). The four required
+# upstream keys are the owner's: Vibe, Vibe-study, OpenCode Go and OpenRouter (made with a
+# 5 EUR credit limit). The first wave of free-only routes adds nine optional keys (groq, cloudflare,
+# nvidia_nim, zai, requesty, axforge, naga, routeway, inferbase); each is asked, and Enter skips it.
+# Cloudflare's account id is not a secret and lives in deploy/env/litellm/base.env. catalog_publish_token is a fine-grained GitHub token with
 # contents:write on the catalogue repository only (JorisJonkers-dev/litellm-model-catalog,
 # private); it is optional, and without it the catalogue sync cannot publish. The routing keys are
 # optional too (an account with no key is skipped until it is written): vibe_api_general_key and
@@ -1397,7 +1399,16 @@ section_litellm() {
     "anthropic_api_key|asked|anthropic_api_key (the Anthropic API key, with a spend limit set in the Console; Enter skips)" \
     "local_llm_api_key|required|local_llm_api_key (the GPU workstation gate's key: the contents of /var/lib/secrets/llm-local-gate.key on enschede-rx7900xtx-1)" \
     "catalog_pr_token|asked|catalog_pr_token (GitHub token with contents and pull requests write on JorisJonkers-dev/litellm; Enter skips)" \
-    "catalog_publish_token|asked|catalog_publish_token (GitHub token for the catalogue repository; Enter skips)"
+    "catalog_publish_token|asked|catalog_publish_token (GitHub token for the catalogue repository; Enter skips)" \
+    "groq_api_key|asked|groq_api_key (from https://console.groq.com/keys, Free plan, add no card; Enter skips)" \
+    "cloudflare_api_key|asked|cloudflare_api_key (Cloudflare: My Profile, then API Tokens, the 'Workers AI' template; Enter skips)" \
+    "nvidia_nim_api_key|asked|nvidia_nim_api_key (from https://build.nvidia.com: open any model, then Get API Key; Enter skips)" \
+    "zai_api_key|asked|zai_api_key (from https://z.ai/manage-apikey/apikey-list; Enter skips)" \
+    "requesty_api_key|asked|requesty_api_key (from https://app.requesty.ai; Enter skips)" \
+    "axforge_api_key|asked|axforge_api_key (from https://console.axforge.ai; Enter skips)" \
+    "naga_api_key|asked|naga_api_key (from https://naga.ac; Enter skips)" \
+    "routeway_api_key|asked|routeway_api_key (from https://routeway.ai; Enter skips)" \
+    "inferbase_api_key|asked|inferbase_api_key (from https://inferbase.ai; Enter skips)"
   oidc_client litellm https://litellm.jorisjonkers.dev/sso/callback platform/litellm oidc_client_secret hex32
   [[ -n "$WROTE_FIELDS" ]] || return 0
   note "LiteLLM reads platform/litellm through its deploy-kit grant; VSO refreshes it and restarts LiteLLM."
