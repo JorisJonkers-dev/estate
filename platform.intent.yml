@@ -481,6 +481,15 @@ seeder:
   memory: 16Mi
   cpu: 10m
 
+# The proxy every Process that narrows its egress to named hosts is forced
+# through (deploy-kit spec/v1/14-platform-intent.md#the-egress-proxy). One
+# Process of its own runs it for each such Process; the image is the squid
+# the images lock pins.
+egressProxy:
+  image: squid
+  memory: 64Mi
+  cpu: 50m
+
 # No handover ledger: secrets was the last Project the old path delivered
 # (JorisJonkers-dev/deploy-kit#663), and the block is removed once `legacy` is
 # empty (deploy-kit spec/v1/14-platform-intent.md#handover-ledger). Every Project

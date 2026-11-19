@@ -333,6 +333,18 @@ images:
     uid: 65534
     gid: 65534
     version: "1.37.0"
+  # The allowlisting forward proxy a Process that narrows its egress to named
+  # hosts is forced through (platform.intent.yml's egressProxy, deploy-kit
+  # 0154). The digest is the multi-arch index (amd64 and arm64 cover every
+  # node); the image runs as the `proxy` user, 13:13, and starts with
+  # `squid -N` under a read-only root filesystem and a writable /tmp, as
+  # deploy-kit's test/e2e/egress-proxy.e2e.ts runs it. Resolved 2026-11-19.
+  squid:
+    repository: docker.io/ubuntu/squid
+    digest: "sha256:6a097f68bae708cedbabd6188d68c7e2e7a38cedd05a176e1cc0ba29e3bbe029"
+    uid: 13
+    gid: 13
+    version: "6.13"
   # The Node Agents (platform.intent.yml's nodeAgents), the images fleet-infra
   # runs today: each digest is the imageID of every live pod of its agent, read
   # 2026-10-29, so no node pulls anything at the handover. The device plugin,
