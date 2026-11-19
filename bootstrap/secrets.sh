@@ -1015,14 +1015,21 @@ section_findability_explorer() {
 }
 
 # ── fields: overleaf and hermes ───────────────────────────────────────────
+# field_shown KIND VALUE: a plain field is shown as it is, any other by fingerprint.
+field_shown() { if [[ "$1" == plain ]]; then printf '%s' "$2"; else fp "$2"; fi; }
+
 # edit_fields PATH SPEC... checks, and where needed asks for, the fields of a
 # document only people write. Each SPEC is key|kind|prompt, kind one of:
 #   required    asked when missing
 #   asked       optional, asked when missing (Enter skips)
 #   rotate      optional, asked only with --rotate or --replace
+#   plain       like asked, for a value that is not a secret: typed in the open and
+#               shown, not fingerprinted (an account id, a base URL)
 #   gen:N       required, asked when missing; Enter generates N random bytes, hex
 #   hindsight   Hermes' MEMORY_API token for hindsight-api: pasted, or minted by signing in
 # Default: present fields are skipped, nothing is asked unless one is missing.
+# FIELD_HINTS, when set, names a function called with the key just before that
+# field is asked; it prints the lines that say where to get the value.
 # --rotate asks every field; Enter keeps the current value.
 # --replace asks every field (Enter keeps the current value, - drops it) and
 # writes a new version holding only them: anything else in the document is
@@ -1038,13 +1045,18 @@ edit_fields() {
     IFS='|' read -r key kind prompt <<<"$spec"
     cur=$(kv_field "$doc" "$key")
     if [[ -z "$ROTATE$REPLACE" ]]; then
-      if [[ -n "$cur" ]]; then ok "$key exists ($(fp "$cur"))"; continue; fi
+      if [[ -n "$cur" ]]; then ok "$key exists ($(field_shown "$kind" "$cur"))"; continue; fi
       [[ "$kind" == rotate ]] && { note "$key is not set (optional; --only ${CURRENT_SECTION} --rotate asks for it)"; continue; }
     fi
     value=""
     if [[ "$kind" == hindsight ]]; then
       hermes_hindsight_token value "$cur"
+    elif [[ "$kind" == plain ]]; then
+      [[ -z "${FIELD_HINTS:-}" ]] || "$FIELD_HINTS" "$key"
+      printf '  %s%s%s ' "$BOLD" "$prompt${cur:+ [current $cur; Enter keeps${REPLACE:+, - drops}]}:" "$RESET"
+      read -r value || true
     else
+      [[ -z "${FIELD_HINTS:-}" ]] || "$FIELD_HINTS" "$key"
       ask_secret value "$prompt${cur:+ [current $(fp "$cur"); Enter keeps${REPLACE:+, - drops}]}:"
       [[ "$kind" == gen:* && -z "$value" && -z "$cur" ]] && value=$(openssl rand -hex "${kind#gen:}") && note "generated $key"
     fi
@@ -1060,7 +1072,7 @@ edit_fields() {
     [[ "$value" != "$cur" ]] || continue
     export "ESV_$i=$value"
     filter+=" | .[\"$key\"] = env.ESV_$i"
-    changed+=("$key=$(fp "$value")")
+    changed+=("$key=$(field_shown "$kind" "$value")")
     i=$((i + 1))
   done
   if [[ -n "$REPLACE" ]]; then
@@ -1358,6 +1370,83 @@ section_mistral() {
 }
 
 # ── litellm ───────────────────────────────────────────────────────────────
+# litellm_hint FIELD prints, before FIELD is asked, where to create the account,
+# where to mint the key, and what it gives. A link ending "then API keys" is the
+# provider's console or home page: its key page is behind the sign-in.
+_lh() { printf '\n'; note "$1"; note "  account: $2"; note "  key:     $3"; [[ -z "${4:-}" ]] || note "  $4"; }
+litellm_hint() {
+  case "$1" in
+    vibe_api_general_key | vibe_study_api_general_key)
+      _lh "Mistral (paid fallback behind the Vibe-scope key; more models)" https://console.mistral.ai https://console.mistral.ai/api-keys "Make the key in the Vibe account that owns this field." ;;
+    google_api_key)
+      _lh "Google AI Studio (free tier)" https://aistudio.google.com https://aistudio.google.com/apikey "No billing; Google may use free-tier prompts, so it serves public work only." ;;
+    anthropic_api_key)
+      _lh "Anthropic (paid)" https://platform.claude.com https://platform.claude.com/settings/keys "Set a spend limit in the Console first." ;;
+    openrouter_api_key)
+      _lh "OpenRouter" https://openrouter.ai/sign-up https://openrouter.ai/settings/keys "Set a 5 EUR credit limit on the key." ;;
+    opencode_go_api_key)
+      _lh "OpenCode Go" https://opencode.ai/auth https://opencode.ai/auth "Subscribe to Go, then copy the key shown there." ;;
+    groq_api_key)
+      _lh "Groq (free)" https://console.groq.com/login https://console.groq.com/keys "gpt-oss-120b, gpt-oss-20b, qwen3.8-27b at 30 RPM, 1K RPD each. Free plan: add no card." ;;
+    cloudflare_api_key)
+      _lh "Cloudflare Workers AI (free)" https://dash.cloudflare.com/sign-up https://dash.cloudflare.com/profile/api-tokens "10,000 Neurons a day over 60+ models. Use the 'Workers AI' template; the account id is asked below." ;;
+    nvidia_nim_api_key)
+      _lh "NVIDIA build (free)" https://build.nvidia.com https://build.nvidia.com "About 32 models at about 40 RPM. Open any model, then Get API Key." ;;
+    zai_api_key)
+      _lh "Z.ai (free Flash models)" https://z.ai/model-api https://z.ai/manage-apikey/apikey-list "GLM-4.7-Flash, GLM-4.5-Flash, GLM-4.6V-Flash." ;;
+    requesty_api_key)
+      _lh "Requesty (free)" https://app.requesty.ai/sign-up https://app.requesty.ai "8-13 free models, 200 RPD, 20 RPM; no card. Key: then API keys." ;;
+    axforge_api_key)
+      _lh "AxForge" https://console.axforge.ai https://console.axforge.ai "3M free tokens every 30 days, then it bills. Sign-up mail may not arrive. The route stays off until billing after the free tokens is checked. Key: then API keys." ;;
+    naga_api_key)
+      _lh "NagaAI (free)" https://naga.ac https://naga.ac "20+ ':free' models, 10 RPM, 100 RPD. Key: sign in, then API keys." ;;
+    routeway_api_key)
+      _lh "Routeway (free)" https://routeway.ai https://routeway.ai "9 ':free' ids, 200 RPD, 1 concurrent. Key: sign in, then API keys." ;;
+    inferbase_api_key)
+      _lh "Inferbase (free)" https://inferbase.ai https://inferbase.ai "5,000 requests a month, \$0.50 usage a day; no card. Key: sign in, then API keys." ;;
+    bazaarlink_api_key)
+      _lh "BazaarLink (free)" https://bazaarlink.ai/free https://bazaarlink.ai/free "4 free models, 10 RPM. Also set bazaarlink_api_base below." ;;
+    electronhub_api_key)
+      _lh "Electron Hub (free)" https://electronhub.ai https://electronhub.ai "About 24 ':free' ids. Key: sign in, then API keys." ;;
+    cohere_api_key)
+      _lh "Cohere (trial)" https://dashboard.cohere.com/welcome/register https://dashboard.cohere.com/api-keys "Command A family, 20 RPM, 1,000 calls a month; a trial key is made at sign-up." ;;
+    airforce_api_key)
+      _lh "Api.Airforce (free)" https://api.airforce https://api.airforce "1 RPM, 1,000 RPD. Sign in with Discord or email, then API keys." ;;
+    plugsky_api_key)
+      _lh "Plugsky (free)" https://plugsky.com https://plugsky.com "500 RPD, 250K TPD, 30 RPM; no card. Key: sign in, then API keys." ;;
+    poe_api_key)
+      _lh "Poe" https://poe.com https://poe.com/api_key "Free accounts get daily points." ;;
+    vercel_ai_gateway_api_key)
+      _lh "Vercel AI Gateway" https://vercel.com/signup https://vercel.com/ai-gateway "\$5 every 30 days on free-tier models; needs a card on the account. Key: AI Gateway, then API Keys." ;;
+    watsonx_api_key)
+      _lh "IBM watsonx.ai" https://cloud.ibm.com/registration https://cloud.ibm.com/iam/apikeys "300K tokens a month, 20 CUH. Also set watsonx_api_base and watsonx_project_id below." ;;
+    novita_api_key)
+      _lh "Novita" https://novita.ai https://novita.ai/settings/key-management "A few \$0 ids." ;;
+    together_api_key)
+      _lh "Together" https://api.together.ai/signin https://api.together.ai/settings/api-keys "Pay per token: only the approved free id (Prism-ML/Ternary-Bonsai-27B) deploys." ;;
+    typhoon_api_key)
+      _lh "Typhoon" https://opentyphoon.ai https://playground.opentyphoon.ai/settings/api-key "typhoon-v2.5-30b-a3b. Collects usage data." ;;
+    sealion_api_key)
+      _lh "SEA-LION (free)" https://sea-lion.ai https://sea-lion.ai "Free key, 10 RPM. Key: sign in, then API keys." ;;
+    gonka_api_key)
+      _lh "Gonka Broker" https://gonkabroker.com https://gonkabroker.com "About 1M tokens a month. Needs a real phone number. Key: sign in, then API keys." ;;
+    longcat_api_key)
+      _lh "Meituan LongCat" https://longcat.chat https://longcat.chat "100K-500K tokens a day (not confirmed). Needs a phone number. Key: sign in, then API keys." ;;
+    neosantara_api_key)
+      _lh "Neosantara" https://docs.neosantara.xyz https://docs.neosantara.xyz "gemini-3.1-flash-lite on a free account; other models need a deposit. Key: see the docs, then API keys." ;;
+    cloudflare_account_id)
+      _lh "Cloudflare account id (not a secret)" https://dash.cloudflare.com "https://dash.cloudflare.com/<account id>" "Also in the right sidebar of any zone." ;;
+    bazaarlink_api_base)
+      _lh "BazaarLink base URL (not a secret)" https://bazaarlink.ai/free "see its docs" "BazaarLink's OpenAI-compatible base URL." ;;
+    cohere_api_base)
+      _lh "Cohere base URL (not a secret, optional)" https://dashboard.cohere.com "see its docs" "Enter keeps LiteLLM's default." ;;
+    watsonx_api_base)
+      _lh "watsonx.ai endpoint (not a secret)" https://cloud.ibm.com "https://<region>.ml.cloud.ibm.com" "The regional endpoint of your watsonx.ai instance." ;;
+    watsonx_project_id)
+      _lh "watsonx.ai project id (not a secret)" https://dataplatform.cloud.ibm.com/projects "the project, Manage tab, General" "The project id shown there." ;;
+  esac
+}
+
 # LiteLLM (JorisJonkers-dev/litellm) reads secret/platform/litellm through its
 # deploy-kit grant. master_key signs the admin calls that mint virtual keys;
 # salt_key encrypts the upstream keys LiteLLM stores in its database, so once a
@@ -1370,7 +1459,18 @@ section_mistral() {
 # nvidia_nim, zai, requesty, axforge, naga, routeway, inferbase), and the second wave adds fifteen more
 # (bazaarlink, electronhub, cohere, airforce, plugsky, poe, vercel_ai_gateway, watsonx, novita, together,
 # typhoon, sealion, gonka, longcat, neosantara); each is asked, and Enter skips it.
-# Cloudflare's account id is not a secret and lives in deploy/env/litellm/base.env. catalog_publish_token is a fine-grained GitHub token with
+# Each provider prompt is preceded by where to create the account, where to mint the key and what it
+# gives (litellm_hint). Five optional fields are not secrets and are typed in the open: cloudflare_account_id,
+# bazaarlink_api_base, cohere_api_base, watsonx_api_base and watsonx_project_id; LiteLLM reads them from the
+# same Vault document. The flow, after this section writes:
+#   1. kubectl --context personal-admin -n litellm-system get secret litellm-catalog-platform-litellm \
+#        -o json | jq -r '.data|keys[]'          (the field names arrived)
+#   2. kubectl --context personal-admin -n litellm-system annotate vaultstaticsecret \
+#        litellm-catalog-platform-litellm force-sync=$(date +%s) --overwrite   (VSO polls every 10 min otherwise)
+#   3. kubectl --context personal-admin -n litellm-system create job --from=cronjob/litellm-catalog \
+#        litellm-catalog-manual-$(date +%s)       (the catalogue job)
+#   4. approve the free ids in the models PR it opens.
+# catalog_publish_token is a fine-grained GitHub token with
 # contents:write on the catalogue repository only (JorisJonkers-dev/litellm-model-catalog,
 # private); it is optional, and without it the catalogue sync cannot publish. The routing keys are
 # optional too (an account with no key is skipped until it is written): vibe_api_general_key and
@@ -1388,44 +1488,51 @@ section_litellm() {
   say "salt_key encrypts the upstream keys in LiteLLM's database: never replace it once virtual keys exist."
   [[ -z "$ROTATE" ]] || [[ -z "$(kv_field "$(kv_load platform/litellm)" salt_key)" ]] \
     || die "--rotate would offer to replace salt_key, which makes every stored upstream key unreadable; edit the other fields in Vault directly"
+  FIELD_HINTS=litellm_hint
   edit_fields platform/litellm \
     "master_key|gen:32|master_key (Enter generates)" \
     "salt_key|gen:32|salt_key (Enter generates; never changes later)" \
     "vibe_api_key|required|vibe_api_key (the Vibe key)" \
     "vibe_study_api_key|required|vibe_study_api_key (the Vibe-study key)" \
-    "opencode_go_api_key|required|opencode_go_api_key (the OpenCode Go key)" \
-    "openrouter_api_key|required|openrouter_api_key (the OpenRouter key, with a 5 EUR credit limit)" \
+    "opencode_go_api_key|required|opencode_go_api_key" \
+    "openrouter_api_key|required|openrouter_api_key" \
     "vibe_api_general_key|asked|vibe_api_general_key (the general Mistral API key of the Vibe account, not the Vibe-scope key; Enter skips)" \
     "vibe_study_api_general_key|asked|vibe_study_api_general_key (the general Mistral API key of the Vibe-study account; Enter skips)" \
-    "google_api_key|asked|google_api_key (a free-tier Google AI Studio key, no billing; its prompts may be used by Google, so it serves public work only; Enter skips)" \
-    "anthropic_api_key|asked|anthropic_api_key (the Anthropic API key, with a spend limit set in the Console; Enter skips)" \
+    "google_api_key|asked|google_api_key (Enter skips)" \
+    "anthropic_api_key|asked|anthropic_api_key (Enter skips)" \
     "local_llm_api_key|required|local_llm_api_key (the GPU workstation gate's key: the contents of /var/lib/secrets/llm-local-gate.key on enschede-rx7900xtx-1)" \
     "catalog_pr_token|asked|catalog_pr_token (GitHub token with contents and pull requests write on JorisJonkers-dev/litellm; Enter skips)" \
     "catalog_publish_token|asked|catalog_publish_token (GitHub token for the catalogue repository; Enter skips)" \
-    "groq_api_key|asked|groq_api_key (from https://console.groq.com/keys, Free plan, add no card; Enter skips)" \
-    "cloudflare_api_key|asked|cloudflare_api_key (Cloudflare: My Profile, then API Tokens, the 'Workers AI' template; Enter skips)" \
-    "nvidia_nim_api_key|asked|nvidia_nim_api_key (from https://build.nvidia.com: open any model, then Get API Key; Enter skips)" \
-    "zai_api_key|asked|zai_api_key (from https://z.ai/manage-apikey/apikey-list; Enter skips)" \
-    "requesty_api_key|asked|requesty_api_key (from https://app.requesty.ai; Enter skips)" \
-    "axforge_api_key|asked|axforge_api_key (from https://console.axforge.ai; Enter skips)" \
-    "naga_api_key|asked|naga_api_key (from https://naga.ac; Enter skips)" \
-    "routeway_api_key|asked|routeway_api_key (from https://routeway.ai; Enter skips)" \
-    "inferbase_api_key|asked|inferbase_api_key (from https://inferbase.ai; Enter skips)" \
-    "bazaarlink_api_key|asked|bazaarlink_api_key (from https://bazaarlink.ai/free; Enter skips)" \
-    "electronhub_api_key|asked|electronhub_api_key (the Electron Hub key; Enter skips)" \
-    "cohere_api_key|asked|cohere_api_key (from https://dashboard.cohere.com, a trial key; Enter skips)" \
-    "airforce_api_key|asked|airforce_api_key (from https://api.airforce; Enter skips)" \
-    "plugsky_api_key|asked|plugsky_api_key (from https://plugsky.com; Enter skips)" \
-    "poe_api_key|asked|poe_api_key (the Poe API key; Enter skips)" \
-    "vercel_ai_gateway_api_key|asked|vercel_ai_gateway_api_key (the Vercel AI Gateway key; Enter skips)" \
-    "watsonx_api_key|asked|watsonx_api_key (the IBM watsonx.ai key, from the IBM Cloud account; Enter skips)" \
-    "novita_api_key|asked|novita_api_key (the Novita key; Enter skips)" \
-    "together_api_key|asked|together_api_key (the Together key; Enter skips)" \
-    "typhoon_api_key|asked|typhoon_api_key (the Typhoon key; Enter skips)" \
-    "sealion_api_key|asked|sealion_api_key (the SEA-LION key; Enter skips)" \
-    "gonka_api_key|asked|gonka_api_key (the Gonka Broker key; Enter skips)" \
-    "longcat_api_key|asked|longcat_api_key (the Meituan LongCat key; Enter skips)" \
-    "neosantara_api_key|asked|neosantara_api_key (the Neosantara key; Enter skips)"
+    "groq_api_key|asked|groq_api_key (Enter skips)" \
+    "cloudflare_api_key|asked|cloudflare_api_key (Enter skips)" \
+    "cloudflare_account_id|plain|cloudflare_account_id (Enter skips)" \
+    "nvidia_nim_api_key|asked|nvidia_nim_api_key (Enter skips)" \
+    "zai_api_key|asked|zai_api_key (Enter skips)" \
+    "requesty_api_key|asked|requesty_api_key (Enter skips)" \
+    "axforge_api_key|asked|axforge_api_key (Enter skips)" \
+    "naga_api_key|asked|naga_api_key (Enter skips)" \
+    "routeway_api_key|asked|routeway_api_key (Enter skips)" \
+    "inferbase_api_key|asked|inferbase_api_key (Enter skips)" \
+    "bazaarlink_api_key|asked|bazaarlink_api_key (Enter skips)" \
+    "bazaarlink_api_base|plain|bazaarlink_api_base (Enter skips)" \
+    "electronhub_api_key|asked|electronhub_api_key (Enter skips)" \
+    "cohere_api_key|asked|cohere_api_key (Enter skips)" \
+    "cohere_api_base|plain|cohere_api_base (Enter skips)" \
+    "airforce_api_key|asked|airforce_api_key (Enter skips)" \
+    "plugsky_api_key|asked|plugsky_api_key (Enter skips)" \
+    "poe_api_key|asked|poe_api_key (Enter skips)" \
+    "vercel_ai_gateway_api_key|asked|vercel_ai_gateway_api_key (Enter skips)" \
+    "watsonx_api_key|asked|watsonx_api_key (Enter skips)" \
+    "watsonx_api_base|plain|watsonx_api_base (Enter skips)" \
+    "watsonx_project_id|plain|watsonx_project_id (Enter skips)" \
+    "novita_api_key|asked|novita_api_key (Enter skips)" \
+    "together_api_key|asked|together_api_key (Enter skips)" \
+    "typhoon_api_key|asked|typhoon_api_key (Enter skips)" \
+    "sealion_api_key|asked|sealion_api_key (Enter skips)" \
+    "gonka_api_key|asked|gonka_api_key (Enter skips)" \
+    "longcat_api_key|asked|longcat_api_key (Enter skips)" \
+    "neosantara_api_key|asked|neosantara_api_key (Enter skips)"
+  FIELD_HINTS=""
   oidc_client litellm https://litellm.jorisjonkers.dev/sso/callback platform/litellm oidc_client_secret hex32
   [[ -n "$WROTE_FIELDS" ]] || return 0
   note "LiteLLM reads platform/litellm through its deploy-kit grant; VSO refreshes it and restarts LiteLLM."
