@@ -1371,7 +1371,7 @@ section_mistral() {
 
 # ── litellm ───────────────────────────────────────────────────────────────
 # litellm_hint FIELD prints, before FIELD is asked, where to create the account,
-# where to mint the key, and what it gives. A link ending "then API keys" is the
+# where to mint the key, and what it gives. A note saying "then API keys" means the link is the
 # provider's console or home page: its key page is behind the sign-in.
 _lh() { printf '\n'; note "$1"; note "  account: $2"; note "  key:     $3"; [[ -z "${4:-}" ]] || note "  $4"; }
 litellm_hint() {

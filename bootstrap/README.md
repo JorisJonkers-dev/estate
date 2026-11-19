@@ -45,7 +45,7 @@ client secrets.
 ./bootstrap/secrets.sh --only overleaf --rollback        # back to an earlier KV version
 ./bootstrap/secrets.sh --only mail                       # Stalwart's user:password pair, from its admin login
 ./bootstrap/secrets.sh --only data                       # the data Project's catalog and backup logins, copied
-./bootstrap/secrets.sh --only litellm                    # LiteLLM master and salt keys and the admin UI's OIDC client secret generated; the provider keys (paid and free-tier) and the catalogue token pasted
+./bootstrap/secrets.sh --only litellm                    # LiteLLM master and salt keys and the admin UI's OIDC client secret generated; the provider keys (paid and free-tier), the catalogue token and five non-secret route settings pasted; each prompt first prints where to create the account and key
 ./bootstrap/secrets.sh --only mongo                      # MongoDB's logins, member certificate and users, minted for its handover
 ./bootstrap/secrets.sh --only backup-off-cluster         # the S3 key pair irreplaceable backups copy off-cluster with
 ./bootstrap/secrets.sh --only grimoire --rerun-garage-bootstrap
@@ -124,6 +124,24 @@ is. So the command for the litellm secrets is just:
 ```bash
 ./bootstrap/secrets.sh --only litellm
 ```
+
+This is the one place to set up every LiteLLM provider. Each prompt prints two
+links first (where to create the account, where to mint the key) and a line on
+what it gives; Enter skips a field and an existing value is kept. Five optional
+fields are not secrets and are typed in the open: `cloudflare_account_id`,
+`bazaarlink_api_base`, `cohere_api_base`, `watsonx_api_base` and
+`watsonx_project_id`. Afterwards:
+
+```bash
+# 1. the field names reached the Secret
+kubectl --context personal-admin -n litellm-system get secret litellm-catalog-platform-litellm -o json | jq -r '.data|keys[]'
+# 2. force a VSO sync (it polls every 10 minutes otherwise)
+kubectl --context personal-admin -n litellm-system annotate vaultstaticsecret litellm-catalog-platform-litellm force-sync=$(date +%s) --overwrite
+# 3. run the catalogue job
+kubectl --context personal-admin -n litellm-system create job --from=cronjob/litellm-catalog litellm-catalog-manual-$(date +%s)
+```
+
+Then approve the free ids in the models PR the job opens.
 
 It asks for the sudo password once, up front. The admin credential needs a
 terminal, even with sudo cached, so the background port-forward reads its stdin
