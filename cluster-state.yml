@@ -10,7 +10,7 @@ apiVersion: state.jorisjonkers.dev/v1
 kind: ClusterState
 schemaVersion: 1.0.0
 cluster: "production"
-capturedAt: "2026-11-24T17:17:25Z"
+capturedAt: "2026-11-24T18:57:26Z"
 bindings:
   - { claim: "alertmanager-data", node: "frankfurt-contabo-1" }
   - { claim: "alertmanager-metrics-stack-alertmanager-db-alertmanager-metrics-stack-alertmanager-0", node: "frankfurt-contabo-1" }
@@ -78,8 +78,12 @@ bindings:
   - { claim: "workspace-94d22967", node: "enschede-gtx-960m-1" }
   - { claim: "workspace-d4b41a9a", node: "enschede-gtx-960m-1" }
 placements:
+  - { process: "adguard-primary", node: "enschede-gtx-960m-1" }
+  - { process: "adguard-primary", node: "enschede-t1000-1" }
+  - { process: "alloy", node: "enschede-gtx-960m-1" }
   - { process: "auth-api-primary", node: "frankfurt-contabo-1" }
   - { process: "auth-ui-primary", node: "frankfurt-contabo-1" }
+  - { process: "bazarr", node: "enschede-t1000-1" }
   - { process: "collector", node: "frankfurt-contabo-1" }
   - { process: "estate-dashboard-primary", node: "frankfurt-contabo-1" }
   - { process: "external-dns", node: "frankfurt-contabo-1" }
@@ -92,33 +96,54 @@ placements:
   - { process: "gpu-metrics", node: "enschede-gtx-960m-1" }
   - { process: "gpu-metrics", node: "enschede-t1000-1" }
   - { process: "grafana", node: "frankfurt-contabo-1" }
+  - { process: "grafana-operator", node: "enschede-gtx-960m-1" }
+  - { process: "grimoire", node: "enschede-gtx-960m-1" }
   - { process: "headlamp-primary", node: "frankfurt-contabo-1" }
+  - { process: "hindsight-api-primary", node: "enschede-gtx-960m-1" }
   - { process: "hindsight-control-plane-primary", node: "frankfurt-contabo-1" }
+  - { process: "hindsight-worker-primary", node: "enschede-gtx-960m-1" }
   - { process: "home-portal-primary", node: "frankfurt-contabo-1" }
+  - { process: "immich-ml", node: "enschede-t1000-1" }
   - { process: "immich-postgres", node: "frankfurt-contabo-1" }
+  - { process: "immich-server", node: "enschede-t1000-1" }
+  - { process: "jellyfin", node: "enschede-t1000-1" }
+  - { process: "jellyseerr", node: "enschede-gtx-960m-1" }
+  - { process: "karakeep", node: "enschede-gtx-960m-1" }
+  - { process: "karakeep-chrome-primary", node: "enschede-t1000-1" }
   - { process: "karakeep-search", node: "frankfurt-contabo-1" }
+  - { process: "kube-state-metrics-primary", node: "enschede-gtx-960m-1" }
+  - { process: "l4-controller", node: "enschede-gtx-960m-1" }
   - { process: "l4-speaker", node: "enschede-gtx-960m-1" }
-  - { process: "l4-speaker", node: "enschede-pi-1" }
-  - { process: "l4-speaker", node: "enschede-pi-2" }
-  - { process: "l4-speaker", node: "enschede-pi-3" }
   - { process: "l4-speaker", node: "enschede-t1000-1" }
   - { process: "litellm-primary", node: "frankfurt-contabo-1" }
+  - { process: "loki", node: "enschede-t1000-1" }
   - { process: "n8n", node: "frankfurt-contabo-1" }
   - { process: "node-metrics", node: "enschede-gtx-960m-1" }
-  - { process: "node-metrics", node: "enschede-pi-1" }
-  - { process: "node-metrics", node: "enschede-pi-2" }
-  - { process: "node-metrics", node: "enschede-pi-3" }
   - { process: "node-metrics", node: "enschede-t1000-1" }
   - { process: "node-metrics", node: "frankfurt-contabo-1" }
+  - { process: "otel-collector", node: "enschede-gtx-960m-1" }
+  - { process: "outline-primary", node: "enschede-t1000-1" }
   - { process: "outline-primary", node: "frankfurt-contabo-1" }
+  - { process: "overleaf", node: "enschede-t1000-1" }
   - { process: "postgres", node: "frankfurt-contabo-1" }
+  - { process: "prometheus-operator", node: "enschede-gtx-960m-1" }
+  - { process: "prowlarr", node: "enschede-gtx-960m-1" }
   - { process: "proxy", node: "frankfurt-contabo-1" }
+  - { process: "pyroscope", node: "enschede-gtx-960m-1" }
+  - { process: "qbittorrent", node: "enschede-t1000-1" }
   - { process: "rabbitmq", node: "frankfurt-contabo-1" }
+  - { process: "radarr", node: "enschede-t1000-1" }
   - { process: "redis", node: "frankfurt-contabo-1" }
   - { process: "release-gate", node: "frankfurt-contabo-1" }
   - { process: "reporter", node: "frankfurt-contabo-1" }
+  - { process: "sonarr", node: "enschede-t1000-1" }
   - { process: "stalwart", node: "frankfurt-contabo-1" }
+  - { process: "tei-embedding", node: "enschede-gtx-960m-1" }
+  - { process: "tei-reranker", node: "enschede-t1000-1" }
+  - { process: "tempo", node: "enschede-t1000-1" }
+  - { process: "traefik-lan", node: "enschede-gtx-960m-1" }
   - { process: "traefik-public", node: "frankfurt-contabo-1" }
+  - { process: "tribelt-primary", node: "enschede-gtx-960m-1" }
   - { process: "valkey", node: "frankfurt-contabo-1" }
   - { process: "vault", node: "frankfurt-contabo-1" }
   - { process: "vault-secrets-operator", node: "frankfurt-contabo-1" }
