@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.54.0](https://github.com/JorisJonkers-dev/estate/compare/v0.53.0...v0.54.0) (2026-11-25)
+
+
+### Features
+
+* **bootstrap:** ask for the first-wave free-provider keys in the litellm section ([#391](https://github.com/JorisJonkers-dev/estate/issues/391)) ([2e70f43](https://github.com/JorisJonkers-dev/estate/commit/2e70f432e4eff2ae92efb5b68627c66e64432682)), closes [#390](https://github.com/JorisJonkers-dev/estate/issues/390)
+* **bootstrap:** ask for the second-wave free-provider keys in the litellm section ([#393](https://github.com/JorisJonkers-dev/estate/issues/393)) ([4b78ea6](https://github.com/JorisJonkers-dev/estate/commit/4b78ea618561cd2b632c6327100588f65fb12eef))
+* **bootstrap:** link where to create each LiteLLM account and key, and ask for the route settings ([#394](https://github.com/JorisJonkers-dev/estate/issues/394)) ([c1c6c7e](https://github.com/JorisJonkers-dev/estate/commit/c1c6c7ea078c2876a99df5d131d0ff028a0b7b16))
+* **platform:** declare the egress proxy image and its resources ([#395](https://github.com/JorisJonkers-dev/estate/issues/395)) ([ae0101b](https://github.com/JorisJonkers-dev/estate/commit/ae0101b8bb633d239537a36d241d69da19aa31e1))
+
 ## [0.53.0](https://github.com/JorisJonkers-dev/estate/compare/v0.52.0...v0.53.0) (2026-11-15)
 
 
