@@ -37,7 +37,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: JorisJonkers-dev/github-workflows/actions/setup-package-proxy@b14d5e031f1abd5bec45e50c898e9e73f3ffc534 # v0.50.4
+      - uses: JorisJonkers-dev/github-workflows/actions/setup-package-proxy@658bec7f448631fbaa3f28d3a2e5708390e0c4c1 # v0.51.0
         with:
           token: ${{ secrets.PACKAGES_PROXY_TOKEN }}
           require-package-proxy: true
