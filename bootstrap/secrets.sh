@@ -1370,6 +1370,9 @@ section_mistral() {
 }
 
 # ── litellm ───────────────────────────────────────────────────────────────
+# To add, test or replace one provider key without walking this whole section, use
+# ops/litellm-catalog-keys.sh --add / --repair: it tests a key before writing it, and keeps the sign-up
+# steps per provider in ops/litellm-providers.json.
 # litellm_hint FIELD prints, before FIELD is asked, where to create the account,
 # where to mint the key, and what it gives. A note saying "then API keys" means the link is the
 # provider's console or home page: its key page is behind the sign-in.
