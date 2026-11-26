@@ -467,7 +467,7 @@ report() {
 
   for id in $(lk_ids); do
     [[ -n "${RESULT_CLASS[$id]:-}" && "${RESULT_CLASS[$id]}" != ok ]] && failing+=("$id")
-    [[ -z "${LK_VAL[$(lk_key_field "$id")]:-}" ]] && missing_ids+=("$id")
+    [[ -z "${LK_VAL[$(lk_key_field "$id")]:-}" ]] && ! lk_paid "$id" && missing_ids+=("$id")
   done
   if (( ${#failing[@]} )); then
     section "Keys that do not pass their test"
@@ -535,7 +535,11 @@ add() {
   if [[ -n "$TARGET" ]]; then
     ids=("$TARGET")
   else
-    for id in $(lk_ids); do [[ -n "${LK_VAL[$(lk_key_field "$id")]:-}" ]] || ids+=("$id"); done
+    for id in $(lk_ids); do
+      [[ -n "${LK_VAL[$(lk_key_field "$id")]:-}" ]] && continue
+      if lk_paid "$id"; then note "skipped $id: it gives no key without a payment method (--add $id to set it up anyway)"; continue; fi
+      ids+=("$id")
+    done
   fi
   (( ${#ids[@]} )) || { ok "every provider in the registry has a key; --repair tests and replaces them"; return 0; }
   note "${#ids[@]} provider(s): ${ids[*]}"

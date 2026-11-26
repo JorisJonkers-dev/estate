@@ -21,6 +21,11 @@ LK_TIMEOUT=${LK_TIMEOUT:-20}
 # lk_ids prints every provider id, in registry order.
 lk_ids() { jq -r '.providers[].id' "$LK_REGISTRY"; }
 
+# lk_paid ID succeeds when the provider gives no key without a payment method
+# (a card on file or prepaid credit). --add and the report pass these over
+# unless the provider is named.
+lk_paid() { jq -e --arg id "$1" '.providers[] | select(.id == $id) | .payment_method == true' "$LK_REGISTRY" >/dev/null; }
+
 # lk_provider ID prints the provider's registry entry as JSON, or fails.
 lk_provider() {
   jq -ce --arg id "$1" '.providers[] | select(.id == $id)' "$LK_REGISTRY"
