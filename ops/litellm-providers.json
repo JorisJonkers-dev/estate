@@ -570,7 +570,8 @@
           "Wrong base URL or key from another console."
         ]
       },
-      "checked": "2026-11-26"
+      "checked": "2026-11-26",
+      "payment_method": true
     },
     {
       "id": "naga",
@@ -1008,7 +1009,8 @@
       ],
       "verified": "partial",
       "verified_note": "Fetched IBM docs: signup-wx (steps, card for identity verification, Lite no charge), regional-datactr (six IBM Cloud regions with codes), API reference cloud.ibm.com/apidocs/watsonx-ai (GET /ml/v1/foundation_model_specs, response fields total_count/limit/first/next/resources; no version listed for that endpoint, version=YYYY-MM-DD on others), web search (endpoint pattern https://{region}.ml.cloud.ibm.com with version=2024-12-10). NOT confirmed from a fetched page: the IAM token URL/grant type (from well-known IBM IAM usage and the task hint), the exact UI labels for project id, the regional host table, the exact Lite provisioning clicks. The IBM docs pages for API key/project id returned navigation only.",
-      "checked": "2026-11-26"
+      "checked": "2026-11-26",
+      "payment_method": true
     },
     {
       "id": "novita",
@@ -1082,7 +1084,8 @@
           "Use https://api.together.ai/v1, not api.together.xyz"
         ]
       },
-      "checked": "2026-11-26"
+      "checked": "2026-11-26",
+      "payment_method": true
     },
     {
       "id": "typhoon",
