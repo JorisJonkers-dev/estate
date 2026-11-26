@@ -1,0 +1,1348 @@
+{
+  "kv_path": "platform/litellm",
+  "class_help": {
+    "unauthorized": [
+      "The provider refused the key: it was revoked, expired, mistyped, or made in another account or project.",
+      "Make a new key on the key page above and paste it with --repair (or --add <provider>); the test runs before anything is written."
+    ],
+    "no-credit": [
+      "The key is accepted, but the account has no credit or quota left: top up, raise the key's limit, or wait for the free allowance to reset."
+    ],
+    "rate-limited": [
+      "The key was accepted (429 comes after authentication): a free daily or per-minute allowance is used up. Test again later; nothing to repair."
+    ],
+    "wrong-base": [
+      "The URL did not answer as a model list: the provider moved its API, or a base URL field is wrong.",
+      "A base in a Vault field (bazaarlink_api_base, cohere_api_base, watsonx_api_base) is fixed with --repair; a base the catalogue env names is fixed in JorisJonkers-dev/litellm deploy/env/litellm-catalog/base.env."
+    ],
+    "server-error": [
+      "The provider answered 5xx: an outage on its side. Test again later; nothing to repair."
+    ],
+    "network": [
+      "No HTTP answer from this workstation: DNS, TLS, a firewall, or the provider is down. The local route needs the tailnet."
+    ],
+    "needs-extra-field": [
+      "The route needs a field besides the key; --repair (or --add <provider>) asks for it."
+    ],
+    "unproven": [
+      "The model list answers without any key, so its answer says nothing about this key. The catalogue's own probe decides: check the MODELS column after a run (--sync)."
+    ]
+  },
+  "providers": [
+    {
+      "id": "vibe",
+      "name": "Mistral Vibe (vibe account)",
+      "fields": [
+        {
+          "name": "vibe_api_key",
+          "env": "VIBE_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.mistral.ai/v1"
+      },
+      "signup_url": "https://chat.mistral.ai",
+      "key_url": "https://chat.mistral.ai/code/extensions",
+      "requirements": "A Vibe key (Mistral Vibe / Le Chat coding plan), not a Studio key. Make it signed in to the account that owns this field. Docs state it works on the Free plan.",
+      "steps": [
+        "Open https://chat.mistral.ai and sign in to the account that owns this field (vibe or vibe-study).",
+        "Open https://chat.mistral.ai/code/extensions (Vibe, Code, Vibe CLI).",
+        "Generate a key there and copy it; it is shown once.",
+        "Paste it here."
+      ],
+      "verified": "partial",
+      "verified_note": "the Vibe key page comes from docs.mistral.ai (vibe/code/cli api-keys-profiles); the page's button labels were not seen",
+      "fix": {
+        "unauthorized": [
+          "401 Invalid API Key: variable truncated or wrong key type (Studio vs Vibe).",
+          "Key expired or deleted: keys have an expiration date set at creation.",
+          "Plan not activated or phone not verified: free Experiment plan may reject calls until set up.",
+          "Vibe key used against api.mistral.ai may not behave as a Studio key; create a Studio key at console.mistral.ai/api-keys."
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "vibe-study",
+      "name": "Mistral Vibe (vibe-study account)",
+      "fields": [
+        {
+          "name": "vibe_study_api_key",
+          "env": "VIBE_STUDY_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.mistral.ai/v1"
+      },
+      "signup_url": "https://chat.mistral.ai",
+      "key_url": "https://chat.mistral.ai/code/extensions",
+      "requirements": "A Vibe key (Mistral Vibe / Le Chat coding plan), not a Studio key. Make it signed in to the account that owns this field. Docs state it works on the Free plan.",
+      "steps": [
+        "Open https://chat.mistral.ai and sign in to the account that owns this field (vibe or vibe-study).",
+        "Open https://chat.mistral.ai/code/extensions (Vibe, Code, Vibe CLI).",
+        "Generate a key there and copy it; it is shown once.",
+        "Paste it here."
+      ],
+      "verified": "partial",
+      "verified_note": "the Vibe key page comes from docs.mistral.ai (vibe/code/cli api-keys-profiles); the page's button labels were not seen",
+      "fix": {
+        "unauthorized": [
+          "401 Invalid API Key: variable truncated or wrong key type (Studio vs Vibe).",
+          "Key expired or deleted: keys have an expiration date set at creation.",
+          "Plan not activated or phone not verified: free Experiment plan may reject calls until set up.",
+          "Vibe key used against api.mistral.ai may not behave as a Studio key; create a Studio key at console.mistral.ai/api-keys."
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "vibe-api",
+      "name": "Mistral API (general key of the vibe account)",
+      "fields": [
+        {
+          "name": "vibe_api_general_key",
+          "env": "VIBE_API_GENERAL_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.mistral.ai/v1"
+      },
+      "signup_url": "https://console.mistral.ai",
+      "key_url": "https://console.mistral.ai/api-keys",
+      "requirements": "Free Experiment plan reportedly needs phone verification, no card (from Mistral help-centre search snippet, not fetched). Vibe key works on Free, paid or pay-as-you-go. Docs say key types are Studio, Vibe and legacy Mistral Code. Free plan may require data-training opt-in (third-party claim, unconfirmed). Some sources say calls 401 until a plan is activated.",
+      "steps": [
+        "Open https://console.mistral.ai and create an account or sign in (email verification).",
+        "Pick the free Experiment plan if offered, and verify a phone number by SMS code if asked (help-centre via search: one phone number per plan, no card).",
+        "Open https://console.mistral.ai/api-keys (Studio, API Keys).",
+        "Select New key.",
+        "Enter a name and set an expiration date.",
+        "Choose a connector access scope (shared only, or private and shared).",
+        "Create the key and copy it immediately; the full key is shown only once."
+      ],
+      "verified": "partial",
+      "verified_note": "Fetched docs.mistral.ai quickstart 'activate-and-generate-api-key' (key steps, console.mistral.ai/api-keys, 401 'Invalid API Key' hint), admin/identity-access/api-keys (key types Studio/Vibe/Mistral Code; console.mistral.ai/home?profile_dialog=api-keys), vibe/code/cli/api-keys-profiles and install-cli (Vibe key at chat.mistral.ai/code/extensions, works on Free). Could not fetch the account-signup or Experiment-plan pages (404); phone/no-card comes from a search snippet of help.mistral.ai only. Key prefix undocumented. Whether Vibe and Studio keys are interchangeable is not stated.",
+      "fix": {
+        "unauthorized": [
+          "401 Invalid API Key: variable truncated or wrong key type (Studio vs Vibe).",
+          "Key expired or deleted: keys have an expiration date set at creation.",
+          "Plan not activated or phone not verified: free Experiment plan may reject calls until set up.",
+          "Vibe key used against api.mistral.ai may not behave as a Studio key; create a Studio key at console.mistral.ai/api-keys."
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "vibe-study-api",
+      "name": "Mistral API (general key of the vibe-study account)",
+      "fields": [
+        {
+          "name": "vibe_study_api_general_key",
+          "env": "VIBE_STUDY_API_GENERAL_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.mistral.ai/v1"
+      },
+      "signup_url": "https://console.mistral.ai",
+      "key_url": "https://console.mistral.ai/api-keys",
+      "requirements": "Free Experiment plan reportedly needs phone verification, no card (from Mistral help-centre search snippet, not fetched). Vibe key works on Free, paid or pay-as-you-go. Docs say key types are Studio, Vibe and legacy Mistral Code. Free plan may require data-training opt-in (third-party claim, unconfirmed). Some sources say calls 401 until a plan is activated.",
+      "steps": [
+        "Open https://console.mistral.ai and create an account or sign in (email verification).",
+        "Pick the free Experiment plan if offered, and verify a phone number by SMS code if asked (help-centre via search: one phone number per plan, no card).",
+        "Open https://console.mistral.ai/api-keys (Studio, API Keys).",
+        "Select New key.",
+        "Enter a name and set an expiration date.",
+        "Choose a connector access scope (shared only, or private and shared).",
+        "Create the key and copy it immediately; the full key is shown only once."
+      ],
+      "verified": "partial",
+      "verified_note": "Fetched docs.mistral.ai quickstart 'activate-and-generate-api-key' (key steps, console.mistral.ai/api-keys, 401 'Invalid API Key' hint), admin/identity-access/api-keys (key types Studio/Vibe/Mistral Code; console.mistral.ai/home?profile_dialog=api-keys), vibe/code/cli/api-keys-profiles and install-cli (Vibe key at chat.mistral.ai/code/extensions, works on Free). Could not fetch the account-signup or Experiment-plan pages (404); phone/no-card comes from a search snippet of help.mistral.ai only. Key prefix undocumented. Whether Vibe and Studio keys are interchangeable is not stated.",
+      "fix": {
+        "unauthorized": [
+          "401 Invalid API Key: variable truncated or wrong key type (Studio vs Vibe).",
+          "Key expired or deleted: keys have an expiration date set at creation.",
+          "Plan not activated or phone not verified: free Experiment plan may reject calls until set up.",
+          "Vibe key used against api.mistral.ai may not behave as a Studio key; create a Studio key at console.mistral.ai/api-keys."
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "opencode-go",
+      "name": "OpenCode Go",
+      "fields": [
+        {
+          "name": "opencode_go_api_key",
+          "env": "OPENCODE_GO_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://opencode.ai/inference/go/v1"
+      },
+      "signup_url": "https://opencode.ai/console",
+      "key_url": "https://opencode.ai/console",
+      "requirements": "Paid subscription; billing details required (no free plan documented).",
+      "steps": [
+        "Open https://opencode.ai/console and sign in.",
+        "Subscribe to Go (or Go Plus / Go Teams) and add billing details.",
+        "Copy your API key from the Console (personal key, or a service account key on Go/Go Plus)."
+      ],
+      "verified": true,
+      "verified_note": "Fetched opencode.ai/docs/go. Exact Console menu labels for the key page and key prefix not stated.",
+      "fix": {
+        "unauthorized": [
+          "Subscription lapsed or billing failed.",
+          "Wrong key type for plan (personal vs service account key).",
+          "Base URL missing /inference/go path."
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter (existing key only)",
+      "fields": [
+        {
+          "name": "openrouter_api_key",
+          "env": "OPENROUTER_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://openrouter.ai/api/v1",
+        "auth_path": "/key"
+      },
+      "key_url": "https://openrouter.ai/settings/keys",
+      "requirements": "Existing key only; credits needed for paid models.",
+      "key_prefix": "sk-or-v1-",
+      "steps": [
+        "Open https://openrouter.ai/settings/keys (https://openrouter.ai/keys also documented) to view, create or delete keys.",
+        "Add credits at https://openrouter.ai/settings/credits; GET /api/v1/credits also exists."
+      ],
+      "verified": "partial",
+      "verified_note": "Fetched openrouter.ai/docs/api-reference/limits and /authentication. The models endpoint path was not fetched (well-known). Docs name /keys as the management page and /settings/keys for deleting keys.",
+      "fix": {
+        "unauthorized": [
+          "Key deleted or disabled.",
+          "Key credit limit reached (limit_remaining 0).",
+          "Account credits exhausted for paid models."
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "local",
+      "name": "GPU workstation gate (local models)",
+      "requirements": "No account: the key of the keyed gate in front of the GPU workstation's model server (nix-config services.llmLocalGate). The test needs the tailnet.",
+      "steps": [
+        "On enschede-rx7900xtx-1, read /var/lib/secrets/llm-local-gate.key (sudo cat); make it there first with `openssl rand -hex 32` if it does not exist.",
+        "Paste that value here: the same value on both sides."
+      ],
+      "verified": "n/a",
+      "verified_note": "an estate-internal key, nothing to check on a website",
+      "fields": [
+        {
+          "name": "local_llm_api_key",
+          "env": "LOCAL_LLM_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "http://100.112.121.102:11435/v1"
+      },
+      "fix": {
+        "network": [
+          "The gate is on the tailnet: check `tailscale status` lists enschede-rx7900xtx-1 and that the workstation is on."
+        ],
+        "unauthorized": [
+          "The gate refused the key: Vault and /var/lib/secrets/llm-local-gate.key on the workstation differ; paste the file's value."
+        ]
+      }
+    },
+    {
+      "id": "google",
+      "name": "Google AI Studio (Gemini API)",
+      "fields": [
+        {
+          "name": "google_api_key",
+          "env": "GEMINI_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://generativelanguage.googleapis.com/v1beta/openai"
+      },
+      "signup_url": "https://aistudio.google.com",
+      "key_url": "https://aistudio.google.com/apikey",
+      "requirements": "Free tier on new accounts, no card documented for free tier (paid tier needs billing account and prepay of at least $5). Google's FAQ states the free tier is available in the EEA, UK and CH; per-model free limits apply. New keys are auth keys bound to a service account (default from 2026-05-28).",
+      "steps": [
+        "Open https://aistudio.google.com and sign in with a Google account.",
+        "Accept the Terms of Service; a default project and key are created for new users.",
+        "Open https://aistudio.google.com/apikey.",
+        "Create a key in the Google Cloud project you want (imported projects may need project verification before free tier).",
+        "Copy the key."
+      ],
+      "verified": true,
+      "verified_note": "Fetched aistudio.google.com/docs/api-key, /docs/openai (base URL https://generativelanguage.googleapis.com/v1beta/openai/ and models curl) and /docs/billing (free tier, EEA/UK/CH). Native v1beta/models URL not fetched; key prefix not documented (keys commonly start AIza, unverified).",
+      "fix": {
+        "unauthorized": [
+          "Project needs verification before free tier works.",
+          "Key restricted to another API or project; Generative Language API not enabled.",
+          "Free tier not available for that model or quota 429.",
+          "Using Bearer on native endpoint instead of key param/x-goog-api-key."
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "fields": [
+        {
+          "name": "anthropic_api_key",
+          "env": "ANTHROPIC_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.anthropic.com/v1",
+        "auth": "x-api-key",
+        "headers": {
+          "anthropic-version": "2023-06-01"
+        }
+      },
+      "signup_url": "https://platform.claude.com/",
+      "key_url": "https://platform.claude.com/settings/keys",
+      "requirements": "No free API tier documented; new orgs may start in Evaluation tier with lower limits; credit purchase needed in practice (not confirmed on a fetched page). Key types: personal, service account, legacy workspace key.",
+      "key_prefix": "sk-ant-",
+      "steps": [
+        "Open https://platform.claude.com/ and sign in or create an account.",
+        "Open https://platform.claude.com/settings/keys.",
+        "Click Create key, name it, choose an expiration, and set Linked account (yourself or a service account); optionally pick a workspace.",
+        "Copy the key (starts sk-ant-); shown only once.",
+        "Add credits/billing if requests are refused for balance."
+      ],
+      "verified": true,
+      "verified_note": "Fetched platform.claude.com docs get-api-key, api/overview, api/models/list, api/rate-limits. Docs do not state a free tier or a credit-purchase step on pages fetched, so 'need to buy credits' is unconfirmed.",
+      "fix": {
+        "unauthorized": [
+          "Key expired (expiration chosen at creation) or revoked.",
+          "Personal key stops working if owner leaves the organization.",
+          "Missing anthropic-workspace-id for a key not scoped to a workspace.",
+          "Missing anthropic-version header.",
+          "Region unsupported or organization on hold (organization_on_hold)."
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "groq",
+      "name": "Groq",
+      "fields": [
+        {
+          "name": "groq_api_key",
+          "env": "GROQ_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.groq.com/openai/v1"
+      },
+      "signup_url": "https://console.groq.com",
+      "key_url": "https://console.groq.com/keys",
+      "requirements": "Free tier exists (billing FAQ: upgrading to Developer tier needs a payment method, so Free does not); exact free limits are on the console Limits page. No region restriction found on fetched pages.",
+      "key_prefix": "gsk_",
+      "steps": [
+        "Open https://console.groq.com and sign up or sign in.",
+        "Open https://console.groq.com/keys.",
+        "Create an API key and copy it."
+      ],
+      "verified": true,
+      "verified_note": "Fetched console.groq.com docs quickstart, openai, api-reference, rate-limits, billing-faqs. Sign-up page itself and key prefix not confirmed; exact button labels not seen.",
+      "fix": {
+        "unauthorized": [
+          "Key revoked or deleted on /keys.",
+          "Free tier rate limit 429 (org-level).",
+          "Wrong base URL (needs /openai/v1)."
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "cloudflare",
+      "name": "Cloudflare Workers AI",
+      "fields": [
+        {
+          "name": "cloudflare_api_key",
+          "env": "CLOUDFLARE_API_KEY",
+          "secret": true
+        },
+        {
+          "name": "cloudflare_account_id",
+          "env": "CLOUDFLARE_ACCOUNT_ID",
+          "secret": false,
+          "required": false,
+          "pattern": "^[0-9a-f]{32}$",
+          "prompt": "Cloudflare account id (32 hex characters; Enter leaves it empty, and the sync takes the token's one account)"
+        }
+      ],
+      "test": {
+        "kind": "cloudflare",
+        "base": "https://api.cloudflare.com/client/v4"
+      },
+      "fix": {
+        "needs-extra-field": [
+          "Write cloudflare_account_id (Workers AI, Use REST API, Account ID; or the 32 hex characters in https://dash.cloudflare.com/<account id>/...). With it set, the token needs no account-listing permission.",
+          "Or edit the token at https://dash.cloudflare.com/profile/api-tokens and add Account, Account Settings, Read (not confirmed on Cloudflare's reference page) so GET /accounts lists exactly one account."
+        ],
+        "unauthorized": [
+          "models/search needs Workers AI Read (the 'Workers AI' token template has it); a token for another account, or an expired or IP-filtered token, is refused.",
+          "GET /accounts returns an empty list: token lacks account-level read (add Account Settings Read) or is scoped to different resources.",
+          "verify returns not active: token expired, revoked, IP-filtered, or it is an account-owned token (use the account verify endpoint).",
+          "Wrong Account ID.",
+          "models/search 403: token missing Workers AI Read/Write permission."
+        ]
+      },
+      "signup_url": "https://dash.cloudflare.com/sign-up",
+      "key_url": "https://dash.cloudflare.com/profile/api-tokens",
+      "requirements": "Free plan with daily free Workers AI allowance; no card documented on fetched pages. Template token = Workers AI Read and Edit (custom tokens need both). Models search accepts any of Workers AI Read/Write/Metadata Read. GET /client/v4/accounts: docs reference page does not state the permission; the permissions reference lists Account Settings Read (account scope) and Memberships Read / User Details Read (user scope). A token scoped only to Workers AI typically sees 0 accounts; best-known fix (unconfirmed): add Account > Account Settings > Read, and make the token resources include the account, or skip the call and use the Account ID directly.",
+      "steps": [
+        "Create or sign in to a Cloudflare account at dash.cloudflare.com.",
+        "In the dashboard open the Workers AI page and select Use REST API.",
+        "Copy the Account ID shown there.",
+        "On the same page select Create a Workers AI API Token, review the prefilled details, select Create API Token.",
+        "Copy the token (shown once; user tokens are also listed under My Profile > API Tokens)."
+      ],
+      "verified": "partial",
+      "verified_note": "Fetched developers.cloudflare.com workers-ai REST get-started, fundamentals create-token, API refs for accounts list and ai models search, and the permissions reference. Confirmed: Account ID location, template, verify endpoint, search endpoint and its permissions. NOT confirmed: the exact permission required for GET /accounts (reference page states none; Account Settings Read / Memberships Read are inferences), the OpenAI-compatible /ai/v1 base (not fetched), UI labels beyond those quoted.",
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "nvidia",
+      "name": "NVIDIA build (NIM)",
+      "fields": [
+        {
+          "name": "nvidia_nim_api_key",
+          "env": "NVIDIA_NIM_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://integrate.api.nvidia.com/v1",
+        "probe_model": "meta/llama-3.1-8b-instruct"
+      },
+      "signup_url": "https://build.nvidia.com",
+      "key_url": "https://build.nvidia.com/settings/api-keys",
+      "requirements": "Free developer-program credits/rate limits; no card documented. Phone-number SMS verification is reported by many users on NVIDIA's developer forums (failures: 'exceeded limits', no OTP; support contact help@build.nvidia.com per forum posts) but not stated on the official quickstart. Key expiry not documented on fetched pages.",
+      "key_prefix": "nvapi-",
+      "steps": [
+        "Open https://build.nvidia.com and open any model page (e.g. meta/llama-3.1-8b-instruct).",
+        "Click Get API Key in the right-hand pane.",
+        "Enter your email and click Next; sign in with an existing NVIDIA account or set a password to create one (joins the NVIDIA Developer Program).",
+        "Complete any on-screen verification (phone verification is commonly requested).",
+        "A pop-up shows the key; click Copy Key and store it."
+      ],
+      "verified": "partial",
+      "verified_note": "Fetched docs.api.nvidia.com/nim/docs/api-quickstart (Get API Key flow, developer program). Phone verification evidence only from forum search results. Not confirmed: nvapi prefix, key expiry, personal-vs-API key distinction, models endpoint, key settings URL (settings/api-keys is best-known).",
+      "fix": {
+        "unauthorized": [
+          "Key expired or revoked: regenerate on build.nvidia.com.",
+          "Phone verification never completed, account blocked or limited.",
+          "Key created for a different NGC org or a personal key used where an org API key is required (unconfirmed).",
+          "Using the placeholder API_KEY_REQUIRED_IF_EXECUTING_OUTSIDE_NGC."
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "zai",
+      "name": "Z.ai",
+      "fields": [
+        {
+          "name": "zai_api_key",
+          "env": "ZAI_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.z.ai/api/paas/v4"
+      },
+      "signup_url": "https://z.ai/model-api",
+      "key_url": "https://z.ai/manage-apikey/apikey-list",
+      "requirements": "Docs list GLM-4.7-Flash, GLM-4.5-Flash and GLM-4.6V-Flash as free; GLM-5.3-Flash and FlashX are paid. Card/phone/region requirements not stated. GLM Coding Plan uses a different dedicated endpoint.",
+      "steps": [
+        "Open https://z.ai/model-api and register or log in.",
+        "Open https://z.ai/manage-apikey/apikey-list.",
+        "Create a Standard API key.",
+        "Copy the key.",
+        "Optional: top up at https://z.ai/manage-apikey/billing."
+      ],
+      "verified": true,
+      "verified_note": "Fetched docs.z.ai quick-start and pricing pages. Models endpoint, key format and rate limits not documented on fetched pages.",
+      "fix": {
+        "unauthorized": [
+          "Balance zero for paid models (free Flash models excepted).",
+          "Coding-plan key used on the general paas endpoint, or vice versa.",
+          "Key from bigmodel.cn used on z.ai (separate platform)."
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "requesty",
+      "name": "Requesty",
+      "fields": [
+        {
+          "name": "requesty_api_key",
+          "env": "REQUESTY_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://router.requesty.ai/v1"
+      },
+      "signup_url": "https://app.requesty.ai/sign-up",
+      "key_url": "https://app.requesty.ai/api-keys",
+      "requirements": "Free models need no card: new orgs get 200 requests/day and 20/min, shared across free models; paying orgs 1,000/day and 60/min.",
+      "steps": [
+        "Open https://app.requesty.ai/sign-up and create an account.",
+        "Open https://app.requesty.ai/api-keys.",
+        "Create a key and copy it."
+      ],
+      "verified": true,
+      "verified_note": "Fetched docs.requesty.ai/quickstart and features/free-models.md and api-reference/inference-apis.md. Models path/auth and key prefix not confirmed.",
+      "fix": {
+        "unauthorized": [
+          "Free-model daily cap reached (429).",
+          "Using a model that is not free without credit.",
+          "EU vs global router URL mismatch."
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "axforge",
+      "name": "AxForge",
+      "fields": [
+        {
+          "name": "axforge_api_key",
+          "env": "AXFORGE_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.axforge.ai/v1"
+      },
+      "signup_url": "https://console.axforge.ai",
+      "key_url": "https://console.axforge.ai",
+      "requirements": "Marketing page: 3M free serverless tokens every 30 days after a card check, nothing charged. Inference in Stockholm (eu-se-1). Card required for free tokens.",
+      "steps": [
+        "Open https://console.axforge.ai (redirects to a sign-in at id.atom9.com) and create an account.",
+        "Pass the card check (nothing is charged) to receive the free tokens.",
+        "In the console create an API key.",
+        "Use base https://api.axforge.ai/v1 with any OpenAI-compatible client."
+      ],
+      "verified": "partial",
+      "verified_note": "Fetched only axforge.ai home page (3M free tokens after card check; 'get an API key from the console'). console.axforge.ai redirects to id.atom9.com sign-in (not fetched); docs.axforge.ai and quickstart failed (TLS error); search found nothing. Exact key page path, UI labels, prefix and models endpoint unverified.",
+      "fix": {
+        "unauthorized": [
+          "Card check not completed so free tokens not granted.",
+          "Free tokens used up for the 30-day window, then billing required.",
+          "Wrong base URL or key from another console."
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "naga",
+      "name": "NagaAI",
+      "fields": [
+        {
+          "name": "naga_api_key",
+          "env": "NAGA_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.naga.ac/v1"
+      },
+      "signup_url": "https://naga.ac/auth/sign-up",
+      "key_url": "https://naga.ac/dashboard/api-keys",
+      "requirements": "Free models respond right away with no credits; paid models need credits (min balance 0.05 credits per quickstart). No card stated for free use. Docs do not describe ':free' suffix naming.",
+      "key_prefix": "ng-",
+      "steps": [
+        "Open https://naga.ac/auth/sign-up.",
+        "Sign up with Google, GitHub, Discord or email.",
+        "Open https://naga.ac/dashboard/api-keys.",
+        "Create an API key and copy it (shown only once).",
+        "Point the OpenAI client at https://api.naga.ac/v1 and call a free model."
+      ],
+      "verified": true,
+      "verified_note": "Fetched naga.ac, docs.naga.ac, quickstart.md and list-models reference. Could not confirm how free models are identified (':free' suffix not documented; check pricing array / model page).",
+      "fix": {
+        "unauthorized": [
+          "Key must start with ng-",
+          "An invalid key returns 401 even on /models",
+          "402 means paid model with zero balance, not a bad key",
+          "Check key's organization/workspace model restrictions"
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "routeway",
+      "name": "Routeway",
+      "fields": [
+        {
+          "name": "routeway_api_key",
+          "env": "ROUTEWAY_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.routeway.ai/v1"
+      },
+      "signup_url": "https://routeway.ai/dashboard",
+      "key_url": "https://routeway.ai/dashboard",
+      "requirements": "Free Starter plan: 200 requests/day, experimental models, low-priority shared queue, 1 concurrent request. Card requirement for free plan not stated.",
+      "steps": [
+        "Open https://routeway.ai/dashboard and sign in or create an account.",
+        "Open the API keys section of the account (docs: account-management/api-key-management).",
+        "Create a key and copy it.",
+        "Use base URL https://api.routeway.ai/v1 with Authorization: Bearer <key>."
+      ],
+      "verified": "partial",
+      "verified_note": "Fetched routeway.ai, docs.routeway.ai, llms.txt. Did not fetch the API key management page, so exact UI labels, key prefix and models endpoint are unconfirmed.",
+      "fix": {
+        "unauthorized": [
+          "Bearer header with ROUTEWAY_API_KEY",
+          "Free plan limits 200 req/day and 1 concurrent request can look like errors (429)",
+          "Check the key was created in the signed-in dashboard"
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "inferbase",
+      "name": "Inferbase",
+      "fields": [
+        {
+          "name": "inferbase_api_key",
+          "env": "INFERBASE_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.inferbase.ai/v1"
+      },
+      "signup_url": "https://inferbase.ai/register",
+      "key_url": "https://inferbase.ai",
+      "requirements": "Free plan: 5,000 requests/month, no credit card. Creating keys needs a signed-in session.",
+      "key_prefix": "inf_",
+      "steps": [
+        "Open https://inferbase.ai/register (Start free).",
+        "Create an account.",
+        "Sign in to the portal and open Gateway, API keys.",
+        "Create a key and copy it.",
+        "Use base URL https://api.inferbase.ai/v1 with Authorization: Bearer <key>; model 'auto' enables routing."
+      ],
+      "verified": true,
+      "verified_note": "Fetched inferbase.ai and inferbase.ai/docs/api. Docs also reference https://api.inferbase.ai/api/v1/inference as the path root. Exact portal URL for key page not fetched (login required).",
+      "fix": {
+        "unauthorized": [
+          "Send Authorization: Bearer inf_...; x-api-key is not read",
+          "Key must start with inf_",
+          "Monthly 5,000 request cap"
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "bazaarlink",
+      "name": "BazaarLink",
+      "fields": [
+        {
+          "name": "bazaarlink_api_key",
+          "env": "BAZAARLINK_API_KEY",
+          "secret": true
+        },
+        {
+          "name": "bazaarlink_api_base",
+          "env": "BAZAARLINK_API_BASE",
+          "secret": false,
+          "required": true,
+          "default": "https://api.bazaarlink.ai/v1",
+          "pattern": "^https://",
+          "prompt": "BazaarLink base URL"
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base_field": "bazaarlink_api_base"
+      },
+      "signup_url": "https://bazaarlink.ai/login",
+      "key_url": "https://bazaarlink.ai/keys",
+      "requirements": "Free plan, no credit card. 7 free models; no credit: 10 RPM and 60 weighted units/day; with credit 20 RPM and 120 units/day; 2 concurrent free requests; resets 00:00 UTC.",
+      "key_prefix": "sk-bl-",
+      "steps": [
+        "Open https://bazaarlink.ai/login and sign up.",
+        "Open https://bazaarlink.ai/keys.",
+        "Create an API key and copy it.",
+        "Use base URL https://api.bazaarlink.ai/v1 and a free model id from https://bazaarlink.ai/en/models."
+      ],
+      "verified": true,
+      "verified_note": "Fetched bazaarlink.ai/free and bazaarlink.ai/en/docs/api (first 100k of 153k chars). Base URL stated as https://api.bazaarlink.ai with endpoints under /v1.",
+      "fix": {
+        "unauthorized": [
+          "Key must start with sk-bl-",
+          "Bearer header; /v1/messages also accepts x-api-key",
+          "Free model ids must be from the models page; daily weighted-unit limit gives 429"
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "electronhub",
+      "name": "Electron Hub",
+      "fields": [
+        {
+          "name": "electronhub_api_key",
+          "env": "ELECTRONHUB_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.electronhub.ai/v1"
+      },
+      "signup_url": "https://app.electronhub.ai",
+      "key_url": "https://app.electronhub.ai",
+      "requirements": "Not stated on fetched pages (free tier, card, phone all unconfirmed).",
+      "steps": [
+        "Open https://app.electronhub.ai (the playground/dashboard).",
+        "Sign up or sign in.",
+        "Open the API keys page in the dashboard.",
+        "Create a key and copy it.",
+        "Use base URL https://api.electronhub.ai/v1 with Authorization: Bearer <key>."
+      ],
+      "verified": "partial",
+      "verified_note": "Fetched electronhub.ai, docs.electronhub.ai, app.electronhub.ai. Only confirmed the 'Get API key' link and 'sign up at our playground' (app.electronhub.ai). Base URL, key page, prefix, free tier not stated; hinted base URL unconfirmed.",
+      "fix": {
+        "unauthorized": [
+          "Check the key was copied in full",
+          "Confirm base URL against docs.electronhub.ai",
+          "Account may need credits or a free-tier claim"
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "cohere",
+      "name": "Cohere",
+      "fields": [
+        {
+          "name": "cohere_api_key",
+          "env": "COHERE_API_KEY",
+          "secret": true
+        },
+        {
+          "name": "cohere_api_base",
+          "env": "COHERE_LIST_BASE",
+          "secret": false,
+          "required": true,
+          "default": "https://api.cohere.ai/compatibility/v1",
+          "pattern": "^https://",
+          "prompt": "Cohere OpenAI-compatible base URL (the sync lists and probes there)"
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.cohere.com/v1",
+        "count": ".models | length"
+      },
+      "fix": {
+        "wrong-base": [
+          "The key is tested on Cohere's own list (api.cohere.com/v1/models). The sync lists at cohere_api_base + /models, which Cohere's compatibility docs do not document: if the catalogue shows a cohere route error, that listing is the cause, not the key."
+        ],
+        "unauthorized": [
+          "Bearer header with the trial key",
+          "Trial cap of 1,000 calls/month yields 429",
+          "Use the native /v1/models for listing; compatibility /models may 404"
+        ]
+      },
+      "signup_url": "https://dashboard.cohere.com",
+      "key_url": "https://dashboard.cohere.com/api-keys",
+      "requirements": "Trial key: 1,000 API calls/month, 20 req/min per chat model; not for production. Card requirement not stated.",
+      "steps": [
+        "Open https://dashboard.cohere.com and sign up or sign in.",
+        "Open https://dashboard.cohere.com/api-keys.",
+        "Create or copy a trial key.",
+        "Use base URL https://api.cohere.ai/compatibility/v1 with Authorization: Bearer <key>."
+      ],
+      "verified": true,
+      "verified_note": "Fetched docs.cohere.com compatibility-api, rate-limits, and list-models reference. Compatibility docs list only chat/completions, embeddings, audio/transcriptions; GET /models there unconfirmed. One audio example uses api.cohere.com/compatibility/v1 instead of api.cohere.ai. Dashboard signup steps not fetched.",
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "airforce",
+      "name": "Api.Airforce",
+      "fields": [
+        {
+          "name": "airforce_api_key",
+          "env": "AIRFORCE_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.airforce/v1"
+      },
+      "signup_url": "https://api.airforce/signup/",
+      "key_url": "https://api.airforce/dashboard/#api-keys",
+      "requirements": "Free plan $0: 1 request/min, 1,000 requests/day, basic models only. Card not stated. Discord sign-in not confirmed on fetched pages (Discord is only a community link).",
+      "steps": [
+        "Open https://api.airforce/signup/ and create an account.",
+        "Sign in at https://api.airforce/login/.",
+        "Open https://api.airforce/dashboard/#api-keys.",
+        "Create a key and copy it.",
+        "Use base URL https://api.airforce/v1 with Authorization: Bearer <key>."
+      ],
+      "verified": "partial",
+      "verified_note": "Fetched api.airforce and api.airforce/docs/. Sign-up methods, key prefix, models endpoint unconfirmed.",
+      "fix": {
+        "unauthorized": [
+          "Bearer header",
+          "Free plan is 1 req/min, so 429 is common",
+          "Free key only reaches basic models"
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "plugsky",
+      "name": "Plugsky",
+      "fields": [
+        {
+          "name": "plugsky_api_key",
+          "env": "PLUGSKY_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.plugsky.com/v1"
+      },
+      "signup_url": "https://plugsky.com/?start=1",
+      "key_url": "https://plugsky.com/dashboard",
+      "requirements": "Free plan, no card. New accounts (from 2 Nov 2026): 100 requests and 50K tokens/day, 30 req/min, 1 concurrent, 2 API keys; micro and lite models only. Trials retired.",
+      "key_prefix": "sk-live-",
+      "steps": [
+        "Open https://plugsky.com and click Start free.",
+        "Create an account.",
+        "Open the Dashboard, API keys.",
+        "Create a key and copy it.",
+        "Use base URL https://api.plugsky.com/v1 with Authorization: Bearer <key> and model plugsky-micro."
+      ],
+      "verified": true,
+      "verified_note": "Fetched plugsky.com and plugsky.com/docs. Dashboard not opened (login).",
+      "fix": {
+        "unauthorized": [
+          "Key must start with sk-live-",
+          "Free keys only reach plugsky-micro/lite",
+          "Keys have scopes (e.g. chat:write); check scope",
+          "Daily request/token caps give 429"
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "poe",
+      "name": "Poe",
+      "fields": [
+        {
+          "name": "poe_api_key",
+          "env": "POE_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.poe.com/v1"
+      },
+      "signup_url": "https://poe.com",
+      "key_url": "https://poe.com/api_key",
+      "requirements": "Free daily points not confirmed in docs; docs say API uses subscriber points, add-on points can be bought, and an active subscription may be needed. Card/phone unconfirmed.",
+      "steps": [
+        "Open https://poe.com and sign in or sign up.",
+        "Open https://poe.com/api_key (some docs link https://poe.com/api/keys).",
+        "Create or copy the API key.",
+        "Use base URL https://api.poe.com/v1 with Authorization: Bearer <key>."
+      ],
+      "verified": "partial",
+      "verified_note": "Fetched creator.poe.com OpenAI-compatible docs (base URL, bearer auth, key link poe.com/api/keys); poe.com/api/keys returned 403. Models endpoint and poe.com/api_key from web search only. Free points claim unconfirmed.",
+      "fix": {
+        "unauthorized": [
+          "Bearer header",
+          "Account may lack points or subscription",
+          "Regenerate key at the key page"
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "vercel",
+      "name": "Vercel AI Gateway",
+      "fields": [
+        {
+          "name": "vercel_ai_gateway_api_key",
+          "env": "VERCEL_AI_GATEWAY_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://ai-gateway.vercel.sh/v1"
+      },
+      "signup_url": "https://vercel.com/signup",
+      "key_url": "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway%2Fapi-keys",
+      "requirements": "Every team gets a free tier with monthly free credits starting at first request; subset of models (see vercel.com/ai-gateway/models?freeTier=true); lower rate limits. Card not stated as required for free tier; buying credits moves you to paid tier and ends free credit. Over-limit gives 429; no positive balance gives 402.",
+      "key_prefix": "vck_",
+      "steps": [
+        "Create or sign in to a Vercel account (no project needed).",
+        "Open the AI Gateway API Keys page in the dashboard (AI Gateway, API Keys).",
+        "Click Create key.",
+        "Name the key and create it.",
+        "Copy the key immediately (not retrievable) and save it as AI_GATEWAY_API_KEY.",
+        "Use base URL https://ai-gateway.vercel.sh/v1 with Authorization: Bearer <key>."
+      ],
+      "verified": true,
+      "verified_note": "Fetched Vercel docs: ai-gateway, api-keys, pricing, openai-chat-completions. Free credit amount and exact signup card/phone requirements not stated there.",
+      "fix": {
+        "unauthorized": [
+          "Key deleted or created by a departed team member is deactivated",
+          "If key present but invalid, it takes precedence over OIDC and 401s",
+          "402 means no balance or budget exceeded",
+          "Free tier limited to a model subset"
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "watsonx",
+      "name": "IBM watsonx.ai",
+      "fields": [
+        {
+          "name": "watsonx_api_key",
+          "env": "WATSONX_API_KEY",
+          "secret": true
+        },
+        {
+          "name": "watsonx_api_base",
+          "env": "WATSONX_API_BASE",
+          "secret": false,
+          "required": true,
+          "pattern": "^https://[a-z-]+\\.ml\\.cloud\\.ibm\\.com$",
+          "prompt": "watsonx.ai regional endpoint, https://<region>.ml.cloud.ibm.com (us-south, eu-de, eu-gb, jp-tok, au-syd, ca-tor)"
+        },
+        {
+          "name": "watsonx_project_id",
+          "env": "WATSONX_PROJECT_ID",
+          "secret": false,
+          "required": true,
+          "pattern": "^[0-9a-f-]{36}$",
+          "prompt": "watsonx.ai project id (a UUID)"
+        }
+      ],
+      "test": {
+        "kind": "watsonx",
+        "iam": "https://iam.cloud.ibm.com/identity/token",
+        "base_field": "watsonx_api_base",
+        "path": "/ml/v1/foundation_model_specs?version=2024-05-01&limit=200",
+        "count": ".total_count // (.resources | length)"
+      },
+      "fix": {
+        "wrong-base": [
+          "watsonx_api_base must be the region where the watsonx.ai Runtime and the project were created, https://<region>.ml.cloud.ibm.com, with no path."
+        ],
+        "unauthorized": [
+          "401 from IAM: the API key is wrong or revoked; create a new IBM Cloud API key at cloud.ibm.com/iam/apikeys",
+          "IAM token expires after about an hour; re-exchange it",
+          "404/403 on the endpoint: region in the URL must match the region where the Runtime service and project were created",
+          "Project id must belong to a project linked to a watsonx.ai Runtime instance",
+          "Check that the account is not just a free IBM id without the account activated for watsonx"
+        ]
+      },
+      "signup_url": "https://www.ibm.com/products/watsonx-ai",
+      "key_url": "https://cloud.ibm.com/iam/apikeys",
+      "requirements": "Free Lite plan (20 CUH/month, does not expire). IBM docs say signup asks for card details used to verify identity; no charge for Lite plans (not a hard 'no card' path). Region choice required; regions: us-south (Dallas), eu-de (Frankfurt), eu-gb (London), jp-tok (Tokyo), au-syd (Sydney), ca-tor (Toronto).",
+      "steps": [
+        "Open the 'Try watsonx for free' page and select your IBM Cloud region",
+        "Log in with an IBM Cloud account or create one (email, personal details, card details for identity verification)",
+        "If an account selection screen appears, choose the account and resource group, then click Continue to activate",
+        "Stay in the same browser until activation finishes and bookmark the watsonx home page",
+        "In IBM Cloud, provision watsonx.ai Runtime on the Lite plan from the catalog and create or open a watsonx project, associating the Runtime service with it",
+        "Open the project and find the project id in its management/details view (exact label not verified)",
+        "Open https://cloud.ibm.com/iam/apikeys, create an IBM Cloud API key, and copy it immediately"
+      ],
+      "verified": "partial",
+      "verified_note": "Fetched IBM docs: signup-wx (steps, card for identity verification, Lite no charge), regional-datactr (six IBM Cloud regions with codes), API reference cloud.ibm.com/apidocs/watsonx-ai (GET /ml/v1/foundation_model_specs, response fields total_count/limit/first/next/resources; no version listed for that endpoint, version=YYYY-MM-DD on others), web search (endpoint pattern https://{region}.ml.cloud.ibm.com with version=2024-12-10). NOT confirmed from a fetched page: the IAM token URL/grant type (from well-known IBM IAM usage and the task hint), the exact UI labels for project id, the regional host table, the exact Lite provisioning clicks. The IBM docs pages for API key/project id returned navigation only.",
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "novita",
+      "name": "Novita AI",
+      "fields": [
+        {
+          "name": "novita_api_key",
+          "env": "NOVITA_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.novita.ai/v3/openai"
+      },
+      "fix": {
+        "wrong-base": [
+          "The sync lists at https://api.novita.ai/v3/openai; Novita's docs now name https://api.novita.ai/openai/v1. If /v3/openai stops answering, change NOVITA_API_BASE in JorisJonkers-dev/litellm deploy/env/litellm-catalog/base.env."
+        ],
+        "unauthorized": [
+          "Bearer header",
+          "Check balance at novita.ai/billing",
+          "Some models need identity verification",
+          "Use the /openai/v1 base URL, not /v3/openai, if 404"
+        ]
+      },
+      "signup_url": "https://novita.ai/user/login",
+      "key_url": "https://novita.ai/settings/key-management",
+      "requirements": "Free credits and card requirement not stated on fetched pages; docs mention identity verification may be required for some models. Check https://novita.ai/billing for credit.",
+      "steps": [
+        "Open https://novita.ai/user/login.",
+        "Sign in with Google or GitHub, or register with email.",
+        "Open https://novita.ai/settings/key-management.",
+        "Create a key and copy it.",
+        "Use the OpenAI-compatible base URL with Authorization: Bearer <key>."
+      ],
+      "verified": true,
+      "verified_note": "Fetched docs.novita.ai quickstart and llm-api guide. Docs show https://api.novita.ai/openai/v1/chat/completions; no v3/openai mention. Free credits and models endpoint unconfirmed.",
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "together",
+      "name": "Together AI",
+      "fields": [
+        {
+          "name": "together_api_key",
+          "env": "TOGETHER_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.together.ai/v1",
+        "count": "length"
+      },
+      "signup_url": "https://api.together.ai/",
+      "key_url": "https://api.together.ai/settings/projects/~current/api-keys",
+      "requirements": "NOT a free plan: Together support says there is no free trial or free tier and new accounts must buy at least $5 of prepaid credits before use; auto-recharge needs a card. Quickstart docs elsewhere mention starter credit; sources conflict.",
+      "steps": [
+        "Open https://api.together.ai/ and register an account",
+        "Open https://api.together.ai/settings/projects/~current/api-keys",
+        "Create a new key and give it a name",
+        "Copy the key immediately; it is shown only once"
+      ],
+      "verified": "partial",
+      "verified_note": "Fetched docs.together.ai/docs/quickstart (signup URL, key page, base URL) and support.together.ai article on free tier (no free trial, $5 minimum). Not confirmed: key prefix, /models response shape, whether a card is needed for the $5 purchase (implied).",
+      "fix": {
+        "unauthorized": [
+          "401: key copied wrongly or deleted; keys are per project",
+          "402/403: account has no purchased credits; add at least $5",
+          "Use https://api.together.ai/v1, not api.together.xyz"
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "typhoon",
+      "name": "Typhoon",
+      "fields": [
+        {
+          "name": "typhoon_api_key",
+          "env": "TYPHOON_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.opentyphoon.ai/v1"
+      },
+      "signup_url": "https://playground.opentyphoon.ai/api-key",
+      "key_url": "https://playground.opentyphoon.ai/api-key",
+      "requirements": "Free access via playground account (rate-limited; limits page at docs.opentyphoon.ai/en/rate-limits/ not fetched). Card, phone and region requirements not stated in fetched docs.",
+      "steps": [
+        "Open https://playground.opentyphoon.ai/api-key",
+        "Create an account and log in",
+        "Create a new API key",
+        "Copy it immediately; it is not shown again"
+      ],
+      "verified": "partial",
+      "verified_note": "Fetched docs.opentyphoon.ai/en/quickstart (key page, base URL, chat completions endpoint). Not confirmed: models endpoint, key prefix, phone/card, free limits.",
+      "fix": {
+        "unauthorized": [
+          "401: key mistyped or regenerated",
+          "429: free rate limit reached",
+          "Use model ids exactly as shown in the playground"
+        ],
+        "wrong-base": [
+          "Typhoon answers GET /models with a bare JSON list, not {\"data\": [...]}. The sync accepts a bare list only for Together (catalog/sync.py BARE_LIST_KINDS in JorisJonkers-dev/litellm), so it records a route error for Typhoon whatever the key: the fix is there, not in Vault."
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "sealion",
+      "name": "AI Singapore SEA-LION",
+      "fields": [
+        {
+          "name": "sealion_api_key",
+          "env": "SEALION_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.sea-lion.ai/v1"
+      },
+      "signup_url": "https://playground.sea-lion.ai",
+      "key_url": "https://playground.sea-lion.ai",
+      "requirements": "Free trial key; Google sign-in; one key per user; 10 requests/minute per user (docs, as of 04 Jun 2026); more via sealion@aisingapore.org. No card or phone mentioned.",
+      "steps": [
+        "Open https://playground.sea-lion.ai",
+        "Sign in with your Google account",
+        "Open API Key Manager from the 'API Key' side menu or 'Launch Key Manager' on the home dashboard",
+        "Click 'Create New Trial API Key' and enter a name",
+        "Copy or download the key immediately; it cannot be viewed again"
+      ],
+      "verified": true,
+      "verified_note": "Fetched docs.sea-lion.ai/guides/inferencing/api (steps, base URL, limit). Playground page itself only showed a sign-in prompt. Key prefix not documented.",
+      "fix": {
+        "unauthorized": [
+          "401: key missing or wrong; send Authorization: Bearer",
+          "429: over 10 requests per minute",
+          "Only one key per user; if lost, delete and create a new one"
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "gonka",
+      "name": "Gonka Broker",
+      "fields": [
+        {
+          "name": "gonka_api_key",
+          "env": "GONKA_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://proxy.gonkabroker.com/v1"
+      },
+      "signup_url": "https://gonkabroker.com",
+      "key_url": "https://gonkabroker.com",
+      "requirements": "Free tier of at least 1M tokens per month, renewed monthly; page says no card needed for it (page is inconsistent: hero says 'add a card'). No wallet or crypto needed. Phone requirement not mentioned.",
+      "key_prefix": "gnk-prx-",
+      "steps": [
+        "Open https://gonkabroker.com",
+        "Create an account with email or Google",
+        "In the dashboard, generate an API key",
+        "Point an OpenAI client at https://proxy.gonkabroker.com/v1 with that key"
+      ],
+      "verified": "partial",
+      "verified_note": "Fetched gonkabroker.com landing page only (steps, base URL, key format gnk-prx-, /v1/models mention, free tier). Exact dashboard URL and UI labels not seen; phone requirement not stated.",
+      "fix": {
+        "unauthorized": [
+          "401: key must start gnk-prx-; check for whitespace",
+          "402/429: free monthly tokens used up and no top-up",
+          "Use the /v1 base for OpenAI clients"
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "longcat",
+      "name": "Meituan LongCat",
+      "fields": [
+        {
+          "name": "longcat_api_key",
+          "env": "LONGCAT_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.longcat.chat/openai/v1"
+      },
+      "signup_url": "https://longcat.chat/platform",
+      "key_url": "https://longcat.chat/platform/api_keys",
+      "requirements": "Phone, card and region requirements not stated in the fetched docs (a phone number may be required at registration; unconfirmed). Free quota details not confirmed.",
+      "steps": [
+        "Open https://longcat.chat/platform and register by filling in the required information",
+        "Log in and open https://longcat.chat/platform/api_keys",
+        "Click 'Create API Key'",
+        "Copy the key immediately; it is shown only once"
+      ],
+      "verified": "partial",
+      "verified_note": "Fetched longcat.chat/platform/docs/ (signup, api_keys page, 'Create API Key', show-once, OpenAI base https://api.longcat.chat/openai, Anthropic base .../anthropic). Could not confirm phone requirement, /v1 suffix, models endpoint details, key prefix (docs use YOUR_APP_KEY).",
+      "fix": {
+        "unauthorized": [
+          "401: wrong key; recreate at the API Keys page",
+          "404: check whether the client appends /v1/chat/completions to https://api.longcat.chat/openai",
+          "Account may need verification before quota is granted"
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "neosantara",
+      "name": "Neosantara",
+      "fields": [
+        {
+          "name": "neosantara_api_key",
+          "env": "NEOSANTARA_API_KEY",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "bearer",
+        "base": "https://api.neosantara.xyz/v1"
+      },
+      "signup_url": "https://app.neosantara.xyz",
+      "key_url": "https://app.neosantara.xyz/api-keys",
+      "requirements": "Some models are listed as 'Free / Included' in the catalog (e.g. glm-4.7-flash, minimax-m2.7-free, nusa-embedding-0001); limits not stated. Billing is in IDR. Card, phone, region not stated.",
+      "key_prefix": "nsk_",
+      "steps": [
+        "Open https://app.neosantara.xyz and sign in or register (sign-up flow not documented)",
+        "Open https://app.neosantara.xyz/api-keys",
+        "Create an API key and copy it",
+        "Set NEOSANTARA_API_KEY and use base URL https://api.neosantara.xyz/v1"
+      ],
+      "verified": true,
+      "verified_note": "Fetched docs.neosantara.xyz (base URL), quickstart (key page app.neosantara.xyz/api-keys, nsk_ example), api-reference list-models, models catalog. Sign-up flow and any card/phone requirement not documented.",
+      "fix": {
+        "unauthorized": [
+          "401: key must start nsk_ and be sent as Bearer",
+          "Non-free models need IDR balance",
+          "Use /v1 for OpenAI-compatible clients, /anthropic for Anthropic clients"
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "catalog-publish",
+      "name": "GitHub token: publish the catalogue",
+      "fields": [
+        {
+          "name": "catalog_publish_token",
+          "env": "CATALOG_TOKEN",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "github",
+        "repo": "JorisJonkers-dev/litellm-model-catalog"
+      },
+      "signup_url": "https://github.com/signup",
+      "key_url": "https://github.com/settings/personal-access-tokens/new",
+      "requirements": "Org default policy is 'Require administrator approval' for fine-grained tokens (owners' own tokens are auto-approved); default max lifetime 366 days unless the org changes it. Org may block fine-grained tokens entirely.",
+      "key_prefix": "github_pat_",
+      "steps": [
+        "Repository JorisJonkers-dev/litellm-model-catalog; permission Contents: Read and write.",
+        "Open https://github.com/settings/personal-access-tokens/new (Settings > Developer settings > Personal access tokens > Fine-grained tokens > Generate new token)",
+        "Enter a token name, choose an expiration, optionally a description",
+        "Set Resource owner to JorisJonkers-dev (organizations that block fine-grained tokens do not appear in the list)",
+        "If the org requires approval, enter a justification",
+        "Under Repository access choose 'Only select repositories' and pick the single repository",
+        "Under Permissions > Repository permissions set Contents to Read and write (Metadata read is the base permission for GET /repos)",
+        "For the second token also set Pull requests to Read and write",
+        "Click 'Generate token' and copy it",
+        "If the org requires approval the token is pending (public read only) until an owner approves; owner-created tokens are approved automatically"
+      ],
+      "verified": "partial",
+      "verified_note": "Fetched GitHub docs: managing-your-personal-access-tokens (steps, org approval pending behaviour), org PAT policy page (default approval required, 366 days), permissions-required page (GET /repos needs Metadata read; contents/pulls endpoints), repos REST page (permissions object of booleans admin/maintain/push/triage/pull). Not confirmed on a page: the github_pat_ prefix, exact UI labels for the permission dropdowns.",
+      "fix": {
+        "unauthorized": [
+          "401: token expired, revoked or mistyped",
+          "403/404 on the repo: token is pending org approval, wrong resource owner, or repo not in the selected repositories",
+          "Write access appears as permissions.push true in the repo response; check Contents is Read and write",
+          "Use Authorization: Bearer or token; add X-GitHub-Api-Version: 2022-11-28 if needed"
+        ]
+      },
+      "checked": "2026-11-26"
+    },
+    {
+      "id": "catalog-pr",
+      "name": "GitHub token: open the models pull request",
+      "fields": [
+        {
+          "name": "catalog_pr_token",
+          "env": "MODELS_TOKEN",
+          "secret": true
+        }
+      ],
+      "test": {
+        "kind": "github",
+        "repo": "JorisJonkers-dev/litellm"
+      },
+      "signup_url": "https://github.com/signup",
+      "key_url": "https://github.com/settings/personal-access-tokens/new",
+      "requirements": "Org default policy is 'Require administrator approval' for fine-grained tokens (owners' own tokens are auto-approved); default max lifetime 366 days unless the org changes it. Org may block fine-grained tokens entirely.",
+      "key_prefix": "github_pat_",
+      "steps": [
+        "Repository JorisJonkers-dev/litellm; permissions Contents and Pull requests: Read and write.",
+        "Open https://github.com/settings/personal-access-tokens/new (Settings > Developer settings > Personal access tokens > Fine-grained tokens > Generate new token)",
+        "Enter a token name, choose an expiration, optionally a description",
+        "Set Resource owner to JorisJonkers-dev (organizations that block fine-grained tokens do not appear in the list)",
+        "If the org requires approval, enter a justification",
+        "Under Repository access choose 'Only select repositories' and pick the single repository",
+        "Under Permissions > Repository permissions set Contents to Read and write (Metadata read is the base permission for GET /repos)",
+        "For the second token also set Pull requests to Read and write",
+        "Click 'Generate token' and copy it",
+        "If the org requires approval the token is pending (public read only) until an owner approves; owner-created tokens are approved automatically"
+      ],
+      "verified": "partial",
+      "verified_note": "Fetched GitHub docs: managing-your-personal-access-tokens (steps, org approval pending behaviour), org PAT policy page (default approval required, 366 days), permissions-required page (GET /repos needs Metadata read; contents/pulls endpoints), repos REST page (permissions object of booleans admin/maintain/push/triage/pull). Not confirmed on a page: the github_pat_ prefix, exact UI labels for the permission dropdowns.",
+      "fix": {
+        "unauthorized": [
+          "401: token expired, revoked or mistyped",
+          "403/404 on the repo: token is pending org approval, wrong resource owner, or repo not in the selected repositories",
+          "Write access appears as permissions.push true in the repo response; check Contents is Read and write",
+          "Use Authorization: Bearer or token; add X-GitHub-Api-Version: 2022-11-28 if needed"
+        ]
+      },
+      "checked": "2026-11-26"
+    }
+  ]
+}
