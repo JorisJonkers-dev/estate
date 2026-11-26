@@ -145,6 +145,36 @@ if [[ -n "$stray" ]]; then
   while read -r f; do note "    $f"; done <<<"$stray"
   note "  The names it reads are the VAULT FIELD column above; rename with bootstrap/secrets.sh --only litellm."
 fi
+# A key missing here may sit in another document: walk the whole `secret` mount
+# (names only, values never leave Vault's answer) and report each field whose
+# name holds a missing provider's stem, e.g. "axforge" for axforge_api_key.
+missing=$(while IFS=$'\t' read -r _ _ key; do
+  [[ -n "$(kv_field "$(cat "$WORK/vault")" "$key")" ]] || printf '%s\n' "${key%%_*}"
+done <"$WORK/refs" | sort -u)
+if [[ -n "$missing" ]]; then
+  section "Elsewhere in Vault"
+  note "looking for the missing keys in every document under secret/ (names only)"
+  walk() {
+    local dir=$1 entry
+    vault kv list -mount=secret -format=json "$dir" </dev/null 2>/dev/null | jq -r '.[]' | while read -r entry; do
+      if [[ "$entry" == */ ]]; then walk "$dir$entry"; else printf '%s\n' "$dir$entry"; fi
+    done
+  }
+  found=0
+  while read -r path; do
+    [[ "$path" == "$KV_PATH" ]] && continue
+    fields=$(vault kv get -mount=secret -format=json "$path" </dev/null 2>/dev/null \
+      | jq -r '.data.data // {} | to_entries[] | select(.value != "" and .value != null) | .key') || continue
+    while read -r stem; do
+      hits=$(grep -i -- "$stem" <<<"$fields" || true)
+      [[ -n "$hits" ]] || continue
+      while read -r h; do warn "secret/$path has $h (the sync reads secret/$KV_PATH)"; found=$((found + 1)); done <<<"$hits"
+    done <<<"$missing"
+  done < <(walk "")
+  (( found > 0 )) || note "none of the missing keys is anywhere under secret/: they were never written to this Vault"
+fi
+
+printf '\n'
 note "red: in Vault but not (or not the same) in the synced Secret: VSO has not refreshed it"
 note "yellow: in the pod but the provider lists 0 models: the key is wrong, expired or the account needs a setting"
 note "dim: no value in Vault: write it with bootstrap/secrets.sh --only litellm"
