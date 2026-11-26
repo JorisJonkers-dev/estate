@@ -52,17 +52,19 @@ case "${1:-}" in
 esac
 
 require_tools kubectl vault jq curl gh
+# A heading that, unlike the wizard's stage, keeps the earlier output on screen.
+section() { printf '\n%s%s▸ %s%s\n' "$BOLD" "$BLUE" "$1" "$RESET"; }
 WORK=$(umask 077 && mktemp -d)
 trap estate_cleanup EXIT
 trap 'exit 130' INT TERM
 
-stage "Cluster"
+section "Cluster"
 [[ -n "$KUBE_CTX" ]] || die "kubectl has no current context: set ESTATE_KUBE_CONTEXT"
 [[ -n "$_KUBECTL_CUSTOM" ]] || kube_prime "$KUBE_CTX" || exit 1
 ok "context $KUBE_CTX"
 
 # Every env of the CronJob that comes from a Secret: env name, Secret, key.
-$KUBECTL -n "$NS" get cronjob "$CRONJOB" -o json </dev/null \
+$KUBECTL -n "$NS" get cronjob "$CRONJOB" -o json <"$KUBE_STDIN" \
   | jq -r '.spec.jobTemplate.spec.template.spec.containers[0].env[]
            | select(.valueFrom.secretKeyRef) | [.name, .valueFrom.secretKeyRef.name, .valueFrom.secretKeyRef.key] | @tsv' \
   >"$WORK/refs" || die "cannot read cronjob $NS/$CRONJOB"
@@ -71,7 +73,7 @@ ok "cronjob $NS/$CRONJOB reads $(wc -l <"$WORK/refs" | tr -d ' ') env values fro
 
 # The synced Secrets, decoded, kept in $WORK only.
 for secret in $(cut -f2 "$WORK/refs" | sort -u); do
-  if $KUBECTL -n "$NS" get secret "$secret" -o json </dev/null \
+  if $KUBECTL -n "$NS" get secret "$secret" -o json <"$KUBE_STDIN" \
        | jq -c '.data // {} | map_values(@base64d)' >"$WORK/secret.$secret" 2>/dev/null; then
     ok "Secret $NS/$secret holds $(jq 'length' "$WORK/secret.$secret") fields"
   else
@@ -80,12 +82,12 @@ for secret in $(cut -f2 "$WORK/refs" | sort -u); do
   fi
 done
 
-stage "Vault"
+section "Vault"
 vault_connect
 kv_load "$KV_PATH" >"$WORK/vault"
 ok "secret/$KV_PATH holds $(jq 'length' "$WORK/vault") fields"
 
-stage "Catalogue"
+section "Catalogue"
 catalogue=""
 if sha=$(gh api "repos/$CATALOG_REPO/contents/model-catalog.json" --jq .sha 2>/dev/null) \
    && gh api "repos/$CATALOG_REPO/git/blobs/$sha" --jq .content 2>/dev/null | base64 -d >"$WORK/catalog.json" 2>/dev/null; then
@@ -104,7 +106,7 @@ models() {
       else "\(.count) \(.by_status | to_entries | map("\(.key):\(.value)") | join(","))" end' "$catalogue"
 }
 
-stage "Keys"
+section "Keys"
 printf '\n  %-28s %-26s %-9s %-6s %s\n' ENV "VAULT FIELD" SYNCED SAME MODELS
 problems=0
 while IFS=$'\t' read -r env secret key; do
@@ -148,13 +150,13 @@ note "yellow: in the pod but the provider lists 0 models: the key is wrong, expi
 note "dim: no value in Vault: write it with bootstrap/secrets.sh --only litellm"
 
 if [[ -n "$SYNC" ]]; then
-  stage "Catalogue run"
+  section "Catalogue run"
   job="litellm-catalog-manual-$(date +%s)"
-  $KUBECTL -n "$NS" create job --from="cronjob/$CRONJOB" "$job" </dev/null >/dev/null
+  $KUBECTL -n "$NS" create job --from="cronjob/$CRONJOB" "$job" <"$KUBE_STDIN" >/dev/null
   ok "started job $NS/$job; waiting up to 10 minutes"
-  $KUBECTL -n "$NS" wait --for=condition=complete --timeout=600s "job/$job" </dev/null >/dev/null \
+  $KUBECTL -n "$NS" wait --for=condition=complete --timeout=600s "job/$job" <"$KUBE_STDIN" >/dev/null \
     || warn "job $job did not complete in 10 minutes"
-  $KUBECTL -n "$NS" logs "job/$job" </dev/null | grep -v 'tier step' || true
+  $KUBECTL -n "$NS" logs "job/$job" <"$KUBE_STDIN" | grep -v 'tier step' || true
 fi
 
 (( problems == 0 )) || exit 1
