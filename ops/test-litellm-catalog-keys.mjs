@@ -37,6 +37,8 @@ function provider() {
       if (u === '/public/models') return json(res, 200, { data: [{ id: 'a' }] })
       if (u === '/public/key') return auth === `Bearer ${GOOD}` ? json(res, 200, { data: {} }) : json(res, 401, { error: { message: 'No auth credentials found' } })
       if (u === '/public/chat/completions') return auth === `Bearer ${GOOD}` ? json(res, 200, { choices: [] }) : json(res, 403, { detail: 'Authorization failed' })
+      if (u === '/retired/models') return json(res, 200, { data: [{ id: 'a' }] })
+      if (u === '/retired/chat/completions') return json(res, 410, { detail: "The model 'm' has reached its end of life" })
       if (u === '/bare/models') return json(res, 200, [{ id: 'a' }, { id: 'b' }])
       if (u === '/limited/models') return json(res, 429, { error: { message: 'Rate limit reached' } })
       if (u === '/broke/models') return json(res, 402, { error: { message: 'Insufficient credits' } })
@@ -68,6 +70,7 @@ async function setup(base) {
       bearer('public', `${base}/public`),
       bearer('publickey', `${base}/public`, { auth_path: '/key' }),
       bearer('publicprobe', `${base}/public`, { probe_model: 'm' }),
+      bearer('retired', `${base}/retired`, { probe_model: 'm' }),
       bearer('bare', `${base}/bare`, { count: 'length' }),
       bearer('limited', `${base}/limited`),
       bearer('broke', `${base}/broke`),
@@ -123,6 +126,7 @@ const cases = [
   ['an auth endpoint proves a key a public list cannot', 'publickey', { publickey_key: 'bad' }, 'unauthorized', /\/key/],
   ['a passing auth endpoint keeps ok', 'publickey', { publickey_key: GOOD }, 'ok', /models/],
   ['a one-token probe proves a key a public list cannot', 'publicprobe', { publicprobe_key: 'bad' }, 'unauthorized', /probe of m/],
+  ['a retired probe model leaves the key unproven, not unauthorized', 'retired', { retired_key: GOOD }, 'unproven', /probe model m is gone \(HTTP 410\)/],
   ['a bare JSON list counts too (Together)', 'bare', { bare_key: GOOD }, 'unproven', /2 models/],
   ['429 is rate-limited', 'limited', { limited_key: GOOD }, 'rate-limited', /429/],
   ['402 is no-credit', 'broke', { broke_key: GOOD }, 'no-credit', /Insufficient/],
