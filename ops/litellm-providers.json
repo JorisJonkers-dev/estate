@@ -445,14 +445,14 @@
       "test": {
         "kind": "bearer",
         "base": "https://integrate.api.nvidia.com/v1",
-        "probe_model": "meta/llama-3.1-8b-instruct"
+        "probe_model": "nvidia/nemotron-3.5-lightning-30b-a3b"
       },
       "signup_url": "https://build.nvidia.com",
       "key_url": "https://build.nvidia.com/settings/api-keys",
       "requirements": "Free developer-program credits/rate limits; no card documented. Phone-number SMS verification is reported by many users on NVIDIA's developer forums (failures: 'exceeded limits', no OTP; support contact help@build.nvidia.com per forum posts) but not stated on the official quickstart. Key expiry not documented on fetched pages.",
       "key_prefix": "nvapi-",
       "steps": [
-        "Open https://build.nvidia.com and open any model page (e.g. meta/llama-3.1-8b-instruct).",
+        "Open https://build.nvidia.com and open any model page (e.g. nvidia/nemotron-3.5-lightning-30b-a3b).",
         "Click Get API Key in the right-hand pane.",
         "Enter your email and click Next; sign in with an existing NVIDIA account or set a password to create one (joins the NVIDIA Developer Program).",
         "Complete any on-screen verification (phone verification is commonly requested).",

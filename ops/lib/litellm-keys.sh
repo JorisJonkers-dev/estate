@@ -208,7 +208,10 @@ _lk_test_bearer() {
       printf 'Content-Type: application/json\n' >>"$hdr"
       code=$(_lk_http POST "$base/chat/completions" "$hdr" "$data")
       rm -f "$data"
-      if [[ "$code" != 200 ]]; then
+      if [[ "$code" == 404 || "$code" == 410 ]]; then
+        # Not found or retired says nothing about the key either way (a provider may check the model first).
+        _lk_set "unproven	$LK_DETAIL, but the probe model $probe is gone (HTTP $code), so the key is not proven: update test.probe_model in ops/litellm-providers.json"
+      elif [[ "$code" != 200 ]]; then
         _lk_set "$(lk_classify "$code" "$LK_WORK/body" '.')"
         LK_DETAIL="list answers without a key; a 1-token probe of $probe: $LK_DETAIL"
       else
