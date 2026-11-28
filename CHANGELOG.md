@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.55.0](https://github.com/JorisJonkers-dev/estate/compare/v0.54.0...v0.55.0) (2026-11-28)
+
+
+### Features
+
+* **ops:** report, test, add and repair LiteLLM provider keys ([#396](https://github.com/JorisJonkers-dev/estate/issues/396)) ([6e3ad47](https://github.com/JorisJonkers-dev/estate/commit/6e3ad47ce406d32cf8386df9ba2de8be5784839c))
+* **toolkit:** run deploy-kit 1.13.1 so job Processes validate on the estate path ([#400](https://github.com/JorisJonkers-dev/estate/issues/400)) ([05af0cf](https://github.com/JorisJonkers-dev/estate/commit/05af0cf62d1384573bb8867d106783936aafb507))
+
+
+### Bug Fixes
+
+* **ops:** a retired NVIDIA probe model no longer reads as a refused key ([#399](https://github.com/JorisJonkers-dev/estate/issues/399)) ([8698bf9](https://github.com/JorisJonkers-dev/estate/commit/8698bf9e3b750bcf73fdff9fb623502deefa659a))
+* **ops:** pass over LiteLLM providers that need a payment method ([#398](https://github.com/JorisJonkers-dev/estate/issues/398)) ([b755c20](https://github.com/JorisJonkers-dev/estate/commit/b755c20a8a3717c3960a86b1939c78fc819c28a2))
+
 ## [0.54.0](https://github.com/JorisJonkers-dev/estate/compare/v0.53.0...v0.54.0) (2026-11-25)
 
 
