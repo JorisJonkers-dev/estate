@@ -83,7 +83,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    uses: JorisJonkers-dev/github-workflows/.github/workflows/publish-fragment.yml@658bec7f448631fbaa3f28d3a2e5708390e0c4c1 # v0.51.0
+    uses: JorisJonkers-dev/github-workflows/.github/workflows/publish-fragment.yml@03112a3764e49ff73ceaf13ae542ed1dbb6bc14d # v0.51.1
     with:
       require-package-proxy: true
       project-file: ${{ matrix.project-file }}
