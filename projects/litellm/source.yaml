@@ -11,7 +11,7 @@ spec:
   interval: 10m
   url: oci://ghcr.io/jorisjonkers-dev/render/litellm
   ref:
-    digest: sha256:9ae2818007b05daec8b7fff881f5f73ef25c47d7311d189087aa496216e5520d
+    digest: sha256:d805b918d1c4c49fa12562a3f61df4c31b1e0331ee91de83189f3335e3d1eddc
   secretRef:
     name: render-pull
   verify:
@@ -29,9 +29,9 @@ metadata:
     app.kubernetes.io/managed-by: deploy-kit
   annotations:
     event.toolkit.fluxcd.io/repository: JorisJonkers-dev/litellm
-    event.toolkit.fluxcd.io/sha: 693b3619261b4d3ecbde6e45e13856a7789ec4ac
+    event.toolkit.fluxcd.io/sha: 8cbb9d36c3bd2b99035990644627706c89001ad1
     event.toolkit.fluxcd.io/environment: production
-    event.toolkit.fluxcd.io/version: 1.17.2
+    event.toolkit.fluxcd.io/version: 1.18.0
     event.toolkit.fluxcd.io/url: https://litellm.jorisjonkers.dev
 spec:
   interval: 10m
